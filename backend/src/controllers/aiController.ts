@@ -1,0 +1,192 @@
+import { Response } from 'express';
+import { query } from '../config/db';
+import { AuthRequest } from '../middleware/auth';
+import { decrypt } from '../utils/crypto';
+
+// CRISIS ALERT KEYWORDS
+const CRISIS_KEYWORDS = [
+  'suicide', 'kill myself', 'end my life', 'harming myself', 'self-harm', 
+  'cutting', 'want to die', 'worthless', 'no point in living', 'end it all', 'overdose'
+];
+
+// DSM-5 / ICD-11 Symptom Mappings
+const DIAGNOSIS_MAP = [
+  {
+    code: 'DSM-5 F32.9 / ICD-11 6A70',
+    name: 'Major Depressive Disorder, Single Episode',
+    symptoms: ['sadness', 'depressed', 'insomnia', 'appetite', 'fatigue', 'worthless', 'energy', 'concentration']
+  },
+  {
+    code: 'DSM-5 F41.1 / ICD-11 6B00',
+    name: 'Generalized Anxiety Disorder',
+    symptoms: ['worry', 'anxious', 'panic', 'tension', 'irritability', 'restless', 'apprehension', 'heart racing']
+  },
+  {
+    code: 'DSM-5 F43.10 / ICD-11 6B40',
+    name: 'Post-Traumatic Stress Disorder (PTSD)',
+    symptoms: ['trauma', 'flashback', 'nightmare', 'hypervigilance', 'intrusive', 'avoidance']
+  },
+  {
+    code: 'DSM-5 F31.9 / ICD-11 6A60',
+    name: 'Bipolar Disorder, Unspecified',
+    symptoms: ['mania', 'manic', 'mood swings', 'grandiosity', 'hyperactive', 'racing thoughts']
+  }
+];
+
+export const aiAssist = async (req: AuthRequest, res: Response) => {
+  const { type, text, notes } = req.body;
+
+  if (!req.user || req.user.role !== 'provider') {
+    return res.status(403).json({ error: 'Clinical assistant features are only accessible by authorized providers' });
+  }
+
+  if (!type) {
+    return res.status(400).json({ error: 'AI assist type is required' });
+  }
+
+  try {
+    // 1. RISK SCANNER (Suicidal & Crisis keywords check)
+    if (type === 'risk-scan') {
+      if (!text) return res.status(400).json({ error: 'Text input is required for risk scanning' });
+      
+      const lowerText = text.toLowerCase();
+      const flagged = CRISIS_KEYWORDS.filter(kw => lowerText.includes(kw));
+      const riskAlertDetected = flagged.length > 0;
+
+      return res.json({
+        riskAlertDetected,
+        flaggedKeywords: flagged,
+        crisisPlan: riskAlertDetected 
+          ? "CRITICAL: Suicide/Self-harm indicators detected. Please initiate the Crisis Intervention Workflow immediately. Refer client to CUAP Hotline (+91 800-425-CUAP), contact day scholars' emergency contact, or accompany to health centre." 
+          : "No immediate crisis keywords detected."
+      });
+    }
+
+    // 2. SOAP NOTES GENERATOR
+    if (type === 'generate-soap') {
+      if (!text) return res.status(400).json({ error: 'Raw notes text is required' });
+
+      // Heuristic parsing to populate SOAP
+      const lower = text.toLowerCase();
+      let subjective = "Client reports: ";
+      let objective = "Observer logs: ";
+      let assessment = "Clinical assessment: ";
+      let plan = "Treatment plan: ";
+
+      // Split sentences
+      const sentences = text.split(/[.!?]+/);
+      sentences.forEach((s: string) => {
+        const trimmed = s.trim();
+        if (!trimmed) return;
+        
+        const lw = trimmed.toLowerCase();
+        if (lw.includes('feel') || lw.includes('said') || lw.includes('report') || lw.includes('state') || lw.includes('think')) {
+          subjective += trimmed + ". ";
+        } else if (lw.includes('appear') || lw.includes('look') || lw.includes('observed') || lw.includes('session') || lw.includes('score')) {
+          objective += trimmed + ". ";
+        } else if (lw.includes('diagno') || lw.includes('seems') || lw.includes('symptom') || lw.includes('criteri')) {
+          assessment += trimmed + ". ";
+        } else {
+          plan += trimmed + ". ";
+        }
+      });
+
+      return res.json({
+        subjective: subjective.trim() === "Client reports:" ? text : subjective,
+        objective: objective.trim() === "Observer logs:" ? "Client matches baseline psychomotor behaviors." : objective,
+        assessment: assessment.trim() === "Clinical assessment:" ? "Counseling assessment in progress." : assessment,
+        plan: plan.trim() === "Treatment plan:" ? "Recommend follow-up next week." : plan
+      });
+    }
+
+    // 3. DSM-5 DIFFERENTIAL SUGGESTIONS
+    if (type === 'suggest-diagnosis') {
+      if (!text) return res.status(400).json({ error: 'Clinical note text is required' });
+
+      const lowerText = text.toLowerCase();
+      const suggestions = [];
+
+      for (const diag of DIAGNOSIS_MAP) {
+        const matchingSymptoms = diag.symptoms.filter(sym => lowerText.includes(sym));
+        if (matchingSymptoms.length >= 2) {
+          suggestions.push({
+            code: diag.code,
+            name: diag.name,
+            matchPercent: Math.round((matchingSymptoms.length / diag.symptoms.length) * 100),
+            matchingSymptoms
+          });
+        }
+      }
+
+      return res.json({
+        suggestions: suggestions.sort((a, b) => b.matchPercent - a.matchPercent),
+        referenceNote: "Suggestions generated by NLP symptom mapping (DSM-5-TR reference only. Provider clinical verification required before locking)."
+      });
+    }
+
+    // 4. EVIDENCE-BASED TREATMENT PLANS
+    if (type === 'suggest-treatment') {
+      const { diagnosis } = req.body;
+      if (!diagnosis) return res.status(400).json({ error: 'Diagnosis name is required' });
+
+      const diagLower = diagnosis.toLowerCase();
+      let goals = ['Reduce distress severity', 'Promote coping strategies'];
+      let interventions = ['Supportive therapy', 'Psychoeducation'];
+      let homework = ['Mood charting'];
+
+      if (diagLower.includes('depress')) {
+        goals = ['Behavioral activation', 'Identify cognitive distortions', 'Establish morning routines'];
+        interventions = ['Cognitive Behavioral Therapy (CBT) techniques', 'Socratic questioning to dispute negative self-beliefs'];
+        homework = ['Daily pleasant activity logging', 'Sleep hygiene checklist'];
+      } else if (diagLower.includes('anxiety') || diagLower.includes('panic')) {
+        goals = ['Manage somatic hyperarousal', 'Reframe irrational catastrophic thinking'];
+        interventions = ['Box Breathing exercises (4-4-4-4)', 'Cognitive restructuring (REBT)', 'Progressive Muscle Relaxation (PMR)'];
+        homework = ['Record panic logs', 'Perform breathing exercises twice daily'];
+      }
+
+      return res.json({ goals, interventions, homework });
+    }
+
+    // 5. GLOBAL SEARCH ACROSS SECURE RECORDS
+    if (type === 'search-records') {
+      const { query: searchQuery } = req.body;
+      if (!searchQuery) return res.status(400).json({ error: 'Search query is required' });
+
+      // Fetch all sessions and decrypt notes to perform full-text search
+      const sessionsRes = await query(
+        `SELECT s.id, s.session_date, s.presenting_complaint, s.diagnosis, st.name as student_name 
+         FROM sessions s
+         JOIN students st ON s.student_id = st.id`
+      );
+
+      const matchingSessions = [];
+      const searchLower = searchQuery.toLowerCase();
+
+      for (const row of sessionsRes.rows) {
+        // Decrypt presenting complaint
+        const decryptedComplaint = decrypt(row.presenting_complaint);
+        
+        if (
+          decryptedComplaint.toLowerCase().includes(searchLower) ||
+          row.diagnosis.toLowerCase().includes(searchLower) ||
+          row.student_name.toLowerCase().includes(searchLower)
+        ) {
+          matchingSessions.push({
+            id: row.id,
+            date: row.session_date,
+            studentName: row.student_name,
+            diagnosis: row.diagnosis,
+            complaintSnippet: decryptedComplaint.substring(0, 100) + (decryptedComplaint.length > 100 ? '...' : '')
+          });
+        }
+      }
+
+      return res.json(matchingSessions);
+    }
+
+    return res.status(400).json({ error: 'Invalid AI assist type specified' });
+  } catch (err) {
+    console.error('AI Copilot error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
