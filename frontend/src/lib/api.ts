@@ -86,6 +86,14 @@ export const api = {
     createStudent: (student: any) => request('/admin/students', {
       method: 'POST',
       body: JSON.stringify(student)
+    }),
+    forgotPassword: (username: string) => request('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ username })
+    }),
+    resetPassword: (payload: any) => request('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(payload)
     })
   },
 

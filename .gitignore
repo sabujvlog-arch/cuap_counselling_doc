@@ -10,6 +10,10 @@ backend/backups/
 backend/uploads/
 *.db
 
+# Allow database backups folder tracking
+!db_backups/
+!db_backups/*.db
+
 # Build outputs
 backend/dist/
 frontend/.next/

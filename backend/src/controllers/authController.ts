@@ -416,3 +416,103 @@ export const createStudent = async (req: AuthRequest, res: Response) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+export const forgotPassword = async (req: Request, res: Response) => {
+  const { username } = req.body;
+
+  if (!username) {
+    return res.status(400).json({ error: 'Username or Registration number is required' });
+  }
+
+  try {
+    const userRes = await query('SELECT * FROM users WHERE username = $1', [(username || '').toLowerCase().trim()]);
+    if (userRes.rows.length === 0) {
+      // Return 200 to prevent username harvesting
+      return res.json({ message: 'If the username is registered, a password reset link has been sent to your email.' });
+    }
+
+    const user = userRes.rows[0];
+
+    // Find email address
+    let userEmail = user.email;
+    if (!userEmail) {
+      if (user.role === 'student') {
+        const studRes = await query('SELECT email FROM students WHERE user_id = $1', [user.id]);
+        userEmail = studRes.rows[0]?.email || null;
+      } else if (user.role === 'provider') {
+        const provRes = await query('SELECT email FROM providers WHERE user_id = $1', [user.id]);
+        userEmail = provRes.rows[0]?.email || null;
+      }
+    }
+
+    if (!userEmail) {
+      return res.status(400).json({ error: 'No registered email found for this user. Please contact the administrator.' });
+    }
+
+    // Generate JWT token valid for 15 minutes
+    const token = jwt.sign(
+      { username: user.username },
+      JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    const resetLink = `http://localhost:3000/reset-password?token=${token}&username=${user.username}`;
+    const emailHtml = `
+      <div style="font-family: sans-serif; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; max-width: 480px; margin: 0 auto; background-color: #ffffff;">
+        <h2 style="color: #1e3a8a; margin-top: 0; font-family: sans-serif; border-bottom: 2px solid #3b82f6; padding-bottom: 12px;">CUAP Student Wellness Centre</h2>
+        <p style="font-size: 14px; color: #475569;">Hello <strong>${user.username.toUpperCase()}</strong>,</p>
+        <p style="font-size: 14px; color: #475569;">We received a request to reset your portal password. Please click the button below to set a new password:</p>
+        <div style="text-align: center; margin: 24px 0;">
+          <a href="${resetLink}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">Reset Password</a>
+        </div>
+        <p style="font-size: 12px; color: #64748b; line-height: 1.5;">This link will expire in 15 minutes. If you did not request this, you can safely ignore this email.</p>
+        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+        <p style="font-size: 11px; color: #94a3b8; word-break: break-all;">If the button doesn't work, copy and paste this link into your browser: <br/>${resetLink}</p>
+      </div>
+    `;
+
+    const emailSent = await sendEmail(userEmail, "Reset Your CUAP WCCMS Password", emailHtml);
+    if (!emailSent) {
+      return res.status(500).json({ error: 'Failed to dispatch recovery email. Please check SMTP configuration.' });
+    }
+
+    return res.json({ message: 'If the username is registered, a password reset link has been sent to your email.' });
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const resetPassword = async (req: Request, res: Response) => {
+  const { username, token, newPassword } = req.body;
+
+  if (!username || !token || !newPassword) {
+    return res.status(400).json({ error: 'Username, token, and new password are required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as { username: string };
+    if (decoded.username.toLowerCase() !== username.toLowerCase()) {
+      return res.status(400).json({ error: 'Invalid reset token' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await query('UPDATE users SET password_hash = $1 WHERE username = $2', [hashedPassword, username.toLowerCase().trim()]);
+
+    const userRes = await query('SELECT id FROM users WHERE username = $1', [username.toLowerCase().trim()]);
+    const userId = userRes.rows[0]?.id || null;
+
+    await query(
+      'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
+      [userId, 'RESET_PASSWORD', `User reset password successfully via email verification link`, req.ip]
+    );
+
+    return res.json({ message: 'Password reset successfully. You can now log in.' });
+  } catch (err: any) {
+    console.error('Reset password error:', err);
+    if (err.name === 'TokenExpiredError') {
+      return res.status(400).json({ error: 'Reset link has expired. Please request a new one.' });
+    }
+    return res.status(400).json({ error: 'Invalid or corrupted reset link.' });
+  }
+};

@@ -5,7 +5,7 @@ import { api } from '@/lib/api';
 import DashboardAdmin from '@/components/DashboardAdmin';
 import DashboardProvider from '@/components/DashboardProvider';
 import DashboardStudent from '@/components/DashboardStudent';
-import { Lock, User as UserIcon, ShieldCheck, PhoneCall, HelpCircle, KeyRound, Sparkles, ChevronRight, Eye } from 'lucide-react';
+import { Lock, User as UserIcon, ShieldCheck, PhoneCall, HelpCircle, KeyRound, Sparkles, ChevronRight, Eye, Mail, X } from 'lucide-react';
 
 export default function Home() {
   const [session, setSession] = useState<{ user: any; profile: any } | null>(null);
@@ -23,6 +23,13 @@ export default function Home() {
   const [otpCode, setOtpCode] = useState('');
   const [otpSentUser, setOtpSentUser] = useState('');
   const [loginRole, setLoginRole] = useState<'student' | 'provider' | 'admin'>('student');
+
+  // Forgot password state
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotUsername, setForgotUsername] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSuccess, setForgotSuccess] = useState('');
+  const [forgotError, setForgotError] = useState('');
 
   useEffect(() => {
     checkActiveSession();
@@ -95,6 +102,21 @@ export default function Home() {
       setError(err.message || 'Incorrect verification code. Please check server logs.');
     } finally {
       setAuthLoading(false);
+    }
+  };
+
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError('');
+    setForgotSuccess('');
+    setForgotLoading(true);
+    try {
+      const res = await api.auth.forgotPassword(forgotUsername);
+      setForgotSuccess(res.message || 'If the username is registered, a password reset link has been sent to your email.');
+    } catch (err: any) {
+      setForgotError(err.message || 'Failed to request reset link.');
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -259,6 +281,23 @@ export default function Home() {
                       className="w-full pl-10 pr-3 py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950 font-medium"
                     />
                   </div>
+                  <div className="flex justify-between items-center mt-1.5 px-0.5 text-[11px] font-bold">
+                    <span className="text-slate-400">
+                      {loginRole === 'student' ? 'Default: Your Reg Number' : ''}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForgotUsername(username);
+                        setForgotError('');
+                        setForgotSuccess('');
+                        setShowForgotModal(true);
+                      }}
+                      className="text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
                 </div>
 
                 <button
@@ -325,6 +364,77 @@ export default function Home() {
       <footer className="text-center text-[10px] text-slate-400 uppercase tracking-widest max-w-7xl mx-auto w-full mt-8 border-t border-slate-200 dark:border-slate-900 pt-6">
         CUAP WCCMS &copy; 2026 | Built for Central University of Andhra Pradesh
       </footer>
+
+      {showForgotModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative animate-scale-in">
+            <button
+              onClick={() => setShowForgotModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2.5 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-2xl">
+                <Mail size={22} />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-slate-900 dark:text-white text-lg">Password Recovery</h3>
+                <p className="text-xs text-slate-500">Request a secure password reset link</p>
+              </div>
+            </div>
+
+            {forgotError && (
+              <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-xl text-xs font-semibold mb-4">
+                {forgotError}
+              </div>
+            )}
+
+            {forgotSuccess && (
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 rounded-xl text-xs font-semibold mb-4 leading-relaxed">
+                {forgotSuccess}
+              </div>
+            )}
+
+            {!forgotSuccess ? (
+              <form onSubmit={handleForgotSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
+                    Enter Username / Reg Number
+                  </label>
+                  <div className="relative">
+                    <UserIcon className="absolute left-3.5 top-3 text-slate-400" size={16} />
+                    <input
+                      type="text"
+                      required
+                      value={forgotUsername}
+                      onChange={(e) => setForgotUsername(e.target.value)}
+                      placeholder="e.g. 25BEC01 or provider"
+                      className="w-full pl-10 pr-3 py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950 font-medium"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={forgotLoading}
+                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow transition disabled:opacity-50 cursor-pointer"
+                >
+                  {forgotLoading ? 'Requesting Reset...' : 'Send Recovery Email'}
+                </button>
+              </form>
+            ) : (
+              <button
+                onClick={() => setShowForgotModal(false)}
+                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl font-bold text-sm transition cursor-pointer"
+              >
+                Close Modal
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

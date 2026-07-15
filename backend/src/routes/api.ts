@@ -8,7 +8,9 @@ import {
   getMe,
   changePassword,
   createProvider,
-  createStudent
+  createStudent,
+  forgotPassword,
+  resetPassword
 } from '../controllers/authController';
 
 import {
@@ -74,6 +76,8 @@ router.post('/auth/login', login);
 router.post('/auth/verify-2fa', verify2FA);
 router.get('/auth/me', authenticateToken, getMe);
 router.post('/auth/change-password', authenticateToken, changePassword);
+router.post('/auth/forgot-password', forgotPassword);
+router.post('/auth/reset-password', resetPassword);
 
 // Provider and Student registrations (Admin only)
 router.post('/admin/providers', authenticateToken, requireRoles(['admin']), createProvider);
