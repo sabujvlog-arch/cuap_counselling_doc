@@ -66,6 +66,20 @@ const upgradeDatabaseSchema = async (): Promise<void> => {
   } catch (e) {
     // Column already exists
   }
+
+  try {
+    await query('ALTER TABLE users ADD COLUMN email VARCHAR(255)');
+    console.log('Added email column to users table.');
+  } catch (e) {
+    // Column already exists
+  }
+
+  try {
+    await query('ALTER TABLE providers ADD COLUMN email VARCHAR(255)');
+    console.log('Added email column to providers table.');
+  } catch (e) {
+    // Column already exists
+  }
 };
 
 // Generic query executor
@@ -637,14 +651,15 @@ const seedDefaultAdmin = async (): Promise<void> => {
   const adminUsername = 'admin';
   const defaultPassword = '2026';
   const defaultPhone = '9849891226';
+  const defaultEmail = 'sabujd880@gmail.com';
   
   const res = await query('SELECT * FROM users WHERE username = $1', [adminUsername]);
   if (res.rows.length === 0) {
     console.log('Seeding default Admin user...');
     const hashedPassword = await bcrypt.hash(defaultPassword, 10);
     await query(
-      'INSERT INTO users (username, password_hash, role, phone) VALUES ($1, $2, $3, $4)',
-      [adminUsername, hashedPassword, 'admin', defaultPhone]
+      'INSERT INTO users (username, password_hash, role, phone, email) VALUES ($1, $2, $3, $4, $5)',
+      [adminUsername, hashedPassword, 'admin', defaultPhone, defaultEmail]
     );
     console.log('Admin user successfully seeded (username: admin, password: 2026)');
   }
@@ -657,16 +672,16 @@ const seedDefaultAdmin = async (): Promise<void> => {
     console.log('Seeding default Provider (Counselor)...');
     const hashedPassword = await bcrypt.hash(providerPassword, 10);
     await query(
-      'INSERT INTO users (username, password_hash, role, phone) VALUES ($1, $2, $3, $4)',
-      [providerUsername, hashedPassword, 'provider', defaultPhone]
+      'INSERT INTO users (username, password_hash, role, phone, email) VALUES ($1, $2, $3, $4, $5)',
+      [providerUsername, hashedPassword, 'provider', defaultPhone, defaultEmail]
     );
     
     const selectUser = await query('SELECT id FROM users WHERE username = $1', [providerUsername]);
     const userId = selectUser.rows[0].id;
     
     await query(
-      `INSERT INTO providers (user_id, name, employee_id, department, qualification, specialization, phone) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      `INSERT INTO providers (user_id, name, employee_id, department, qualification, specialization, phone, email) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         userId,
         'Dr. Sabuj Das',
@@ -674,7 +689,8 @@ const seedDefaultAdmin = async (): Promise<void> => {
         'Psychology',
         'PhD, M.Phil in Clinical Psychology',
         'Cognitive Behavioral Therapy (CBT) & Restructuring',
-        defaultPhone
+        defaultPhone,
+        defaultEmail
       ]
     );
     console.log('Provider successfully seeded (username: provider, password: 2026)');
@@ -685,8 +701,12 @@ const seedDefaultAdmin = async (): Promise<void> => {
     await query("UPDATE users SET phone = $1 WHERE username = 'admin' AND phone IS NULL", [defaultPhone]);
     await query("UPDATE users SET phone = $1 WHERE username = 'provider' AND phone IS NULL", [defaultPhone]);
     await query("UPDATE providers SET phone = $1 WHERE employee_id = 'EMP101' AND phone IS NULL", [defaultPhone]);
+    
+    await query("UPDATE users SET email = $1 WHERE username = 'admin' AND email IS NULL", [defaultEmail]);
+    await query("UPDATE users SET email = $1 WHERE username = 'provider' AND email IS NULL", [defaultEmail]);
+    await query("UPDATE providers SET email = $1 WHERE employee_id = 'EMP101' AND email IS NULL", [defaultEmail]);
   } catch (e) {
-    console.error('Error upgrading admin/provider phone numbers:', e);
+    console.error('Error upgrading admin/provider phone/email numbers:', e);
   }
 };
 

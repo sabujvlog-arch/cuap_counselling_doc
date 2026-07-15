@@ -48,6 +48,46 @@ const sendSMS = async (recipient: string, message: string): Promise<boolean> => 
   }
 };
 
+const sendEmail = async (recipient: string, subject: string, htmlContent: string): Promise<boolean> => {
+  const apiKey = process.env.BREVO_API_KEY || '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';
+  const senderEmail = process.env.SENDER_EMAIL || 'sabujd880@gmail.com';
+  const senderName = process.env.SENDER_NAME || 'Sabuj Counseling Support';
+
+  try {
+    console.log(`Sending Brevo Email to ${recipient}...`);
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api-key': apiKey,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        sender: {
+          name: senderName,
+          email: senderEmail
+        },
+        to: [{ email: recipient }],
+        subject: subject,
+        htmlContent: htmlContent
+      })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Brevo Email sent successfully:', data);
+      return true;
+    } else {
+      const errText = await response.text();
+      console.error('Brevo Email failed with status:', response.status, errText);
+      return false;
+    }
+  } catch (err) {
+    console.error('Error calling Brevo Email API:', err);
+    return false;
+  }
+};
+
 export const login = async (req: Request, res: Response) => {
   const { username, password } = req.body;
 
@@ -77,37 +117,60 @@ export const login = async (req: Request, res: Response) => {
       [otpCode, expiresAt.toISOString(), user.id]
     );
 
-    // Retrieve user's phone number
+    // Retrieve user's phone number and email
     let userPhone = null;
+    let userEmail = null;
+    
     if (user.role === 'student') {
-      const studRes = await query('SELECT phone FROM students WHERE user_id = $1', [user.id]);
+      const studRes = await query('SELECT phone, email FROM students WHERE user_id = $1', [user.id]);
       userPhone = studRes.rows[0]?.phone || null;
+      userEmail = studRes.rows[0]?.email || null;
     } else if (user.role === 'provider') {
-      const provRes = await query('SELECT phone FROM providers WHERE user_id = $1', [user.id]);
+      const provRes = await query('SELECT phone, email FROM providers WHERE user_id = $1', [user.id]);
       userPhone = provRes.rows[0]?.phone || null;
+      userEmail = provRes.rows[0]?.email || null;
     } else if (user.role === 'admin') {
-      const uRes = await query('SELECT phone FROM users WHERE id = $1', [user.id]);
+      const uRes = await query('SELECT phone, email FROM users WHERE id = $1', [user.id]);
       userPhone = uRes.rows[0]?.phone || null;
+      userEmail = uRes.rows[0]?.email || null;
     }
 
+    // Dispatch SMS via Textbee
     let smsSent = false;
     if (userPhone) {
       smsSent = await sendSMS(userPhone, `[CUAP SWCC] Your login OTP is ${otpCode}. Valid for 5 minutes.`);
     }
 
-    // Simulation: Write OTP to server log console as backup
+    // Dispatch Email via Brevo
+    let emailSent = false;
+    if (userEmail) {
+      const emailHtml = `
+        <div style="font-family: sans-serif; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; max-width: 480px; margin: 0 auto; background-color: #ffffff;">
+          <h2 style="color: #1e3a8a; margin-top: 0; font-family: sans-serif; border-bottom: 2px solid #3b82f6; padding-bottom: 12px;">CUAP Student Wellness Centre</h2>
+          <p style="font-size: 14px; color: #475569;">Hello <strong>${user.username.toUpperCase()}</strong>,</p>
+          <p style="font-size: 14px; color: #475569;">Your two-factor security OTP code for WCCMS is:</p>
+          <div style="background-color: #f1f5f9; padding: 16px; border-radius: 8px; font-size: 24px; font-weight: bold; letter-spacing: 4px; text-align: center; margin: 20px 0; color: #2563eb; border: 1px dashed #cbd5e1;">
+            ${otpCode}
+          </div>
+          <p style="font-size: 12px; color: #94a3b8; line-height: 1.5;">This code is valid for 5 minutes. If you did not request this login, please change your password immediately.</p>
+        </div>
+      `;
+      emailSent = await sendEmail(userEmail, "Your CUAP WCCMS Security OTP Code", emailHtml);
+    }
+
+    // Logging without sensitive OTP disclosure
     console.log(`\n======================================================`);
-    console.log(` [2FA SIMULATOR] OTP Code for ${user.username.toUpperCase()}: ${otpCode} `);
-    console.log(` Sent to Phone: ${userPhone || 'None'} (Status: ${smsSent ? 'SENT' : 'FAILED/NO PHONE'})`);
+    console.log(` [2FA DISPATCH] Generated secure OTP for ${user.username.toUpperCase()}`);
+    console.log(` Recipients: Phone (${userPhone || 'None'}), Email (${userEmail || 'None'})`);
+    console.log(` SMS Status: ${smsSent ? 'SENT' : 'FAILED/SKIPPED'}`);
+    console.log(` Email Status: ${emailSent ? 'SENT' : 'FAILED/SKIPPED'}`);
     console.log(` Expiration: 5 minutes (${expiresAt.toLocaleTimeString()})`);
     console.log(`======================================================\n`);
 
     return res.json({
       requires2FA: true,
       username: user.username,
-      message: smsSent 
-        ? `2FA verification code sent to registered number Ending in ***${userPhone ? userPhone.slice(-4) : ''}.`
-        : '2FA verification code generated. (Check server logs if SMS failed).'
+      message: `2FA verification code dispatched. ${smsSent ? `SMS sent to ***${userPhone?.slice(-4)}. ` : ''}${emailSent ? `Email sent to ${userEmail?.slice(0, 3)}***@${userEmail?.split('@')[1]}.` : ''}`
     });
   } catch (err) {
     console.error('Login 2FA initialization error:', err);
