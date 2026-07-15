@@ -59,3 +59,5 @@ const startServer = async () => {
 };
 
 startServer();
+
+// Trigger nodemon reboot final.

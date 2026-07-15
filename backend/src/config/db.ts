@@ -25,6 +25,7 @@ export const initDb = async (): Promise<void> => {
       await pgPool.query('SELECT NOW()');
       console.log('Successfully connected to PostgreSQL.');
       await createPostgresTables();
+      await upgradeDatabaseSchema();
       await seedDefaultAdmin();
       await seedStudents();
       return;
@@ -45,9 +46,26 @@ export const initDb = async (): Promise<void> => {
   sqliteDb.run('PRAGMA foreign_keys = ON');
 
   await createSqliteTables();
+  await upgradeDatabaseSchema();
   await seedDefaultAdmin();
   await seedStudents();
   console.log(`SQLite database initialized at: ${dbPath}`);
+};
+
+const upgradeDatabaseSchema = async (): Promise<void> => {
+  try {
+    await query('ALTER TABLE users ADD COLUMN phone VARCHAR(20)');
+    console.log('Added phone column to users table.');
+  } catch (e) {
+    // Column already exists
+  }
+
+  try {
+    await query('ALTER TABLE providers ADD COLUMN phone VARCHAR(20)');
+    console.log('Added phone column to providers table.');
+  } catch (e) {
+    // Column already exists
+  }
 };
 
 // Generic query executor
@@ -618,14 +636,15 @@ const createSqliteTables = (): Promise<void> => {
 const seedDefaultAdmin = async (): Promise<void> => {
   const adminUsername = 'admin';
   const defaultPassword = '2026';
+  const defaultPhone = '9849891226';
   
   const res = await query('SELECT * FROM users WHERE username = $1', [adminUsername]);
   if (res.rows.length === 0) {
     console.log('Seeding default Admin user...');
     const hashedPassword = await bcrypt.hash(defaultPassword, 10);
     await query(
-      'INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3)',
-      [adminUsername, hashedPassword, 'admin']
+      'INSERT INTO users (username, password_hash, role, phone) VALUES ($1, $2, $3, $4)',
+      [adminUsername, hashedPassword, 'admin', defaultPhone]
     );
     console.log('Admin user successfully seeded (username: admin, password: 2026)');
   }
@@ -638,26 +657,36 @@ const seedDefaultAdmin = async (): Promise<void> => {
     console.log('Seeding default Provider (Counselor)...');
     const hashedPassword = await bcrypt.hash(providerPassword, 10);
     await query(
-      'INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3)',
-      [providerUsername, hashedPassword, 'provider']
+      'INSERT INTO users (username, password_hash, role, phone) VALUES ($1, $2, $3, $4)',
+      [providerUsername, hashedPassword, 'provider', defaultPhone]
     );
     
     const selectUser = await query('SELECT id FROM users WHERE username = $1', [providerUsername]);
     const userId = selectUser.rows[0].id;
     
     await query(
-      `INSERT INTO providers (user_id, name, employee_id, department, qualification, specialization) 
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+      `INSERT INTO providers (user_id, name, employee_id, department, qualification, specialization, phone) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
         userId,
         'Dr. Sabuj Das',
         'EMP101',
         'Psychology',
         'PhD, M.Phil in Clinical Psychology',
-        'Cognitive Behavioral Therapy (CBT) & Restructuring'
+        'Cognitive Behavioral Therapy (CBT) & Restructuring',
+        defaultPhone
       ]
     );
     console.log('Provider successfully seeded (username: provider, password: 2026)');
+  }
+
+  // Run dynamic upgrades for existing rows
+  try {
+    await query("UPDATE users SET phone = $1 WHERE username = 'admin' AND phone IS NULL", [defaultPhone]);
+    await query("UPDATE users SET phone = $1 WHERE username = 'provider' AND phone IS NULL", [defaultPhone]);
+    await query("UPDATE providers SET phone = $1 WHERE employee_id = 'EMP101' AND phone IS NULL", [defaultPhone]);
+  } catch (e) {
+    console.error('Error upgrading admin/provider phone numbers:', e);
   }
 };
 

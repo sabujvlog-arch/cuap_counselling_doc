@@ -6,6 +6,48 @@ import { AuthRequest } from '../middleware/auth';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'cuap-secret-key-2026';
 
+const sendSMS = async (recipient: string, message: string): Promise<boolean> => {
+  const deviceId = '6a3273c8d2404ce643bc9ef7';
+  const apiKey = 'b64912c1-ed9f-4776-80b9-0f237663e71d';
+  
+  let formattedPhone = recipient.trim();
+  if (!formattedPhone.startsWith('+')) {
+    if (formattedPhone.length === 10) {
+      formattedPhone = '+91' + formattedPhone;
+    } else if (formattedPhone.length === 12 && formattedPhone.startsWith('91')) {
+      formattedPhone = '+' + formattedPhone;
+    }
+  }
+
+  try {
+    console.log(`Sending SMS to ${formattedPhone} via Textbee...`);
+    const response = await fetch(`https://api.textbee.dev/api/v1/gateway/devices/${deviceId}/send-sms`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey
+      },
+      body: JSON.stringify({
+        recipients: [formattedPhone],
+        message: message
+      })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Textbee SMS sent successfully:', data);
+      return true;
+    } else {
+      const errText = await response.text();
+      console.error('Textbee SMS failed with status:', response.status, errText);
+      return false;
+    }
+  } catch (err) {
+    console.error('Error calling Textbee SMS API:', err);
+    return false;
+  }
+};
+
 export const login = async (req: Request, res: Response) => {
   const { username, password } = req.body;
 
@@ -35,16 +77,37 @@ export const login = async (req: Request, res: Response) => {
       [otpCode, expiresAt.toISOString(), user.id]
     );
 
-    // Simulation: Write OTP to server log console
+    // Retrieve user's phone number
+    let userPhone = null;
+    if (user.role === 'student') {
+      const studRes = await query('SELECT phone FROM students WHERE user_id = $1', [user.id]);
+      userPhone = studRes.rows[0]?.phone || null;
+    } else if (user.role === 'provider') {
+      const provRes = await query('SELECT phone FROM providers WHERE user_id = $1', [user.id]);
+      userPhone = provRes.rows[0]?.phone || null;
+    } else if (user.role === 'admin') {
+      const uRes = await query('SELECT phone FROM users WHERE id = $1', [user.id]);
+      userPhone = uRes.rows[0]?.phone || null;
+    }
+
+    let smsSent = false;
+    if (userPhone) {
+      smsSent = await sendSMS(userPhone, `[CUAP SWCC] Your login OTP is ${otpCode}. Valid for 5 minutes.`);
+    }
+
+    // Simulation: Write OTP to server log console as backup
     console.log(`\n======================================================`);
     console.log(` [2FA SIMULATOR] OTP Code for ${user.username.toUpperCase()}: ${otpCode} `);
+    console.log(` Sent to Phone: ${userPhone || 'None'} (Status: ${smsSent ? 'SENT' : 'FAILED/NO PHONE'})`);
     console.log(` Expiration: 5 minutes (${expiresAt.toLocaleTimeString()})`);
     console.log(`======================================================\n`);
 
     return res.json({
       requires2FA: true,
       username: user.username,
-      message: '2FA verification code sent successfully. Check system logs for simulated code.'
+      message: smsSent 
+        ? `2FA verification code sent to registered number Ending in ***${userPhone ? userPhone.slice(-4) : ''}.`
+        : '2FA verification code generated. (Check server logs if SMS failed).'
     });
   } catch (err) {
     console.error('Login 2FA initialization error:', err);
