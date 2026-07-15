@@ -22,6 +22,7 @@ export default function Home() {
   const [requires2FA, setRequires2FA] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [otpSentUser, setOtpSentUser] = useState('');
+  const [loginRole, setLoginRole] = useState<'student' | 'provider' | 'admin'>('student');
 
   useEffect(() => {
     checkActiveSession();
@@ -171,9 +172,46 @@ export default function Home() {
         ) : (
           // Secure Gateway Forms Container
           <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-8 rounded-3xl shadow-xl animate-fade-in-up">
+            
+            {/* Dynamic Card Header */}
             <div className="text-center mb-6">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Secure Gateway Sign In</h3>
-              <p className="text-xs text-slate-500 mt-1">Multi-factor encrypted credential authorization</p>
+              <h3 className="text-xl font-extrabold text-slate-900 dark:text-white">
+                {loginRole === 'student' ? 'Student Wellness Portal' : 
+                 loginRole === 'provider' ? 'Specialist EMR Portal' : 
+                 'WCCMS Administrator Portal'}
+              </h3>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                {loginRole === 'student' ? 'Complete diagnostic screenings and book counseling appointments' : 
+                 loginRole === 'provider' ? 'Manage counseling schedules, write SOAP notes, and review EMR' : 
+                 'Manage specialists, students lists, and database backups'}
+              </p>
+            </div>
+
+            {/* Segmented Role Switcher */}
+            <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-xl mb-6">
+              {[
+                { id: 'student', label: 'Student' },
+                { id: 'provider', label: 'Counselor' },
+                { id: 'admin', label: 'Admin' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => {
+                    setLoginRole(tab.id as any);
+                    setError('');
+                    setUsername('');
+                    setPassword('');
+                  }}
+                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                    loginRole === tab.id
+                      ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
 
             {error && (
@@ -186,7 +224,11 @@ export default function Home() {
               // STEP 1: CREDENTIALS INPUT
               <form onSubmit={handleLoginSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">University Registration No / Username</label>
+                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
+                    {loginRole === 'student' ? 'University Registration Number' : 
+                     loginRole === 'provider' ? 'Counselor Staff Username' : 
+                     'Administrator Username'}
+                  </label>
                   <div className="relative">
                     <UserIcon className="absolute left-3.5 top-3 text-slate-400" size={16} />
                     <input
@@ -194,14 +236,18 @@ export default function Home() {
                       required
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      placeholder="e.g., admin or student reg no"
+                      placeholder={
+                        loginRole === 'student' ? 'e.g. 25BEC01' : 
+                        loginRole === 'provider' ? 'e.g. provider' : 
+                        'e.g. admin'
+                      }
                       className="w-full pl-10 pr-3 py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950 font-medium"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Portal Password</label>
+                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Portal Password</label>
                   <div className="relative">
                     <Lock className="absolute left-3.5 top-3 text-slate-400" size={16} />
                     <input
@@ -209,7 +255,7 @@ export default function Home() {
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
+                      placeholder={loginRole === 'student' ? 'Default: Registration Number' : '••••••••'}
                       className="w-full pl-10 pr-3 py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950 font-medium"
                     />
                   </div>

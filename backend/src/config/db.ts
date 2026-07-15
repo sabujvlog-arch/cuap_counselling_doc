@@ -629,6 +629,36 @@ const seedDefaultAdmin = async (): Promise<void> => {
     );
     console.log('Admin user successfully seeded (username: admin, password: 2026)');
   }
+
+  // Seed default Provider (Counselor)
+  const providerUsername = 'provider';
+  const providerPassword = '2026';
+  const checkProvider = await query('SELECT * FROM users WHERE username = $1', [providerUsername]);
+  if (checkProvider.rows.length === 0) {
+    console.log('Seeding default Provider (Counselor)...');
+    const hashedPassword = await bcrypt.hash(providerPassword, 10);
+    await query(
+      'INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3)',
+      [providerUsername, hashedPassword, 'provider']
+    );
+    
+    const selectUser = await query('SELECT id FROM users WHERE username = $1', [providerUsername]);
+    const userId = selectUser.rows[0].id;
+    
+    await query(
+      `INSERT INTO providers (user_id, name, employee_id, department, qualification, specialization) 
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        userId,
+        'Dr. Sabuj Das',
+        'EMP101',
+        'Psychology',
+        'PhD, M.Phil in Clinical Psychology',
+        'Cognitive Behavioral Therapy (CBT) & Restructuring'
+      ]
+    );
+    console.log('Provider successfully seeded (username: provider, password: 2026)');
+  }
 };
 
 const seedStudents = async (): Promise<void> => {
