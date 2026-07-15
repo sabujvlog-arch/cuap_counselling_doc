@@ -26,6 +26,7 @@ export const initDb = async (): Promise<void> => {
       console.log('Successfully connected to PostgreSQL.');
       await createPostgresTables();
       await seedDefaultAdmin();
+      await seedStudents();
       return;
     } catch (err) {
       console.error('PostgreSQL connection failed. Falling back to SQLite.', err);
@@ -45,6 +46,7 @@ export const initDb = async (): Promise<void> => {
 
   await createSqliteTables();
   await seedDefaultAdmin();
+  await seedStudents();
   console.log(`SQLite database initialized at: ${dbPath}`);
 };
 
@@ -627,4 +629,190 @@ const seedDefaultAdmin = async (): Promise<void> => {
     );
     console.log('Admin user successfully seeded (username: admin, password: 2026)');
   }
+};
+
+const seedStudents = async (): Promise<void> => {
+  const students = [
+    { name: "ALURU SURYA TEJA", regNo: "25BEC01", gender: "Male", mobile: "9849891226" },
+    { name: "ANAND M SAGAR", regNo: "25BTC05", gender: "Male", mobile: "9496000017" },
+    { name: "EEDARA BHAVYA NAYANA YAMINI", regNo: "23BEC07", gender: "Female", mobile: "7569386126" },
+    { name: "BIPUL KUMAR", regNo: "25BBA09", gender: "Male", mobile: "9065814071" },
+    { name: "BATTU SURYA VAMSI KRISHNA", regNo: "23BPS05", gender: "Male", mobile: "9652370181" },
+    { name: "ANANTHAGIRI PRAVEEN", regNo: "24BCS09", gender: "Male", mobile: "9912627425" },
+    { name: "NAGANANDI PAVAN KUMAR", regNo: "24BBA33", gender: "Male", mobile: "9885284143" },
+    { name: "JANNU AJAY KUMAR", regNo: "25MED03", gender: "Male", mobile: "8919680408" },
+    { name: "BALIJA VAMSHI", regNo: "25MED01", gender: "Male", mobile: "9100837005" },
+    { name: "ARDRA T U", regNo: "25MAP04", gender: "Female", mobile: "8593073093" },
+    { name: "SRADHA RAJEEV", regNo: "25MAP38", gender: "Female", mobile: "9871485988" },
+    { name: "KOTNI POOJITH", regNo: "25BPS17", gender: "Male", mobile: "8179832374" },
+    { name: "GALI VINAY BABU", regNo: "25BEL09", gender: "Male", mobile: "9849677695" },
+    { name: "C REVANTH", regNo: "25BEC06", gender: "Male", mobile: "9740382945" },
+    { name: "JYOTHIKA S R", regNo: "25MAP19", gender: "Female", mobile: "7736402014" },
+    { name: "Byrapogu Harshavardhani", regNo: "24BRI01", gender: "Female", mobile: "8500167885" },
+    { name: "D HEMANTH KUMAR REDDY", regNo: "25MBA13", gender: "Male", mobile: "8500889569" },
+    { name: "SAKE SANJAY RAM", regNo: "25BPS39", gender: "Male", mobile: "8341658077" },
+    { name: "DOMMANGI ARJUN", regNo: "24BCO08", gender: "Male", mobile: "9573535645" },
+    { name: "KANDRU RAKESH", regNo: "25MAI08", gender: "Male", mobile: "9908324071" },
+    { name: "KONDURU SYAM KUMAR", regNo: "25BCO18", gender: "Male", mobile: "8897539536" },
+    { name: "ANNAPURNA KUNALA ", regNo: "24MEL03", gender: "Male", mobile: "9381120448" },
+    { name: "MESA MARTHA JESSY", regNo: "25BSP17", gender: "Female", mobile: "9951059901" },
+    { name: "KOTTI GANGA BHAVANI", regNo: "25MAI25", gender: "Female", mobile: "8897461059" },
+    { name: "SREYA C S", regNo: "24BCO27", gender: "Female", mobile: "8547316665" },
+    { name: "GUDIMETLA GEETHA PRASANGINI", regNo: "24BPS13", gender: "Female", mobile: "9603712820" },
+    { name: "AJAY DAS", regNo: "24BCS06", gender: "Male", mobile: "9234860350" },
+    { name: "IPSITA SAHOO", regNo: "24BCS22", gender: "Female", mobile: "7655883669" },
+    { name: "DARIYA SUJWAL VICTOR", regNo: "24BCS18", gender: "Male", mobile: "9492554589" },
+    { name: "KALLAMUDI PRAKASH", regNo: "24BCS29", gender: "Male", mobile: "8317675066" },
+    { name: "BIPOGU VIJAYANAND", regNo: "24BCS78", gender: "Male", mobile: "9177192397" },
+    { name: "RACHAPUDI AMULYA", regNo: "25MEL13", gender: "Female", mobile: "9032462135" },
+    { name: "SHUDHANSHU KUMAR YADAV", regNo: "25MAI17", gender: "Male", mobile: "7683019028" },
+    { name: "PANNATULA SAI SHARANNYA", regNo: "25BTC32", gender: "Female", mobile: "9441676649" },
+    { name: "MOTUPALLI MAHESH", regNo: "24MEC08", gender: "Male", mobile: "8179958095" },
+    { name: "MOHANA SRINIVASULU", regNo: "24BCS36", gender: "Male", mobile: "8056282704" },
+    { name: "SJ KHUTJATULKUBRA", regNo: "25BTC57", gender: "Female", mobile: "9063133604" },
+    { name: "PIYUSH RAJ", regNo: "24BCS49", gender: "Male", mobile: "9279513797" },
+    { name: "O ABISHEK", regNo: "25BBA32", gender: "Male", mobile: "9182828307" },
+    { name: "VURAMALA CHARITHA", regNo: "25BTC59", gender: "Female", mobile: "9110795701" },
+    { name: "JANNI LOKESH BABU", regNo: "25BCS28", gender: "Male", mobile: "8179169390" },
+    { name: "KALLA JASHWANTH REDDY", regNo: "25BPS15", gender: "Male", mobile: "9985652679" },
+    { name: "PEDDIVEETI SREEHARI", regNo: "25MAI27", gender: "Male", mobile: "9121348512" },
+    { name: "YATA NAGA SAI BHANU ARAVIND", regNo: "25MAI31", gender: "Male", mobile: "7997890386" },
+    { name: "BULLE PRASANTH KUMAR ", regNo: "24MPS03", gender: "Male", mobile: "9959158137" },
+    { name: "RAGENI VYSHNAVI", regNo: "24BRI10", gender: "Female", mobile: "9701924311" },
+    { name: "RAHUL S V", regNo: "25MMB19", gender: "Male", mobile: "8156903893" },
+    { name: "SIBIN K", regNo: "25MBA32", gender: "Male", mobile: "7034291044" },
+    { name: "MUHAMMED THWAYYIB P S", regNo: "25MBA25", gender: "Male", mobile: "6238347294" },
+    { name: "MAHENDRA REDDY", regNo: "25MMB12", gender: "Male", mobile: "6364638941" },
+    { name: "MADDELA SAI KUMAR", regNo: "25MMB11", gender: "Male", mobile: "9390728343" },
+    { name: "KALABANDI RAHUL BENHIN SHALOME", regNo: "25BBA16", gender: "Male", mobile: "9989273194" },
+    { name: "NAVYA N", regNo: "24MEC09", gender: "Female", mobile: "8137814985" },
+    { name: "ANJANA P", regNo: "24MEC01", gender: "Female", mobile: "6238796449" },
+    { name: "TARUNAKANTA SAHOO", regNo: "25BCO39", gender: "Male", mobile: "6281343766" },
+    { name: "APOORV SINGH", regNo: "25BCS13", gender: "Male", mobile: "9473224448" },
+    { name: "VELPULA BHARATH", regNo: "25MMB29", gender: "Male", mobile: "6309608361" },
+    { name: "ARIGELA LALITH SATHWIK", regNo: "25MAI03", gender: "Male", mobile: "9515022969" },
+    { name: "KAKARLA JASWANTH CHOWDARY", regNo: "25MST09", gender: "Male", mobile: "9347889339" },
+    { name: "ATHIDEV A S", regNo: "25BCO04", gender: "Male", mobile: "9188467483" },
+    { name: "VALMEEKI NARASIMHULU GARI GOPICHAND", regNo: "24MAT20", gender: "Male", mobile: "8309092182" },
+    { name: "TAPASVI PANDA", regNo: "25BSP32", gender: "Male", mobile: "9265820840" },
+    { name: "HIMADRI HALDAR", regNo: "25BSP14", gender: "Male", mobile: "7450810258" },
+    { name: "PAGIDIPALAYAM YUVA SREE", regNo: "25BPS29", gender: "Female", mobile: "9440414239" },
+    { name: "KANDULA VENKATA ADITYA", regNo: "25BPS16", gender: "Male", mobile: "9703164114" },
+    { name: "DIDDI ARYAN SIVA KESHAV SHARMA", regNo: "24BCO07", gender: "Male", mobile: "9493870450" },
+    { name: "K K S S DHANUSH", regNo: "24BBA13", gender: "Male", mobile: "9704482467" },
+    { name: "MD JEEBRAEEL", regNo: "25MBA22", gender: "Male", mobile: "6299334157" },
+    { name: "ALAPAN CHATTERJEE", regNo: "25MGG04", gender: "Male", mobile: "9830921124" },
+    { name: "MOHNISH DUTTA", regNo: "25MPS11", gender: "Male", mobile: "8100298506" },
+    { name: "P. Rishitha", regNo: "24BSP41", gender: "Female", mobile: "9441633970" },
+    { name: "SINGARA SELVI", regNo: "24BSP33", gender: "Female", mobile: "9597159051" },
+    { name: "RATHNAVATH PRASANNA NAIK", regNo: "24BBA44", gender: "Male", mobile: "8148858541" },
+    { name: "PUTTA YASWITHA", regNo: "24BCS52", gender: "Female", mobile: "9885275449" },
+    { name: "MANEESH BATHINI", regNo: "24MGP04", gender: "Male", mobile: "9704517728" },
+    { name: "SAI CHETHAN", regNo: "24MPS26", gender: "Male", mobile: "9652892098" },
+    { name: "GADDAM BHAVANA", regNo: "24MPS06", gender: "Female", mobile: "9014818123" },
+    { name: "UTKARSH KUMAR UPADHYAY", regNo: "24BBA54", gender: "Male", mobile: "7667205971" },
+    { name: "PRATIK SUSHILRAO DHOKE", regNo: "24BSP26", gender: "Male", mobile: "9021845503" },
+    { name: "ALOK KUMAR ", regNo: "24BEC04", gender: "Male", mobile: "9508460072" },
+    { name: "GUDIBANDA DAYANA LAKSHMI", regNo: "24BBA12", gender: "Female", mobile: "8886808015" },
+    { name: "SALLAGUNDLA BHAVANA", regNo: "24BBA45", gender: "Female", mobile: "8688023120" },
+    { name: "AASHATH C", regNo: "24BCO01", gender: "Male", mobile: "9659902131" },
+    { name: "VISHAL MANICKAM SACHIDHANANDHAM", regNo: "24BCO31", gender: "Male", mobile: "8300839479" },
+    { name: "DOMMARAJU HARISHVARMA", regNo: "25MGP02", gender: "Male", mobile: "9391269233" },
+    { name: "GOLLA JYOTHISWAROOP", regNo: "25MPS04", gender: "Male", mobile: "6303962914" },
+    { name: "SHEELAM SHANUMUKA RAJA SAI RAHUL", regNo: "25MGP03", gender: "Male", mobile: "8639461286" },
+    { name: "Nithiyasri S", regNo: "24BBA35", gender: "Female", mobile: "8148365935" },
+    { name: "PARAGATH NISHA T", regNo: "24BPS32", gender: "Female", mobile: "9095325117" },
+    { name: "DEEPIKA", regNo: "24BPS09", gender: "Female", mobile: "9489477113" },
+    { name: "UBAID ASHRAF", regNo: "24BCS72", gender: "Male", mobile: "9258048532" },
+    { name: "MOKARA JAGAN", regNo: "23BPS14", gender: "Male", mobile: "9985518256" },
+    { name: "MALAPATI UDAY KIRAN", regNo: "23BBA19", gender: "Male", mobile: "8008415798" },
+    { name: "SANDELA ADVITHRAJ", regNo: "25MEC08", gender: "Male", mobile: "9550212925" },
+    { name: "MAHESH", regNo: "24BPS23", gender: "Male", mobile: "9121211608" },
+    { name: "jatta gnana sidshartha ambedkar sastry", regNo: "24BPS18", gender: "Male", mobile: "7993818780" },
+    { name: "ZAINUL ABIDEEN JIFIRI THANGAL A", regNo: "25MCS08", gender: "Male", mobile: "8330020137" },
+    { name: "PANCHAJANYA KHAUND", regNo: "25MMB16", gender: "Male", mobile: "9365445800" },
+    { name: "BHUKYA VENKATESH", regNo: "25MEC01", gender: "Male", mobile: "7995205012" },
+    { name: "RAJ KUMAR", regNo: "24MPS24", gender: "Male", mobile: "6203240548" },
+    { name: "MANOHAR MOIRANGTHEM", regNo: "25MCO02", gender: "Male", mobile: "8798133912" },
+    { name: "MUDE SIVA PRASAD NAIK", regNo: "25MCS03", gender: "Male", mobile: "6281020535" }
+  ];
+
+  console.log(`Checking/Seeding ${students.length} student records...`);
+  
+  for (const s of students) {
+    const username = s.regNo.toLowerCase().trim();
+    const res = await query('SELECT id FROM users WHERE username = $1', [username]);
+    
+    if (res.rows.length === 0) {
+      // Seed user row
+      // Use exact regNo as default password (e.g. "25BEC01")
+      const passwordHash = await bcrypt.hash(s.regNo.toUpperCase(), 10);
+      
+      const insertUser = await query(
+        'INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3)',
+        [username, passwordHash, 'student']
+      );
+
+      const selectNew = await query('SELECT id FROM users WHERE username = $1', [username]);
+      const userId = selectNew.rows[0].id;
+
+      // Parse department and semester based on registration number
+      const reg = s.regNo.toUpperCase();
+      let department = "Applied Sciences";
+      if (reg.includes("BEC")) department = "Electronics & Communication";
+      else if (reg.includes("BTC")) department = "Biotechnology";
+      else if (reg.includes("BBA")) department = "Business Administration";
+      else if (reg.includes("BPS")) department = "Applied Psychology";
+      else if (reg.includes("BCS")) department = "Computer Science & IT";
+      else if (reg.includes("MAI")) department = "Artificial Intelligence";
+      else if (reg.includes("MED")) department = "Education";
+      else if (reg.includes("MAP")) department = "Applied Psychology (PG)";
+      else if (reg.includes("MEC")) department = "English (PG)";
+      else if (reg.includes("MGP")) department = "Geography (PG)";
+      else if (reg.includes("MBA")) department = "Business Management (MBA)";
+      else if (reg.includes("BCO")) department = "Commerce (UG)";
+      else if (reg.includes("BEL")) department = "English (UG)";
+      else if (reg.includes("MEL")) department = "English (PG)";
+      else if (reg.includes("BSP")) department = "Science & Physics";
+      else if (reg.includes("BRI")) department = "Retail Management";
+      else if (reg.includes("MST")) department = "Statistics";
+      else if (reg.includes("MGG")) department = "Geography";
+      else if (reg.includes("MAT")) department = "Mathematics";
+      else if (reg.includes("MMB")) department = "Molecular Biology";
+      else if (reg.includes("MCS")) department = "Computer Science (PG)";
+      else if (reg.includes("MCO")) department = "Commerce (PG)";
+
+      let semester = "Semester II";
+      if (reg.startsWith("23")) semester = "Semester VI";
+      else if (reg.startsWith("24")) semester = "Semester IV";
+
+      const age = s.gender === 'Male' ? 21 : 20;
+      const dob = s.gender === 'Male' ? '2005-06-15' : '2006-03-22';
+      const email = `${username}@cuap.edu.in`;
+
+      await query(
+        `INSERT INTO students 
+         (user_id, registration_number, name, age, gender, dob, department, semester, phone, email, hostel_scholar, emergency_contact, emergency_phone, blood_group, address, informed_consent_signed, consent_date)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 1, CURRENT_TIMESTAMP)`,
+        [
+          userId,
+          s.regNo,
+          s.name,
+          age,
+          s.gender,
+          dob,
+          department,
+          semester,
+          s.mobile,
+          email,
+          'Hosteller',
+          'Guardian',
+          s.mobile,
+          'O+',
+          'CUAP Campus, Anantapuramu'
+        ]
+      );
+    }
+  }
+  console.log('Student seeding checks complete.');
 };
