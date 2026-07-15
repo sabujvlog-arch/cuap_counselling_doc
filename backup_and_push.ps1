@@ -36,8 +36,13 @@ if ([string]::IsNullOrEmpty($status)) {
     Write-Host "[GIT] Changes committed successfully." -ForegroundColor Green
 }
 
-Write-Host "[GIT] Pushing repository updates to GitHub..." -ForegroundColor Cyan
-git push
+# Get active branch name dynamically
+$branch = git branch --show-current
+if ([string]::IsNullOrEmpty($branch)) {
+    $branch = "main"
+}
+Write-Host "[GIT] Pushing repository updates to origin/$branch..." -ForegroundColor Cyan
+git push origin $branch
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "[SUCCESS] Sync complete! Code and database backups pushed to GitHub." -ForegroundColor Green
