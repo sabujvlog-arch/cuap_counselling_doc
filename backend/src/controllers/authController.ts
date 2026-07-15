@@ -14,7 +14,7 @@ export const login = async (req: Request, res: Response) => {
   }
 
   try {
-    const userRes = await query('SELECT * FROM users WHERE username = $1', [username.toLowerCase().trim()]);
+    const userRes = await query('SELECT * FROM users WHERE username = $1', [(username || '').toLowerCase().trim()]);
     if (userRes.rows.length === 0) {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
@@ -60,7 +60,7 @@ export const verify2FA = async (req: Request, res: Response) => {
   }
 
   try {
-    const userRes = await query('SELECT * FROM users WHERE username = $1', [username.toLowerCase().trim()]);
+    const userRes = await query('SELECT * FROM users WHERE username = $1', [(username || '').toLowerCase().trim()]);
     if (userRes.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -191,7 +191,7 @@ export const createProvider = async (req: AuthRequest, res: Response) => {
   }
 
   try {
-    const checkUser = await query('SELECT id FROM users WHERE username = $1', [username.toLowerCase().trim()]);
+    const checkUser = await query('SELECT id FROM users WHERE username = $1', [(username || '').toLowerCase().trim()]);
     if (checkUser.rows.length > 0) {
       return res.status(400).json({ error: 'Username is already taken' });
     }
@@ -205,10 +205,10 @@ export const createProvider = async (req: AuthRequest, res: Response) => {
     
     await query(
       'INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3)',
-      [username.toLowerCase().trim(), hashedPassword, 'provider']
+      [(username || '').toLowerCase().trim(), hashedPassword, 'provider']
     );
 
-    const userRes = await query('SELECT id FROM users WHERE username = $1', [username.toLowerCase().trim()]);
+    const userRes = await query('SELECT id FROM users WHERE username = $1', [(username || '').toLowerCase().trim()]);
     const userId = userRes.rows[0].id;
 
     await query(
@@ -258,7 +258,7 @@ export const createStudent = async (req: AuthRequest, res: Response) => {
   }
 
   try {
-    const regNorm = registrationNumber.toLowerCase().trim();
+    const regNorm = (registrationNumber || '').toLowerCase().trim();
     const checkUser = await query('SELECT id FROM users WHERE username = $1', [regNorm]);
     if (checkUser.rows.length > 0) {
       return res.status(400).json({ error: 'Student registration number already exists' });

@@ -30,6 +30,12 @@ app.use((req, res, next) => {
 // Map API routes
 app.use('/api', apiRouter);
 
+// Global error handler
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('GLOBAL ERROR CAUGHT:', err);
+  res.status(500).json({ error: err.message || 'Internal server error' });
+});
+
 // Basic health check route
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'wccms-backend-api' });
