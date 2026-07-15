@@ -199,12 +199,10 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
       <aside className="w-full lg:w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-850 p-6 flex flex-col justify-between shrink-0">
         <div>
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-white shadow-sm">
-              CUAP
-            </div>
+            <img src="/logo.png" className="w-10 h-10 object-contain" alt="CUAP Logo" />
             <div>
-              <h1 className="text-sm font-bold leading-tight">CUAP WCCMS</h1>
-              <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Admin Portal</p>
+              <h1 className="text-xs font-black leading-tight text-slate-800 dark:text-slate-205">CUAP SWCC</h1>
+              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Admin Portal</p>
             </div>
           </div>
 

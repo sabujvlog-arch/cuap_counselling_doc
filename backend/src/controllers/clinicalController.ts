@@ -774,9 +774,9 @@ export const getPrescriptionPrintLayout = async (req: AuthRequest, res: Response
         <div class="container">
           <div class="header">
             <div class="header-left">
-              <div class="logo">CUAP</div>
+              <img src="http://localhost:3000/logo.png" style="width: 70px; height: 70px; object-fit: contain;" alt="CUAP Logo" />
               <div class="title-area">
-                <h1>Wellness Counseling Centre</h1>
+                <h1>Student Wellness & Counseling Centre</h1>
                 <p>Central University of Andhra Pradesh</p>
                 <p>Ananthapuramu - 515002, India</p>
               </div>

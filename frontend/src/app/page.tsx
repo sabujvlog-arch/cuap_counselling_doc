@@ -131,12 +131,10 @@ export default function Home() {
       {/* Top Banner Branding */}
       <header className="flex justify-between items-center max-w-7xl mx-auto w-full mb-8">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-600 flex items-center justify-center font-bold text-white rounded-xl shadow-md">
-            CUAP
-          </div>
+          <img src="/logo.png" className="w-12 h-12 object-contain" alt="CUAP Logo" />
           <div>
             <h1 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Central University of Andhra Pradesh</h1>
-            <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Wellness Counseling Centre</p>
+            <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Student Wellness & Counseling Centre</p>
           </div>
         </div>
         <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
