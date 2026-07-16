@@ -337,7 +337,7 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
 };
 
 export const createProvider = async (req: AuthRequest, res: Response) => {
-  const { username, password, name, employeeId, department, qualification, specialization, photoUrl, signatureUrl } = req.body;
+  const { username, password, name, employeeId, department, qualification, specialization, photoUrl, signatureUrl, phone, email } = req.body;
 
   if (!username || !password || !name || !employeeId || !department || !qualification || !specialization) {
     return res.status(400).json({ error: 'All primary provider details are required' });
@@ -357,16 +357,16 @@ export const createProvider = async (req: AuthRequest, res: Response) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     
     await query(
-      'INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3)',
-      [(username || '').toLowerCase().trim(), hashedPassword, 'provider']
+      'INSERT INTO users (username, password_hash, role, phone, email) VALUES ($1, $2, $3, $4, $5)',
+      [(username || '').toLowerCase().trim(), hashedPassword, 'provider', phone || null, email || null]
     );
 
     const userRes = await query('SELECT id FROM users WHERE username = $1', [(username || '').toLowerCase().trim()]);
     const userId = userRes.rows[0].id;
 
     await query(
-      'INSERT INTO providers (user_id, name, employee_id, department, qualification, specialization, photo_url, signature_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-      [userId, name, employeeId, department, qualification, specialization, photoUrl || null, signatureUrl || null]
+      'INSERT INTO providers (user_id, name, employee_id, department, qualification, specialization, photo_url, signature_url, phone, email) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+      [userId, name, employeeId, department, qualification, specialization, photoUrl || null, signatureUrl || null, phone || null, email || null]
     );
 
     for (let day = 1; day <= 5; day++) {

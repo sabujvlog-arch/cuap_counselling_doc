@@ -26,7 +26,7 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
   // Form states
   const [providerForm, setProviderForm] = useState({
     username: '', password: '', name: '', employeeId: '', department: 'Student Welfare',
-    qualification: '', specialization: '', photoUrl: '', signatureUrl: ''
+    qualification: '', specialization: '', photoUrl: '', signatureUrl: '', phone: '', email: ''
   });
   const [studentForm, setStudentForm] = useState({
     registrationNumber: '', name: '', age: '', gender: 'Male', dob: '', 
@@ -114,7 +114,7 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
       alert("Provider created successfully!");
       setProviderForm({
         username: '', password: '', name: '', employeeId: '', department: 'Student Welfare',
-        qualification: '', specialization: '', photoUrl: '', signatureUrl: ''
+        qualification: '', specialization: '', photoUrl: '', signatureUrl: '', phone: '', email: ''
       });
       fetchProviders();
       fetchAudits();
@@ -504,6 +504,28 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                       placeholder="CBT, Adolescent Anxiety"
                     />
                   </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">Phone Number (for 2FA)</label>
+                    <input
+                      type="text"
+                      required
+                      value={providerForm.phone}
+                      onChange={(e) => setProviderForm({ ...providerForm, phone: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                      placeholder="9849891226"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">Email Address (for 2FA)</label>
+                    <input
+                      type="email"
+                      required
+                      value={providerForm.email}
+                      onChange={(e) => setProviderForm({ ...providerForm, email: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                      placeholder="counselor@cuap.edu.in"
+                    />
+                  </div>
 
                   <button
                     type="submit"
@@ -534,6 +556,8 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                           <p><strong>Specialization:</strong> {p.specialization || p.details || 'General counseling'}</p>
                           <p><strong>Qualification:</strong> {p.qualification || 'M.A Psychology'}</p>
                           <p><strong>Dept:</strong> {p.department || 'Student Counseling'}</p>
+                          <p><strong>Phone:</strong> {p.phone || 'N/A'}</p>
+                          <p><strong>Email:</strong> {p.email || 'N/A'}</p>
                         </div>
                       </div>
                     </div>
