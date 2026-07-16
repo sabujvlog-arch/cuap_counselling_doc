@@ -28,6 +28,10 @@ import {
   getStudentEMR,
   saveMSELog,
   getMSELogs,
+  saveChildCaseHistory,
+  getChildCaseHistories,
+  getMSEPrintLayout,
+  getChildCaseHistoryPrintLayout,
   createPrescription,
   getPrescription,
   getPrescriptionPrintLayout
@@ -110,6 +114,11 @@ router.get('/clinical/emr/student/:studentId', authenticateToken, getStudentEMR)
 router.post('/clinical/ai-assist', authenticateToken, requireRoles(['provider']), aiAssist);
 router.post('/clinical/mse', authenticateToken, requireRoles(['provider']), saveMSELog);
 router.get('/clinical/mse/student/:studentId', authenticateToken, getMSELogs);
+router.get('/clinical/mse/:id/print', getMSEPrintLayout);
+
+router.post('/clinical/child-case-history', authenticateToken, requireRoles(['provider']), saveChildCaseHistory);
+router.get('/clinical/child-case-history/student/:studentId', authenticateToken, getChildCaseHistories);
+router.get('/clinical/child-case-history/:id/print', getChildCaseHistoryPrintLayout);
 
 router.post('/clinical/prescriptions', authenticateToken, requireRoles(['provider']), createPrescription);
 router.get('/clinical/prescriptions/:id', authenticateToken, getPrescription);

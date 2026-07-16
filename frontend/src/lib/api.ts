@@ -145,6 +145,21 @@ export const api = {
       body: JSON.stringify(mse)
     }),
     getMSELogs: (studentId: number) => request(`/clinical/mse/student/${studentId}`),
+    getMSEPrintUrl: (id: number) => {
+      const base = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '');
+      return `${base}/api/clinical/mse/${id}/print`;
+    },
+
+    // Child Case History
+    saveChildCaseHistory: (cch: any) => request('/clinical/child-case-history', {
+      method: 'POST',
+      body: JSON.stringify(cch)
+    }),
+    getChildCaseHistories: (studentId: number) => request(`/clinical/child-case-history/student/${studentId}`),
+    getChildCaseHistoryPrintUrl: (id: number) => {
+      const base = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '');
+      return `${base}/api/clinical/child-case-history/${id}/print`;
+    },
 
     // Prescriptions
     createPrescription: (prescription: any) => request('/clinical/prescriptions', {

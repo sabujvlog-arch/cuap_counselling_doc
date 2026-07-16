@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '@/lib/api';
-import { Sparkles, ShieldAlert, CheckCircle, ChevronDown, ChevronUp, History, ClipboardList, BookOpen } from 'lucide-react';
+import { Sparkles, ShieldAlert, CheckCircle, ChevronDown, ChevronUp, History, ClipboardList, BookOpen, Printer } from 'lucide-react';
 
 interface SOAPEditorProps {
   studentId: number;
@@ -47,9 +47,20 @@ export default function SOAPEditor({ studentId, appointmentId, initialSessionId,
 
   // MSE Checklist State
   const [mseChecklist, setMseChecklist] = useState({
-    appearance: 'Appropriate, well-groomed',
-    behaviour: 'Cooperative, calm',
-    speech: 'Normal rate and tone',
+    appearanceSelection: 'Well kempt and tidy',
+    build: 'mesomorph (Athletic, muscular)',
+    hair: 'Well groomed',
+    contact: 'Present',
+    eyeContact: 'present',
+    rapport: 'Easily established',
+    attitude: 'Cooperative',
+    motor: 'Normal motor activity',
+    intensity: 'audible',
+    reaction: 'normal',
+    speed: 'normal',
+    prosody: 'normal fluctuations',
+    ease: 'spontaneous',
+    productivity: 'Normal',
     moodAffect: 'Euthymic, congruent affect',
     thoughtProcess: 'Linear, goal-directed',
     thoughtContent: 'No suicidal/homicidal ideation or delusions',
@@ -57,14 +68,36 @@ export default function SOAPEditor({ studentId, appointmentId, initialSessionId,
     cognition: 'Alert, oriented x3, intact memory',
     insightJudgment: 'Fair insight, intact judgment',
     riskLevel: 'low',
-    clinicalImpression: 'Client reports mild academic anxiety.'
+    clinicalImpression: ''
   });
 
   const [versions, setVersions] = useState<any[]>([]);
   const [mseLogs, setMseLogs] = useState<any[]>([]);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error' | 'idle'>('idle');
   const [loading, setLoading] = useState(false);
-  const [activeSection, setActiveSection] = useState<'case-history' | 'soap' | 'mse' | 'ai-helper'>('soap');
+  const [activeSection, setActiveSection] = useState<'case-history' | 'child-case-history' | 'soap' | 'mse' | 'ai-helper'>('soap');
+
+  // Child Case History form state
+  const [cchSociodemographics, setCchSociodemographics] = useState({
+    name: '', sex: 'Male', age: '', address: '', motherTongue: '',
+    education: '', religion: '', residence: 'Urban', familyTypeSize: '',
+    familyIncome: '', occupationMarital: ''
+  });
+  const [cchComplaints, setCchComplaints] = useState('');
+  const [cchHopi, setCchHopi] = useState('');
+  const [cchTreatmentHistory, setCchTreatmentHistory] = useState('');
+  const [cchPastHistory, setCchPastHistory] = useState('');
+  const [cchFamilyHistory, setCchFamilyHistory] = useState({
+    familyTree: '', fatherAge: '', fatherStatus: 'Living', fatherEducation: '',
+    fatherOccupation: '', fatherRelationship: '', motherAge: '', motherStatus: 'Living',
+    motherEducation: '', motherOccupation: '', motherRelationship: '', psychiatricHistory: ''
+  });
+  const [cchPersonalHistory, setCchPersonalHistory] = useState({
+    birthType: 'Normal', birthCry: 'Immediate', birthComplication: '', prenatalFactors: '',
+    perinatalFactors: '', milestones: '', currentStatus: '', parentsRelationship: '',
+    playBehaviour: '', schoolAdmissionAge: '', highestGrade: '', academicPerformance: ''
+  });
+  const [cchLogs, setCchLogs] = useState<any[]>([]);
 
   // AI assistant feedback states
   const [aiSuggestions, setAiSuggestions] = useState<any>(null);
@@ -78,7 +111,8 @@ export default function SOAPEditor({ studentId, appointmentId, initialSessionId,
       loadSession(sessionId);
     }
     fetchMSELogs();
-  }, [sessionId]);
+    fetchChildCaseHistories();
+  }, [sessionId, studentId]);
 
   const loadSession = async (id: number) => {
     setLoading(true);
@@ -136,6 +170,15 @@ export default function SOAPEditor({ studentId, appointmentId, initialSessionId,
     try {
       const logs = await api.clinical.getMSELogs(studentId);
       setMseLogs(logs);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchChildCaseHistories = async () => {
+    try {
+      const logs = await api.clinical.getChildCaseHistories(studentId);
+      setCchLogs(logs);
     } catch (err) {
       console.error(err);
     }
@@ -199,15 +242,50 @@ export default function SOAPEditor({ studentId, appointmentId, initialSessionId,
   const handleSaveMSE = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const appearanceConcat = `Appearance: ${mseChecklist.appearanceSelection}. Build: ${mseChecklist.build}. Hair: ${mseChecklist.hair}. Contact: ${mseChecklist.contact}. Eye contact: ${mseChecklist.eyeContact}.`;
+      const behaviourConcat = `Rapport: ${mseChecklist.rapport}. Attitude: ${mseChecklist.attitude}. Motor behaviour: ${mseChecklist.motor}.`;
+      const speechConcat = `Intensity: ${mseChecklist.intensity}. Reaction: ${mseChecklist.reaction}. Speed: ${mseChecklist.speed}. Prosody: ${mseChecklist.prosody}. Ease: ${mseChecklist.ease}. Productivity: ${mseChecklist.productivity}.`;
+
       await api.clinical.saveMSE({
         studentId,
         sessionId,
-        ...mseChecklist
+        appearance: appearanceConcat,
+        behaviour: behaviourConcat,
+        speech: speechConcat,
+        moodAffect: mseChecklist.moodAffect,
+        thoughtProcess: mseChecklist.thoughtProcess,
+        thoughtContent: mseChecklist.thoughtContent,
+        perception: mseChecklist.perception,
+        cognition: mseChecklist.cognition,
+        insightJudgment: mseChecklist.insightJudgment,
+        riskLevel: mseChecklist.riskLevel,
+        clinicalImpression: mseChecklist.clinicalImpression
       });
       alert("Structured Mental State Exam (MSE) log recorded successfully.");
       fetchMSELogs();
     } catch (err) {
       alert("Failed to save MSE log");
+    }
+  };
+
+  // Structured Child Case History Submission
+  const handleSaveCCH = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.clinical.saveChildCaseHistory({
+        studentId,
+        sociodemographics: cchSociodemographics,
+        presentingComplaints: cchComplaints,
+        hopi: cchHopi,
+        treatmentHistory: cchTreatmentHistory,
+        pastHistory: cchPastHistory,
+        familyHistory: cchFamilyHistory,
+        personalHistory: cchPersonalHistory
+      });
+      alert("Child Case History record saved successfully.");
+      fetchChildCaseHistories();
+    } catch (err) {
+      alert("Failed to save Child Case History");
     }
   };
 
@@ -312,6 +390,7 @@ export default function SOAPEditor({ studentId, appointmentId, initialSessionId,
           {[
             { id: 'soap', label: 'SOAP Notes Editor', icon: ClipboardList },
             { id: 'case-history', label: 'Intake Case History', icon: BookOpen },
+            { id: 'child-case-history', label: 'Child Case History', icon: BookOpen },
             { id: 'mse', label: 'Mental State Exam (MSE)', icon: History },
             { id: 'ai-helper', label: 'AI Clinical Assist', icon: Sparkles }
           ].map(sec => {
@@ -512,85 +591,273 @@ export default function SOAPEditor({ studentId, appointmentId, initialSessionId,
                   <p className="text-xs text-slate-500 mt-1">Audit behavioral and cognitive profiles</p>
                 </div>
 
-                <form onSubmit={handleSaveMSE} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">Appearance</label>
-                      <select
-                        value={mseChecklist.appearance}
-                        onChange={(e) => setMseChecklist({ ...mseChecklist, appearance: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
-                      >
-                        <option>Appropriate, well-groomed</option>
-                        <option>Disheveled, poor hygiene</option>
-                        <option>Overly dressy/attention-seeking</option>
-                      </select>
-                    </div>
+                <form onSubmit={handleSaveMSE} className="space-y-6">
+                  {/* 1. General Appearance and Behaviour */}
+                  <div>
+                    <h4 className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-3">1. General Appearance and Behaviour</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Appearance</label>
+                        <select
+                          value={mseChecklist.appearanceSelection}
+                          onChange={(e) => setMseChecklist({ ...mseChecklist, appearanceSelection: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                        >
+                          <option>Well kempt and tidy</option>
+                          <option>unkempt and untidy</option>
+                          <option>overly made-up</option>
+                          <option>perplexed</option>
+                          <option>sickly</option>
+                        </select>
+                      </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">Behaviour & Rapport</label>
-                      <select
-                        value={mseChecklist.behaviour}
-                        onChange={(e) => setMseChecklist({ ...mseChecklist, behaviour: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
-                      >
-                        <option>Cooperative, calm</option>
-                        <option>Guarded, suspicious</option>
-                        <option>Hostile, agitated</option>
-                      </select>
-                    </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Body Build</label>
+                        <select
+                          value={mseChecklist.build}
+                          onChange={(e) => setMseChecklist({ ...mseChecklist, build: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                        >
+                          <option>endomorph (stocky, rounded, obese)</option>
+                          <option>mesomorph (Athletic, muscular)</option>
+                          <option>ectomorph (long, linear)</option>
+                        </select>
+                      </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">Speech</label>
-                      <select
-                        value={mseChecklist.speech}
-                        onChange={(e) => setMseChecklist({ ...mseChecklist, speech: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
-                      >
-                        <option>Normal rate and tone</option>
-                        <option>Pressured, rapid speech</option>
-                        <option>Slow, hesitant speech</option>
-                      </select>
-                    </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Hair</label>
+                        <select
+                          value={mseChecklist.hair}
+                          onChange={(e) => setMseChecklist({ ...mseChecklist, hair: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                        >
+                          <option>Well groomed</option>
+                          <option>Negligent</option>
+                          <option>Disheveled</option>
+                        </select>
+                      </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">Mood & Affect</label>
-                      <select
-                        value={mseChecklist.moodAffect}
-                        onChange={(e) => setMseChecklist({ ...mseChecklist, moodAffect: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
-                      >
-                        <option>Euthymic, congruent affect</option>
-                        <option>Depressed mood, flat affect</option>
-                        <option>Anxious/irritable mood, labile affect</option>
-                      </select>
-                    </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Contact with Surrounding</label>
+                        <select
+                          value={mseChecklist.contact}
+                          onChange={(e) => setMseChecklist({ ...mseChecklist, contact: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                        >
+                          <option>Present</option>
+                          <option>Partial</option>
+                          <option>Absent</option>
+                        </select>
+                      </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">Thought Process</label>
-                      <select
-                        value={mseChecklist.thoughtProcess}
-                        onChange={(e) => setMseChecklist({ ...mseChecklist, thoughtProcess: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
-                      >
-                        <option>Linear, goal-directed</option>
-                        <option>Tangential, loose associations</option>
-                        <option>Flight of ideas</option>
-                      </select>
-                    </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Eye Contact</label>
+                        <select
+                          value={mseChecklist.eyeContact}
+                          onChange={(e) => setMseChecklist({ ...mseChecklist, eyeContact: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                        >
+                          <option>present</option>
+                          <option>partial</option>
+                          <option>absent</option>
+                        </select>
+                      </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">Risk Level</label>
-                      <select
-                        value={mseChecklist.riskLevel}
-                        onChange={(e) => setMseChecklist({ ...mseChecklist, riskLevel: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 font-bold"
-                      >
-                        <option value="low">Low Risk</option>
-                        <option value="medium">Medium Risk (Ideation without intent)</option>
-                        <option value="high">High Risk (Active intent, safety plan needed)</option>
-                        <option value="severe">Severe Risk (Crisis protocols required)</option>
-                      </select>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Rapport</label>
+                        <select
+                          value={mseChecklist.rapport}
+                          onChange={(e) => setMseChecklist({ ...mseChecklist, rapport: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                        >
+                          <option>Easily established</option>
+                          <option>Established with difficulty</option>
+                          <option>Not possible</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Attitude towards Examiner</label>
+                        <select
+                          value={mseChecklist.attitude}
+                          onChange={(e) => setMseChecklist({ ...mseChecklist, attitude: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                        >
+                          <option>Cooperative</option>
+                          <option>Defensive</option>
+                          <option>guarded</option>
+                          <option>evasive</option>
+                          <option>suspicious</option>
+                          <option>hostile</option>
+                          <option>distractible</option>
+                          <option>uncooperative</option>
+                          <option>seductive</option>
+                        </select>
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Motor Behavior</label>
+                        <select
+                          value={mseChecklist.motor}
+                          onChange={(e) => setMseChecklist({ ...mseChecklist, motor: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                        >
+                          <option>Normal motor activity</option>
+                          <option>Hyperactive</option>
+                          <option>restless</option>
+                          <option>retarded</option>
+                          <option>tics</option>
+                          <option>mannerisms</option>
+                          <option>awkward</option>
+                          <option>gestures</option>
+                          <option>silly smiling</option>
+                          <option>preoccupied</option>
+                          <option>stereotypy</option>
+                          <option>self-injurious</option>
+                          <option>aggressive</option>
+                          <option>rigidity</option>
+                          <option>touching examiner</option>
+                          <option>hallucinatory behavior</option>
+                          <option>automatic obedience</option>
+                          <option>echopraxia</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. Speech */}
+                  <div>
+                    <h4 className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-3">2. Speech</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Intensity</label>
+                        <select
+                          value={mseChecklist.intensity}
+                          onChange={(e) => setMseChecklist({ ...mseChecklist, intensity: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                        >
+                          <option>soft</option>
+                          <option>audible</option>
+                          <option>loud</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Reaction Time to Stimulus</label>
+                        <select
+                          value={mseChecklist.reaction}
+                          onChange={(e) => setMseChecklist({ ...mseChecklist, reaction: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                        >
+                          <option>normal</option>
+                          <option>shortened</option>
+                          <option>delayed</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Speed</label>
+                        <select
+                          value={mseChecklist.speed}
+                          onChange={(e) => setMseChecklist({ ...mseChecklist, speed: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                        >
+                          <option>normal</option>
+                          <option>very slow</option>
+                          <option>rapid</option>
+                          <option>pressure of speech</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Prosody / Tempo</label>
+                        <select
+                          value={mseChecklist.prosody}
+                          onChange={(e) => setMseChecklist({ ...mseChecklist, prosody: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                        >
+                          <option>normal fluctuations</option>
+                          <option>monotonous</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Ease of Speech</label>
+                        <select
+                          value={mseChecklist.ease}
+                          onChange={(e) => setMseChecklist({ ...mseChecklist, ease: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                        >
+                          <option>spontaneous</option>
+                          <option>hesitant</option>
+                          <option>mute</option>
+                          <option>slurring</option>
+                          <option>stuttering</option>
+                          <option>whispering</option>
+                          <option>muttering</option>
+                          <option>speaks only when questioned</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Productivity / Volume</label>
+                        <select
+                          value={mseChecklist.productivity}
+                          onChange={(e) => setMseChecklist({ ...mseChecklist, productivity: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                        >
+                          <option>Normal</option>
+                          <option>overabundant</option>
+                          <option>poverty of speech</option>
+                          <option>poverty of content</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3. Mood & Thought */}
+                  <div>
+                    <h4 className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-3">3. Clinical Mood & Thought Streams</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Mood & Affect</label>
+                        <select
+                          value={mseChecklist.moodAffect}
+                          onChange={(e) => setMseChecklist({ ...mseChecklist, moodAffect: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                        >
+                          <option>Euthymic, congruent affect</option>
+                          <option>Depressed mood, flat affect</option>
+                          <option>Anxious/irritable mood, labile affect</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Thought Process</label>
+                        <select
+                          value={mseChecklist.thoughtProcess}
+                          onChange={(e) => setMseChecklist({ ...mseChecklist, thoughtProcess: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                        >
+                          <option>Linear, goal-directed</option>
+                          <option>Tangential, loose associations</option>
+                          <option>Flight of ideas</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Risk Level</label>
+                        <select
+                          value={mseChecklist.riskLevel}
+                          onChange={(e) => setMseChecklist({ ...mseChecklist, riskLevel: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 font-bold"
+                        >
+                          <option value="low">Low Risk</option>
+                          <option value="medium">Medium Risk (Ideation without intent)</option>
+                          <option value="high">High Risk (Active intent, safety plan needed)</option>
+                          <option value="severe">Severe Risk (Crisis protocols required)</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
 
@@ -607,7 +874,7 @@ export default function SOAPEditor({ studentId, appointmentId, initialSessionId,
 
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer transition shadow-sm hover:shadow"
                   >
                     Save Mental State Exam
                   </button>
@@ -620,23 +887,501 @@ export default function SOAPEditor({ studentId, appointmentId, initialSessionId,
                   <h3 className="text-sm font-bold text-slate-800 dark:text-white mb-4">Historical MSE logs (Comparative Trail)</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {mseLogs.map((log, idx) => (
-                      <div key={idx} className="p-4 border border-slate-200 dark:border-slate-850 rounded-xl bg-slate-50/50 dark:bg-slate-900/50 space-y-2 text-xs">
-                        <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-2">
-                          <span className="font-bold text-blue-600 dark:text-blue-400">Date: {new Date(log.created_at).toLocaleDateString()}</span>
-                          <span className={`px-2 py-0.5 rounded font-bold uppercase ${
-                            log.risk_level === 'severe' || log.risk_level === 'high' 
-                              ? 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300' 
-                              : 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-300'
-                          }`}>
-                            Risk: {log.risk_level}
-                          </span>
+                      <div key={idx} className="p-4 border border-slate-200 dark:border-slate-850 rounded-xl bg-slate-50/50 dark:bg-slate-900/50 space-y-2 text-xs flex flex-col justify-between">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-2">
+                            <span className="font-bold text-blue-600 dark:text-blue-400">Date: {new Date(log.created_at).toLocaleDateString()}</span>
+                            <span className={`px-2 py-0.5 rounded font-bold uppercase text-[9px] ${
+                              log.risk_level === 'severe' || log.risk_level === 'high' 
+                                ? 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300' 
+                                : 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-300'
+                            }`}>
+                              Risk: {log.risk_level}
+                            </span>
+                          </div>
+                          <p><strong>Appearance:</strong> {log.appearance}</p>
+                          <p><strong>Speech:</strong> {log.speech}</p>
+                          <p><strong>Mood/Affect:</strong> {log.mood_affect}</p>
+                          <p><strong>Thought Process:</strong> {log.thought_process}</p>
+                          <p><strong>Clinical Impression:</strong> <span className="italic">{log.clinical_impression}</span></p>
+                          <p className="text-[10px] text-slate-400">Log written by: Dr. {log.provider_name}</p>
                         </div>
-                        <p><strong>Appearance:</strong> {log.appearance}</p>
-                        <p><strong>Speech:</strong> {log.speech}</p>
-                        <p><strong>Mood/Affect:</strong> {log.mood_affect}</p>
-                        <p><strong>Thought Process:</strong> {log.thought_process}</p>
-                        <p><strong>Clinical Impression:</strong> <span className="italic">{log.clinical_impression}</span></p>
-                        <p className="text-[10px] text-slate-400">Log written by: Dr. {log.provider_name}</p>
+                        <a
+                          href={api.clinical.getMSEPrintUrl(log.id)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-50 dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-slate-700 text-blue-600 dark:text-blue-400 font-bold rounded-xl text-[11px] transition mt-3 cursor-pointer text-center w-full"
+                        >
+                          <Printer size={12} />
+                          Print / Save PDF Report
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* SECTION 3B: CHILD CASE HISTORY */}
+          {activeSection === 'child-case-history' && (
+            <div className="space-y-6">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm space-y-6">
+                <div>
+                  <h3 className="font-bold text-slate-900 dark:text-white">Child Case History Record Form</h3>
+                  <p className="text-xs text-slate-500 mt-1">Audit child developmental milestones and family sociodemographics</p>
+                </div>
+
+                <form onSubmit={handleSaveCCH} className="space-y-6">
+                  {/* 1. Sociodemographic Details */}
+                  <div>
+                    <h4 className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-3">1. Sociodemographic Details</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Child Name</label>
+                        <input
+                          type="text"
+                          value={cchSociodemographics.name}
+                          onChange={(e) => setCchSociodemographics({ ...cchSociodemographics, name: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          placeholder="Child's full name"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Sex</label>
+                        <select
+                          value={cchSociodemographics.sex}
+                          onChange={(e) => setCchSociodemographics({ ...cchSociodemographics, sex: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                        >
+                          <option>Male</option>
+                          <option>Female</option>
+                          <option>Other</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Age</label>
+                        <input
+                          type="text"
+                          value={cchSociodemographics.age}
+                          onChange={(e) => setCchSociodemographics({ ...cchSociodemographics, age: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          placeholder="Age (e.g. 8 years)"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Mother Tongue</label>
+                        <input
+                          type="text"
+                          value={cchSociodemographics.motherTongue}
+                          onChange={(e) => setCchSociodemographics({ ...cchSociodemographics, motherTongue: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          placeholder="Language spoken at home"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Education</label>
+                        <input
+                          type="text"
+                          value={cchSociodemographics.education}
+                          onChange={(e) => setCchSociodemographics({ ...cchSociodemographics, education: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          placeholder="Grade / School level"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Religion</label>
+                        <input
+                          type="text"
+                          value={cchSociodemographics.religion}
+                          onChange={(e) => setCchSociodemographics({ ...cchSociodemographics, religion: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          placeholder="Religion"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Residence Type</label>
+                        <select
+                          value={cchSociodemographics.residence}
+                          onChange={(e) => setCchSociodemographics({ ...cchSociodemographics, residence: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                        >
+                          <option>Urban</option>
+                          <option>Rural</option>
+                          <option>Semi-urban</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Family Type & Size</label>
+                        <input
+                          type="text"
+                          value={cchSociodemographics.familyTypeSize}
+                          onChange={(e) => setCchSociodemographics({ ...cchSociodemographics, familyTypeSize: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          placeholder="e.g. Joint family, 5 members"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Family Monthly Income</label>
+                        <input
+                          type="text"
+                          value={cchSociodemographics.familyIncome}
+                          onChange={(e) => setCchSociodemographics({ ...cchSociodemographics, familyIncome: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          placeholder="Monthly income in INR"
+                        />
+                      </div>
+                      <div className="md:col-span-3">
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Address</label>
+                        <input
+                          type="text"
+                          value={cchSociodemographics.address}
+                          onChange={(e) => setCchSociodemographics({ ...cchSociodemographics, address: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          placeholder="Residential address"
+                        />
+                      </div>
+                      <div className="md:col-span-3">
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Occupation & Marital Status of Parents (if relevant)</label>
+                        <input
+                          type="text"
+                          value={cchSociodemographics.occupationMarital}
+                          onChange={(e) => setCchSociodemographics({ ...cchSociodemographics, occupationMarital: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          placeholder="Parent occupational details..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. Presenting Complaints & HOPI */}
+                  <div>
+                    <h4 className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-3">2. Presenting Complaints & HOPI</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Presenting Complaints</label>
+                        <textarea
+                          value={cchComplaints}
+                          onChange={(e) => setCchComplaints(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          rows={3}
+                          placeholder="Primary behavior or clinical concerns reported..."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">History of Presenting Illness (HOPI)</label>
+                        <textarea
+                          value={cchHopi}
+                          onChange={(e) => setCchHopi(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          rows={3}
+                          placeholder="Precipitating factors, onset, course, and progress..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3. Treatment and Past History */}
+                  <div>
+                    <h4 className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-3">3. Treatment & Past Illnesses</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Treatment History</label>
+                        <textarea
+                          value={cchTreatmentHistory}
+                          onChange={(e) => setCchTreatmentHistory(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          rows={3}
+                          placeholder="Past therapies, medical prescriptions, or clinical treatments..."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Past History of Illness (Medical & Psychiatric)</label>
+                        <textarea
+                          value={cchPastHistory}
+                          onChange={(e) => setCchPastHistory(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          rows={3}
+                          placeholder="Past childhood diseases, hospitalization records..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 4. Family History */}
+                  <div>
+                    <h4 className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-3">4. Family History & tree</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Father's Age & Status</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={cchFamilyHistory.fatherAge}
+                            onChange={(e) => setCchFamilyHistory({ ...cchFamilyHistory, fatherAge: e.target.value })}
+                            className="w-2/3 px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                            placeholder="Age"
+                          />
+                          <select
+                            value={cchFamilyHistory.fatherStatus}
+                            onChange={(e) => setCchFamilyHistory({ ...cchFamilyHistory, fatherStatus: e.target.value })}
+                            className="w-1/3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          >
+                            <option>Living</option>
+                            <option>Deceased</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Father's Education / Occ</label>
+                        <input
+                          type="text"
+                          value={cchFamilyHistory.fatherEducation}
+                          onChange={(e) => setCchFamilyHistory({ ...cchFamilyHistory, fatherEducation: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          placeholder="Education & Job"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Father's Relationship with Patient</label>
+                        <input
+                          type="text"
+                          value={cchFamilyHistory.fatherRelationship}
+                          onChange={(e) => setCchFamilyHistory({ ...cchFamilyHistory, fatherRelationship: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          placeholder="e.g. Caring, Strict, Distant"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Mother's Age & Status</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={cchFamilyHistory.motherAge}
+                            onChange={(e) => setCchFamilyHistory({ ...cchFamilyHistory, motherAge: e.target.value })}
+                            className="w-2/3 px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                            placeholder="Age"
+                          />
+                          <select
+                            value={cchFamilyHistory.motherStatus}
+                            onChange={(e) => setCchFamilyHistory({ ...cchFamilyHistory, motherStatus: e.target.value })}
+                            className="w-1/3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          >
+                            <option>Living</option>
+                            <option>Deceased</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Mother's Education / Occ</label>
+                        <input
+                          type="text"
+                          value={cchFamilyHistory.motherEducation}
+                          onChange={(e) => setCchFamilyHistory({ ...cchFamilyHistory, motherEducation: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          placeholder="Education & Job"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Mother's Relationship with Patient</label>
+                        <input
+                          type="text"
+                          value={cchFamilyHistory.motherRelationship}
+                          onChange={(e) => setCchFamilyHistory({ ...cchFamilyHistory, motherRelationship: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          placeholder="e.g. Supportive, Overprotective"
+                        />
+                      </div>
+
+                      <div className="md:col-span-3">
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Family Tree structure / Notes</label>
+                        <textarea
+                          value={cchFamilyHistory.familyTree}
+                          onChange={(e) => setCchFamilyHistory({ ...cchFamilyHistory, familyTree: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          rows={2}
+                          placeholder="Structure of immediate/extended family, parentage order..."
+                        />
+                      </div>
+
+                      <div className="md:col-span-3">
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Family History of Psychiatric illness/dependency/epilepsy</label>
+                        <input
+                          type="text"
+                          value={cchFamilyHistory.psychiatricHistory}
+                          onChange={(e) => setCchFamilyHistory({ ...cchFamilyHistory, psychiatricHistory: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          placeholder="Notes about any generational medical/psychiatric triggers..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 5. Personal History */}
+                  <div>
+                    <h4 className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-3">5. Personal History (Birth & Development)</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Type of Birth</label>
+                        <select
+                          value={cchPersonalHistory.birthType}
+                          onChange={(e) => setCchPersonalHistory({ ...cchPersonalHistory, birthType: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                        >
+                          <option>Normal (Vaginal)</option>
+                          <option>Caesarean (C-section)</option>
+                          <option>Forceps / Assisted</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Birth Cry</label>
+                        <select
+                          value={cchPersonalHistory.birthCry}
+                          onChange={(e) => setCchPersonalHistory({ ...cchPersonalHistory, birthCry: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                        >
+                          <option>Immediate</option>
+                          <option>Delayed (Blue baby, asphyxia)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Birth Complications</label>
+                        <input
+                          type="text"
+                          value={cchPersonalHistory.birthComplication}
+                          onChange={(e) => setCchPersonalHistory({ ...cchPersonalHistory, birthComplication: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          placeholder="e.g. Cord wrap, low weight"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Significant Prenatal Factors</label>
+                        <input
+                          type="text"
+                          value={cchPersonalHistory.prenatalFactors}
+                          onChange={(e) => setCchPersonalHistory({ ...cchPersonalHistory, prenatalFactors: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          placeholder="Mother illness during pregnancy..."
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Significant Perinatal Factors</label>
+                        <input
+                          type="text"
+                          value={cchPersonalHistory.perinatalFactors}
+                          onChange={(e) => setCchPersonalHistory({ ...cchPersonalHistory, perinatalFactors: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          placeholder="Incubator stay, jaundice..."
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Developmental Milestones</label>
+                        <input
+                          type="text"
+                          value={cchPersonalHistory.milestones}
+                          onChange={(e) => setCchPersonalHistory({ ...cchPersonalHistory, milestones: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          placeholder="Walked at 1 yr, talked at..."
+                        />
+                      </div>
+
+                      <div className="md:col-span-3">
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Relationship of Parents with Children & Play Behaviour</label>
+                        <textarea
+                          value={cchPersonalHistory.parentsRelationship}
+                          onChange={(e) => setCchPersonalHistory({ ...cchPersonalHistory, parentsRelationship: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          rows={2}
+                          placeholder="Shared activities, family stress triggers, play style with peers..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 6. Academic History */}
+                  <div>
+                    <h4 className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-3">6. Academic History</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Age of School Admission</label>
+                        <input
+                          type="text"
+                          value={cchPersonalHistory.schoolAdmissionAge}
+                          onChange={(e) => setCchPersonalHistory({ ...cchPersonalHistory, schoolAdmissionAge: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          placeholder="Admission age (e.g. 4 years)"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Highest Grade Completed</label>
+                        <input
+                          type="text"
+                          value={cchPersonalHistory.highestGrade}
+                          onChange={(e) => setCchPersonalHistory({ ...cchPersonalHistory, highestGrade: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          placeholder="Grade levels"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Academic Performance</label>
+                        <input
+                          type="text"
+                          value={cchPersonalHistory.academicPerformance}
+                          onChange={(e) => setCchPersonalHistory({ ...cchPersonalHistory, academicPerformance: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950"
+                          placeholder="e.g. Above average, failing grades"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer transition shadow-sm hover:shadow"
+                  >
+                    Save Child Case History
+                  </button>
+                </form>
+              </div>
+
+              {/* Historical CCH Logs comparative list */}
+              {cchLogs.length > 0 && (
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm">
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-white mb-4">Historical Child Case History Logs</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {cchLogs.map((log, idx) => (
+                      <div key={idx} className="p-4 border border-slate-200 dark:border-slate-850 rounded-xl bg-slate-50/50 dark:bg-slate-900/50 space-y-2 text-xs flex flex-col justify-between">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-2">
+                            <span className="font-bold text-blue-600 dark:text-blue-400">Date: {new Date(log.created_at).toLocaleDateString()}</span>
+                            <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono text-[9px] uppercase font-black">
+                              ID: CCH-{log.id}
+                            </span>
+                          </div>
+                          <p><strong>Child Name:</strong> {log.sociodemographics?.name || 'N/A'}</p>
+                          <p><strong>Age / Gender:</strong> {log.sociodemographics?.age || 'N/A'} / {log.sociodemographics?.sex || 'N/A'}</p>
+                          <p><strong>Presenting Complaints:</strong> <span className="italic">{log.presenting_complaints || 'None'}</span></p>
+                          <p className="text-[10px] text-slate-400">Log written by: Dr. {log.provider_name}</p>
+                        </div>
+                        <a
+                          href={api.clinical.getChildCaseHistoryPrintUrl(log.id)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-50 dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-slate-700 text-blue-600 dark:text-blue-400 font-bold rounded-xl text-[11px] transition mt-3 cursor-pointer text-center w-full"
+                        >
+                          <Printer size={12} />
+                          Print / Save PDF Report
+                        </a>
                       </div>
                     ))}
                   </div>

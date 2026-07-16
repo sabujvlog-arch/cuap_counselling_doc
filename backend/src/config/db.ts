@@ -351,6 +351,20 @@ const createPostgresTables = async (): Promise<void> => {
       ip_address VARCHAR(100),
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS child_case_histories (
+      id SERIAL PRIMARY KEY,
+      student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
+      provider_id INTEGER REFERENCES providers(id) ON DELETE CASCADE,
+      sociodemographics TEXT,
+      presenting_complaints TEXT,
+      hopi TEXT,
+      treatment_history TEXT,
+      past_history TEXT,
+      family_history TEXT,
+      personal_history TEXT,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
   `;
   await pgPool!.query(schema);
 };
@@ -635,6 +649,24 @@ const createSqliteTables = (): Promise<void> => {
           ip_address TEXT,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+        )
+      `);
+
+      sqliteDb!.run(`
+        CREATE TABLE IF NOT EXISTS child_case_histories (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          student_id INTEGER,
+          provider_id INTEGER,
+          sociodemographics TEXT,
+          presenting_complaints TEXT,
+          hopi TEXT,
+          treatment_history TEXT,
+          past_history TEXT,
+          family_history TEXT,
+          personal_history TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE,
+          FOREIGN KEY(provider_id) REFERENCES providers(id) ON DELETE CASCADE
         )
       `, (err) => {
         if (err) {

@@ -855,3 +855,643 @@ export const getPrescriptionPrintLayout = async (req: AuthRequest, res: Response
     return res.status(500).send('<h1>Internal Server Error</h1>');
   }
 };
+
+export const saveChildCaseHistory = async (req: AuthRequest, res: Response) => {
+  const {
+    studentId,
+    sociodemographics,
+    presentingComplaints,
+    hopi,
+    treatmentHistory,
+    pastHistory,
+    familyHistory,
+    personalHistory
+  } = req.body;
+
+  if (!req.user || req.user.role !== 'provider') {
+    return res.status(403).json({ error: 'Only providers can write case histories' });
+  }
+
+  try {
+    const providerRes = await query('SELECT id FROM providers WHERE user_id = $1', [req.user.id]);
+    const providerId = providerRes.rows[0].id;
+
+    await query(
+      `INSERT INTO child_case_histories 
+       (student_id, provider_id, sociodemographics, presenting_complaints, hopi, treatment_history, past_history, family_history, personal_history) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [
+        studentId,
+        providerId,
+        JSON.stringify(sociodemographics),
+        presentingComplaints,
+        hopi,
+        treatmentHistory,
+        pastHistory,
+        JSON.stringify(familyHistory),
+        JSON.stringify(personalHistory)
+      ]
+    );
+
+    // Audit logs
+    await query(
+      'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
+      [req.user.id, 'SAVE_CHILD_CASE_HISTORY', `Saved Child Case History for Student ID ${studentId}`, req.ip]
+    );
+
+    return res.status(201).json({ message: 'Child Case History recorded successfully' });
+  } catch (err) {
+    console.error('Save child case history error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const getChildCaseHistories = async (req: AuthRequest, res: Response) => {
+  const { studentId } = req.params;
+
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    if (req.user.role === 'student') {
+      const studentProfile = await query('SELECT id FROM students WHERE user_id = $1', [req.user.id]);
+      if (studentProfile.rows.length === 0 || studentProfile.rows[0].id !== parseInt(studentId)) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+    }
+
+    const logsRes = await query(
+      `SELECT c.*, p.name as provider_name 
+       FROM child_case_histories c
+       JOIN providers p ON c.provider_id = p.id
+       WHERE c.student_id = $1
+       ORDER BY c.created_at DESC`,
+      [studentId]
+    );
+
+    const formattedRows = logsRes.rows.map((row: any) => ({
+      ...row,
+      sociodemographics: JSON.parse(row.sociodemographics || '{}'),
+      family_history: JSON.parse(row.family_history || '{}'),
+      personal_history: JSON.parse(row.personal_history || '{}')
+    }));
+
+    return res.json(formattedRows);
+  } catch (err) {
+    console.error('Get child case histories error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const getMSEPrintLayout = async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+
+  try {
+    const logRes = await query(
+      `SELECT m.*, p.name as provider_name, p.qualification as provider_qual, p.specialization as provider_spec, p.employee_id as provider_emp_id, p.signature_url,
+              s.name as student_name, s.registration_number, s.department as student_dept, s.semester as student_semester, s.age, s.gender, s.blood_group
+       FROM mse_logs m
+       JOIN providers p ON m.provider_id = p.id
+       JOIN students s ON m.student_id = s.id
+       WHERE m.id = $1`,
+      [id]
+    );
+
+    if (logRes.rows.length === 0) {
+      return res.status(404).send('<h1>MSE Log not found</h1>');
+    }
+
+    const p = logRes.rows[0];
+    const formattedDate = new Date(p.created_at).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Mental Status Examination - ${p.student_name}</title>
+        <style>
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 40px;
+            color: #1e293b;
+            background-color: #ffffff;
+          }
+          .container {
+            max-width: 800px;
+            margin: 0 auto;
+            border: 1px solid #e2e8f0;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #1e3a8a;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+          }
+          .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+          }
+          .title-area h1 {
+            font-size: 20px;
+            margin: 0 0 4px 0;
+            color: #1e3a8a;
+            font-weight: 700;
+          }
+          .title-area p {
+            margin: 0;
+            font-size: 13px;
+            color: #475569;
+          }
+          .header-right {
+            text-align: right;
+            font-size: 13px;
+            color: #475569;
+          }
+          .header-right h2 {
+            font-size: 16px;
+            margin: 0 0 4px 0;
+            color: #1e3a8a;
+          }
+          .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            background-color: #f8fafc;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 35px;
+            font-size: 13px;
+          }
+          .info-col p {
+            margin: 4px 0;
+          }
+          .section-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1e3a8a;
+            border-bottom: 1px solid #cbd5e1;
+            padding-bottom: 4px;
+            margin-top: 25px;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          .content-box {
+            font-size: 13px;
+            line-height: 1.6;
+            color: #334155;
+            margin-bottom: 15px;
+            white-space: pre-wrap;
+          }
+          .risk-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+          }
+          .risk-low { background-color: #dcfce7; color: #15803d; }
+          .risk-medium { background-color: #fef9c3; color: #a16207; }
+          .risk-high { background-color: #fee2e2; color: #b91c1c; }
+          .risk-severe { background-color: #fca5a5; color: #991b1b; }
+          .footer-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+          }
+          .signature-box {
+            text-align: center;
+            width: 200px;
+          }
+          .signature-line {
+            border-top: 1px solid #94a3b8;
+            margin-top: 50px;
+            padding-top: 6px;
+            font-size: 12px;
+            font-weight: 500;
+          }
+          .signature-img {
+            max-height: 45px;
+            max-width: 160px;
+            margin-bottom: -15px;
+          }
+          .print-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #3b82f6;
+            color: #ffffff;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+          }
+          @media print {
+            body { padding: 0; }
+            .container { border: none; padding: 0; box-shadow: none; }
+            .print-btn { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <button class="print-btn" onclick="window.print()">Print / Save PDF</button>
+        <div class="container">
+          <div class="header">
+            <div class="header-left">
+              <img src="http://localhost:3000/logo.png" style="width: 70px; height: 70px; object-fit: contain;" alt="CUAP Logo" />
+              <div class="title-area">
+                <h1>Student Wellness & Counseling Centre</h1>
+                <p>Central University of Andhra Pradesh</p>
+                <p>Ananthapuramu - 515002, India</p>
+              </div>
+            </div>
+            <div class="header-right">
+              <h2>Dr. ${p.provider_name}</h2>
+              <p>${p.provider_qual}</p>
+              <p>${p.provider_spec}</p>
+              <p>Emp ID: ${p.provider_emp_id}</p>
+            </div>
+          </div>
+
+          <div class="info-grid">
+            <div class="info-col">
+              <p><strong>Student Name:</strong> ${p.student_name}</p>
+              <p><strong>Registration No:</strong> ${p.registration_number.toUpperCase()}</p>
+              <p><strong>Department/Semester:</strong> ${p.student_dept} / Sem ${p.student_semester}</p>
+            </div>
+            <div class="info-col" style="border-left: 1px solid #e2e8f0; padding-left: 15px;">
+              <p><strong>Exam Date:</strong> ${formattedDate}</p>
+              <p><strong>Age / Gender:</strong> ${p.age} Y / ${p.gender}</p>
+              <p><strong>Risk Level:</strong> <span class="risk-badge risk-${p.risk_level}">${p.risk_level}</span></p>
+            </div>
+          </div>
+
+          <div class="section-title">1. General Appearance & Behaviour</div>
+          <div class="content-box"><strong>Appearance:</strong> ${p.appearance || 'Not specified'}\n<strong>Behaviour:</strong> ${p.behaviour || 'Not specified'}</div>
+
+          <div class="section-title">2. Speech & Communication</div>
+          <div class="content-box">${p.speech || 'Not specified'}</div>
+
+          <div class="section-title">3. Mood & Affect</div>
+          <div class="content-box">${p.mood_affect || 'Not specified'}</div>
+
+          <div class="section-title">4. Thought & Perception</div>
+          <div class="content-box"><strong>Thought Process:</strong> ${p.thought_process || 'Not specified'}\n<strong>Thought Content:</strong> ${p.thought_content || 'Not specified'}\n<strong>Perception:</strong> ${p.perception || 'Not specified'}</div>
+
+          <div class="section-title">5. Cognitive Functions & Judgment</div>
+          <div class="content-box"><strong>Cognition:</strong> ${p.cognition || 'Not specified'}\n<strong>Insight & Judgment:</strong> ${p.insight_judgment || 'Not specified'}</div>
+
+          <div class="section-title">Clinical Impression & Notes</div>
+          <div class="content-box">${p.clinical_impression || 'Not specified'}</div>
+
+          <div class="footer-section">
+            <div style="font-size: 13px; color: #475569;">
+              CUAP Student Wellness Report
+            </div>
+            <div class="signature-box">
+              ${p.signature_url ? `<img src="${p.signature_url}" class="signature-img" alt="Digital Signature" />` : ''}
+              <div class="signature-line">Authorized Digital Signature</div>
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+    return res.send(html);
+  } catch (err) {
+    console.error('Get MSE print layout error:', err);
+    return res.status(500).send('<h1>Internal Server Error</h1>');
+  }
+};
+
+export const getChildCaseHistoryPrintLayout = async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+
+  try {
+    const logRes = await query(
+      `SELECT c.*, p.name as provider_name, p.qualification as provider_qual, p.specialization as provider_spec, p.employee_id as provider_emp_id, p.signature_url,
+              s.name as student_name, s.registration_number, s.department as student_dept, s.semester as student_semester, s.age, s.gender, s.blood_group
+       FROM child_case_histories c
+       JOIN providers p ON c.provider_id = p.id
+       JOIN students s ON c.student_id = s.id
+       WHERE c.id = $1`,
+      [id]
+    );
+
+    if (logRes.rows.length === 0) {
+      return res.status(404).send('<h1>Child Case History not found</h1>');
+    }
+
+    const p = logRes.rows[0];
+    const formattedDate = new Date(p.created_at).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    const sd = JSON.parse(p.sociodemographics || '{}');
+    const fh = JSON.parse(p.family_history || '{}');
+    const ph = JSON.parse(p.personal_history || '{}');
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Child Case History - ${sd.name || p.student_name}</title>
+        <style>
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 40px;
+            color: #1e293b;
+            background-color: #ffffff;
+          }
+          .container {
+            max-width: 800px;
+            margin: 0 auto;
+            border: 1px solid #e2e8f0;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #1e3a8a;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+          }
+          .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+          }
+          .title-area h1 {
+            font-size: 20px;
+            margin: 0 0 4px 0;
+            color: #1e3a8a;
+            font-weight: 700;
+          }
+          .title-area p {
+            margin: 0;
+            font-size: 13px;
+            color: #475569;
+          }
+          .header-right {
+            text-align: right;
+            font-size: 13px;
+            color: #475569;
+          }
+          .header-right h2 {
+            font-size: 16px;
+            margin: 0 0 4px 0;
+            color: #1e3a8a;
+          }
+          .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            background-color: #f8fafc;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 35px;
+            font-size: 13px;
+          }
+          .info-col p {
+            margin: 4px 0;
+          }
+          .section-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1e3a8a;
+            border-bottom: 1px solid #cbd5e1;
+            padding-bottom: 4px;
+            margin-top: 25px;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          .content-box {
+            font-size: 13px;
+            line-height: 1.6;
+            color: #334155;
+            margin-bottom: 15px;
+            white-space: pre-wrap;
+          }
+          .details-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+            font-size: 13px;
+          }
+          .details-table th, .details-table td {
+            border: 1px solid #cbd5e1;
+            padding: 8px 10px;
+            text-align: left;
+          }
+          .details-table th {
+            background-color: #f1f5f9;
+            font-weight: 600;
+          }
+          .footer-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+          }
+          .signature-box {
+            text-align: center;
+            width: 200px;
+          }
+          .signature-line {
+            border-top: 1px solid #94a3b8;
+            margin-top: 50px;
+            padding-top: 6px;
+            font-size: 12px;
+            font-weight: 500;
+          }
+          .signature-img {
+            max-height: 45px;
+            max-width: 160px;
+            margin-bottom: -15px;
+          }
+          .print-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #3b82f6;
+            color: #ffffff;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+          }
+          @media print {
+            body { padding: 0; }
+            .container { border: none; padding: 0; box-shadow: none; }
+            .print-btn { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <button class="print-btn" onclick="window.print()">Print / Save PDF</button>
+        <div class="container">
+          <div class="header">
+            <div class="header-left">
+              <img src="http://localhost:3000/logo.png" style="width: 70px; height: 70px; object-fit: contain;" alt="CUAP Logo" />
+              <div class="title-area">
+                <h1>Student Wellness & Counseling Centre</h1>
+                <p>Central University of Andhra Pradesh</p>
+                <p>Ananthapuramu - 515002, India</p>
+              </div>
+            </div>
+            <div class="header-right">
+              <h2>Dr. ${p.provider_name}</h2>
+              <p>${p.provider_qual}</p>
+              <p>${p.provider_spec}</p>
+              <p>Emp ID: ${p.provider_emp_id}</p>
+            </div>
+          </div>
+
+          <div class="info-grid">
+            <div class="info-col">
+              <p><strong>Case ID:</strong> CCH-${p.id}</p>
+              <p><strong>Student / Reference Name:</strong> ${sd.name || p.student_name}</p>
+              <p><strong>Registration No:</strong> ${p.registration_number.toUpperCase()}</p>
+            </div>
+            <div class="info-col" style="border-left: 1px solid #e2e8f0; padding-left: 15px;">
+              <p><strong>Record Date:</strong> ${formattedDate}</p>
+              <p><strong>Age / Gender:</strong> ${sd.age || p.age} Y / ${sd.sex || p.gender}</p>
+              <p><strong>Mother Tongue:</strong> ${sd.motherTongue || 'Not specified'}</p>
+            </div>
+          </div>
+
+          <div class="section-title">1. Sociodemographic Details</div>
+          <table class="details-table">
+            <tr>
+              <th>Address</th>
+              <td>${sd.address || 'N/A'}</td>
+              <th>Education</th>
+              <td>${sd.education || 'N/A'}</td>
+            </tr>
+            <tr>
+              <th>Religion</th>
+              <td>${sd.religion || 'N/A'}</td>
+              <th>Residence Type</th>
+              <td>${sd.residence || 'N/A'}</td>
+            </tr>
+            <tr>
+              <th>Family Type & Size</th>
+              <td>${sd.familyTypeSize || 'N/A'}</td>
+              <th>Family Income</th>
+              <td>${sd.familyIncome || 'N/A'}</td>
+            </tr>
+            <tr>
+              <th>Occupation/Marital</th>
+              <td colspan="3">${sd.occupationMarital || 'N/A'}</td>
+            </tr>
+          </table>
+
+          <div class="section-title">2. Presenting Complaints</div>
+          <div class="content-box">${p.presenting_complaints || 'None'}</div>
+
+          <div class="section-title">3. History of Presenting Illness (HOPI)</div>
+          <div class="content-box">${p.hopi || 'None'}</div>
+
+          <div class="section-title">4. Treatment & Past History</div>
+          <div class="content-box"><strong>Treatment History:</strong>\n${p.treatment_history || 'None'}\n\n<strong>Past Illnesses (Medical & Psychiatric):</strong>\n${p.past_history || 'None'}</div>
+
+          <div class="section-title">5. Family History & Tree</div>
+          <div class="content-box"><strong>Family Background / Tree:</strong>\n${fh.familyTree || 'None'}\n\n<strong>Father\'s Profile:</strong> Age: ${fh.fatherAge || 'N/A'}, Status: ${fh.fatherStatus || 'N/A'}, Edu: ${fh.fatherEducation || 'N/A'}, Relation: ${fh.fatherRelationship || 'N/A'}\n<strong>Mother\'s Profile:</strong> Age: ${fh.motherAge || 'N/A'}, Status: ${fh.motherStatus || 'N/A'}, Edu: ${fh.motherEducation || 'N/A'}, Relation: ${fh.motherRelationship || 'N/A'}\n\n<strong>Psychiatric Illness / Dependencies in Family:</strong>\n${fh.psychiatricHistory || 'None'}</div>
+
+          <div class="section-title">6. Personal History (Birth & Developmental)</div>
+          <table class="details-table">
+            <tr>
+              <th>Birth Type</th>
+              <td>${ph.birthType || 'N/A'}</td>
+              <th>Birth Cry</th>
+              <td>${ph.birthCry || 'N/A'}</td>
+            </tr>
+            <tr>
+              <th>Birth Complication</th>
+              <td>${ph.birthComplication || 'N/A'}</td>
+              <th>Prenatal Factors</th>
+              <td>${ph.prenatalFactors || 'N/A'}</td>
+            </tr>
+            <tr>
+              <th>Perinatal Factors</th>
+              <td>${ph.perinatalFactors || 'N/A'}</td>
+              <th>Developmental Milestones</th>
+              <td>${ph.milestones || 'N/A'}</td>
+            </tr>
+            <tr>
+              <th>Relationship of Parents</th>
+              <td colspan="3">${ph.parentsRelationship || 'N/A'}</td>
+            </tr>
+            <tr>
+              <th>Play Behaviour</th>
+              <td colspan="3">${ph.playBehaviour || 'N/A'}</td>
+            </tr>
+          </table>
+
+          <div class="section-title">7. Academic History</div>
+          <table class="details-table">
+            <tr>
+              <th>School Admission Age</th>
+              <td>${ph.schoolAdmissionAge || 'N/A'}</td>
+              <th>Highest Grade</th>
+              <td>${ph.highestGrade || 'N/A'}</td>
+            </tr>
+            <tr>
+              <th>Academic Performance</th>
+              <td colspan="3">${ph.academicPerformance || 'N/A'}</td>
+            </tr>
+          </table>
+
+          <div class="footer-section">
+            <div style="font-size: 13px; color: #475569;">
+              Child Case History Record - CUAP SWCC
+            </div>
+            <div class="signature-box">
+              ${p.signature_url ? `<img src="${p.signature_url}" class="signature-img" alt="Digital Signature" />` : ''}
+              <div class="signature-line">Authorized Digital Signature</div>
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+    return res.send(html);
+  } catch (err) {
+    console.error('Get child case history print layout error:', err);
+    return res.status(500).send('<h1>Internal Server Error</h1>');
+  }
+};
+
