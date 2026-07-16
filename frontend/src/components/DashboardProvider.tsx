@@ -178,7 +178,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
       <aside className="w-full lg:w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-850 p-6 flex flex-col justify-between shrink-0">
         <div>
           <div className="flex items-center gap-3 mb-8">
-            <img src="/logo.png" className="w-10 h-10 object-contain" alt="CUAP Logo" />
+            <img src="/logo.svg" className="w-10 h-10 object-contain" alt="CUAP Logo" />
             <div>
               <h1 className="text-xs font-black leading-tight text-slate-800 dark:text-slate-205">CUAP SWCC</h1>
               <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Provider Portal</p>
