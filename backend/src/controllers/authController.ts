@@ -107,6 +107,33 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
+    if (user.role === 'student') {
+      const usernameMatch = await bcrypt.compare(user.username, user.password_hash);
+      const changePasswordRequired = usernameMatch;
+
+      const token = jwt.sign(
+        { id: user.id, username: user.username, role: user.role },
+        JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+
+      await query(
+        'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
+        [user.id, 'LOGIN', `User ${user.username} bypassed 2FA (student role) and logged in successfully`, req.ip]
+      );
+
+      return res.json({
+        requires2FA: false,
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          role: user.role,
+        },
+        changePasswordRequired
+      });
+    }
+
     // Generate random 6-digit OTP code
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes expiration
