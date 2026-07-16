@@ -149,6 +149,70 @@ export default function Home() {
     }
   };
 
+  const handleAIChatBooking = async (providerId: number, date: string, slot: string) => {
+    if (!session || session.user.role !== 'student') {
+      alert("Please log in to your Student Account first to book this appointment.");
+      return;
+    }
+    
+    try {
+      setChatLoading(true);
+      const res = await api.appointments.book({
+        providerId,
+        date,
+        timeSlot: slot,
+        reason: "Scheduled dynamically via CUAP AI Chatbot Assistant"
+      });
+      alert(res.message || "Appointment booked successfully!");
+      
+      setChatHistory(prev => [...prev, {
+        sender: 'assistant' as const,
+        text: `Confirmed! I've booked your slot with the counselor on ${date} at ${slot}. You can check your Student Dashboard to view the status.`
+      }]);
+    } catch (err: any) {
+      alert(err.message || "Failed to book slot");
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const renderMessageContent = (text: string) => {
+    const regex = /\[([^\]]+)\]\(book:\/\/([^\/]+)\/([^\/]+)\/([^)]+)\)/g;
+    
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+    
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(<span key={`text-${lastIndex}`}>{text.substring(lastIndex, match.index)}</span>);
+      }
+      
+      const label = match[1];
+      const providerId = parseInt(match[2]);
+      const date = match[3];
+      const slot = decodeURIComponent(match[4]);
+      
+      parts.push(
+        <button
+          key={`book-${match.index}`}
+          onClick={() => handleAIChatBooking(providerId, date, slot)}
+          className="mt-2 block w-full py-2 px-3 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-blue-600 dark:text-blue-400 font-extrabold text-[11px] rounded-xl border border-blue-150 dark:border-blue-900 shadow-xs hover:scale-[1.02] transition cursor-pointer text-center"
+        >
+          📅 Confirm: {label.replace("Click here to ", "")}
+        </button>
+      );
+      
+      lastIndex = regex.lastIndex;
+    }
+    
+    if (lastIndex < text.length) {
+      parts.push(<span key={`text-${lastIndex}`}>{text.substring(lastIndex)}</span>);
+    }
+    
+    return parts.length > 0 ? parts : text;
+  };
+
   const handleLogout = () => {
     api.clearToken();
     setSession(null);
@@ -507,7 +571,7 @@ export default function Home() {
                       : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-tl-none border border-slate-100 dark:border-slate-750'
                   }`}
                 >
-                  {msg.text}
+                  {renderMessageContent(msg.text)}
                 </div>
               </div>
             ))}
