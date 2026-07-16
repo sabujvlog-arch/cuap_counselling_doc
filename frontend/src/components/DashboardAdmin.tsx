@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import { 
   Users, Calendar, Activity, RefreshCw, Plus, Trash2, Eye, ShieldAlert,
-  Database, Volume2, KeyRound, Download, Upload, LogOut, Check, X, Clock, HelpCircle, FileText
+  Database, Volume2, KeyRound, Download, Upload, LogOut, Check, X, Clock, HelpCircle, FileText, Edit
 } from 'lucide-react';
 import OPDRegister from './OPDRegister';
 
@@ -30,6 +30,13 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
   });
   const [studentForm, setStudentForm] = useState({
     registrationNumber: '', name: '', age: '', gender: 'Male', dob: '', 
+    department: 'Computer Science', semester: '1', phone: '', email: '', 
+    hostelScholar: 'Day Scholar', emergencyContact: '', emergencyPhone: '', 
+    bloodGroup: 'O+', address: ''
+  });
+  const [editingStudent, setEditingStudent] = useState<any | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: '', age: '', gender: 'Male', dob: '', 
     department: 'Computer Science', semester: '1', phone: '', email: '', 
     hostelScholar: 'Day Scholar', emergencyContact: '', emergencyPhone: '', 
     bloodGroup: 'O+', address: ''
@@ -75,10 +82,8 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
 
   const fetchStudents = async () => {
     try {
-      // In SQLite fallback we can query students by using reports or message lists, or we can fetch them via list endpoint.
-      // Let's call message contacts to get the list of users
-      const res = await api.messages.contacts();
-      setStudents(res.filter((u: any) => u.role === 'student'));
+      const res = await api.admin.listStudents();
+      setStudents(res);
     } catch (err) {
       console.error(err);
     }
@@ -133,6 +138,52 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
       fetchAudits();
     } catch (err: any) {
       alert(err.message || "Failed to create student");
+    }
+  };
+
+  const startEditStudent = (s: any) => {
+    setEditingStudent(s);
+    setEditForm({
+      name: s.name || '',
+      age: s.age ? s.age.toString() : '',
+      gender: s.gender || 'Male',
+      dob: s.dob || '',
+      bloodGroup: s.blood_group || 'O+',
+      department: s.department || 'Computer Science',
+      semester: s.semester ? s.semester.toString() : '1',
+      hostelScholar: s.hostel_scholar || 'Day Scholar',
+      phone: s.phone || '',
+      email: s.email || '',
+      emergencyContact: s.emergency_contact || '',
+      emergencyPhone: s.emergency_phone || '',
+      address: s.address || ''
+    });
+  };
+
+  const handleUpdateStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStudent) return;
+    try {
+      await api.admin.updateStudent(editingStudent.id, editForm);
+      alert("Student profile updated successfully!");
+      setEditingStudent(null);
+      fetchStudents();
+      fetchAudits();
+    } catch (err: any) {
+      alert(err.message || "Failed to update student");
+    }
+  };
+
+  const handleDeleteStudent = async (studentId: number, studentName: string) => {
+    if (confirm(`Are you sure you want to permanently delete the student account for "${studentName}"? This will delete all their appointments, sessions, and clinical EMR documents.`)) {
+      try {
+        await api.admin.deleteStudent(studentId);
+        alert("Student account successfully deleted.");
+        fetchStudents();
+        fetchAudits();
+      } catch (err: any) {
+        alert(err.message || "Failed to delete student");
+      }
     }
   };
 
@@ -682,12 +733,35 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                   {students.map((s, idx) => (
                     <div key={idx} className="p-4 border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 rounded-xl flex items-center justify-between">
                       <div>
-                        <span className="font-bold text-sm block text-slate-900 dark:text-white">{s.display_name}</span>
-                        <span className="text-xs font-semibold text-slate-500 mt-0.5 block">{s.username.toUpperCase()}</span>
+                        <span className="font-bold text-sm block text-slate-900 dark:text-white">{s.name || s.display_name}</span>
+                        <span className="text-xs font-semibold text-slate-500 mt-0.5 block">Reg No: {(s.registration_number || s.username || '').toUpperCase()}</span>
+                        <div className="text-[10px] text-slate-400 mt-1 space-x-2">
+                          <span>Phone: {s.phone || 'N/A'}</span>
+                          <span>•</span>
+                          <span>Email: {s.email || 'N/A'}</span>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <span className="text-xs block text-slate-400 font-medium">Department: {s.department || 'Undergraduate'}</span>
-                        <span className="text-[10px] text-slate-400 font-medium block mt-0.5">Role: Client</span>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right hidden sm:block">
+                          <span className="text-xs block text-slate-400 font-medium">Dept: {s.department || 'Undergraduate'}</span>
+                          <span className="text-[10px] text-slate-400 font-medium block mt-0.5">Sem: {s.semester || 'N/A'} | {s.hostel_scholar || 'Day Scholar'}</span>
+                        </div>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => startEditStudent(s)}
+                            className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-850 text-blue-600 dark:text-blue-400 rounded-lg transition cursor-pointer"
+                            title="Edit Student"
+                          >
+                            <Edit size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteStudent(s.id, s.name || s.display_name)}
+                            className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-855 text-red-600 dark:text-red-400 rounded-lg transition cursor-pointer"
+                            title="Delete Student"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -696,6 +770,207 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
             </div>
           </div>
         )}
+
+      {editingStudent && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl w-full p-6 shadow-2xl relative flex flex-col max-h-[90vh] animate-scale-in">
+            <button
+              onClick={() => setEditingStudent(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4 shrink-0">
+              <div className="p-2.5 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-2xl">
+                <Edit size={22} />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-slate-900 dark:text-white text-lg">Edit Student Record</h3>
+                <p className="text-xs text-slate-500">Updating profile for {(editingStudent.registration_number || editingStudent.username || '').toUpperCase()}</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleUpdateStudent} className="flex-1 overflow-y-auto space-y-4 pr-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">Age</label>
+                    <input
+                      type="number"
+                      required
+                      value={editForm.age}
+                      onChange={(e) => setEditForm({ ...editForm, age: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">Gender</label>
+                    <select
+                      value={editForm.gender}
+                      onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                    >
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Date of Birth</label>
+                  <input
+                    type="date"
+                    required
+                    value={editForm.dob}
+                    onChange={(e) => setEditForm({ ...editForm, dob: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Blood Group</label>
+                  <select
+                    value={editForm.bloodGroup}
+                    onChange={(e) => setEditForm({ ...editForm, bloodGroup: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                  >
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Department</label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.department}
+                    onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">Semester</label>
+                    <input
+                      type="number"
+                      required
+                      value={editForm.semester}
+                      onChange={(e) => setEditForm({ ...editForm, semester: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">Residence</label>
+                    <select
+                      value={editForm.hostelScholar}
+                      onChange={(e) => setEditForm({ ...editForm, hostelScholar: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                    >
+                      <option value="Day Scholar">Day Scholar</option>
+                      <option value="Hosteler">Hosteler</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Mobile Number</label>
+                  <input
+                    type="tel"
+                    required
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    value={editForm.email}
+                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Emergency Contact Person</label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.emergencyContact}
+                    onChange={(e) => setEditForm({ ...editForm, emergencyContact: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Emergency Phone</label>
+                  <input
+                    type="tel"
+                    required
+                    value={editForm.emergencyPhone}
+                    onChange={(e) => setEditForm({ ...editForm, emergencyPhone: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Address</label>
+                <textarea
+                  required
+                  value={editForm.address}
+                  onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                  rows={2}
+                />
+              </div>
+
+              <div className="flex gap-3 shrink-0 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingStudent(null)}
+                  className="flex-1 py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition shadow-sm cursor-pointer"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
         {/* TAB 4: APPOINTMENTS MANAGER */}
         {activeTab === 'appointments' && (

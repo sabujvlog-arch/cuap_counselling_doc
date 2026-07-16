@@ -62,7 +62,10 @@ import {
   backupDatabase,
   restoreDatabase,
   getAnnouncements,
-  createAnnouncement
+  createAnnouncement,
+  getAdminStudents,
+  updateAdminStudent,
+  deleteAdminStudent
 } from '../controllers/adminController';
 
 import { aiAssist } from '../controllers/aiController';
@@ -84,6 +87,9 @@ router.post('/auth/reset-password', resetPassword);
 // Provider and Student registrations (Admin only)
 router.post('/admin/providers', authenticateToken, requireRoles(['admin']), createProvider);
 router.post('/admin/students', authenticateToken, requireRoles(['admin']), createStudent);
+router.get('/admin/students', authenticateToken, requireRoles(['admin']), getAdminStudents);
+router.put('/admin/students/:id', authenticateToken, requireRoles(['admin']), updateAdminStudent);
+router.delete('/admin/students/:id', authenticateToken, requireRoles(['admin']), deleteAdminStudent);
 
 // ==========================================
 // Appointment Routes

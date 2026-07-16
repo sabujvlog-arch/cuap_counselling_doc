@@ -219,6 +219,14 @@ export const api = {
     createAnnouncement: (message: string) => request('/admin/announcements', {
       method: 'POST',
       body: JSON.stringify({ message })
+    }),
+    listStudents: () => request('/admin/students'),
+    updateStudent: (id: number, payload: any) => request(`/admin/students/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload)
+    }),
+    deleteStudent: (id: number) => request(`/admin/students/${id}`, {
+      method: 'DELETE'
     })
   }
 };

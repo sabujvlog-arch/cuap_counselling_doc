@@ -346,3 +346,107 @@ export const createAnnouncement = async (req: AuthRequest, res: Response) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+export const getAdminStudents = async (req: AuthRequest, res: Response) => {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin permissions required' });
+  }
+  try {
+    const studentsRes = await query(`
+      SELECT s.*, u.username 
+      FROM students s
+      JOIN users u ON s.user_id = u.id
+      ORDER BY s.id DESC
+    `);
+    return res.json(studentsRes.rows);
+  } catch (err) {
+    console.error('getAdminStudents error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const updateAdminStudent = async (req: AuthRequest, res: Response) => {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin permissions required' });
+  }
+  const { id } = req.params;
+  const {
+    name, age, gender, dob, department, semester, phone, email,
+    hostelScholar, emergencyContact, emergencyPhone, bloodGroup, address
+  } = req.body;
+
+  try {
+    const checkRes = await query('SELECT * FROM students WHERE id = $1', [id]);
+    if (checkRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+    const student = checkRes.rows[0];
+
+    await query(`
+      UPDATE students 
+      SET name = $1, age = $2, gender = $3, dob = $4, department = $5, semester = $6, 
+          phone = $7, email = $8, hostel_scholar = $9, emergency_contact = $10, 
+          emergency_phone = $11, blood_group = $12, address = $13
+      WHERE id = $14
+    `, [
+      name, parseInt(age), gender, dob, department, semester, phone, email,
+      hostelScholar, emergencyContact, emergencyPhone, bloodGroup, address, id
+    ]);
+
+    await query(`
+      UPDATE users
+      SET email = $1, phone = $2
+      WHERE id = $3
+    `, [email, phone, student.user_id]);
+
+    await query(
+      'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
+      [req.user.id, 'UPDATE_STUDENT', `Admin updated student profile for ${name} (${student.registration_number})`, req.ip]
+    );
+
+    return res.json({ message: 'Student updated successfully' });
+  } catch (err) {
+    console.error('updateAdminStudent error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const deleteAdminStudent = async (req: AuthRequest, res: Response) => {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin permissions required' });
+  }
+  const { id } = req.params;
+
+  try {
+    const checkRes = await query('SELECT * FROM students WHERE id = $1', [id]);
+    if (checkRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+    const student = checkRes.rows[0];
+
+    await query('DELETE FROM appointments WHERE student_id = $1', [id]);
+    
+    const sessionsRes = await query('SELECT id FROM sessions WHERE student_id = $1', [id]);
+    for (const session of sessionsRes.rows) {
+      await query('DELETE FROM prescriptions WHERE session_id = $1', [session.id]);
+      await query('DELETE FROM session_versions WHERE session_id = $1', [session.id]);
+    }
+    await query('DELETE FROM sessions WHERE student_id = $1', [id]);
+    await query('DELETE FROM mse_logs WHERE student_id = $1', [id]);
+    await query('DELETE FROM assessments WHERE student_id = $1', [id]);
+    await query('DELETE FROM documents WHERE student_id = $1', [id]);
+
+    await query('DELETE FROM students WHERE id = $1', [id]);
+    await query('DELETE FROM users WHERE id = $1', [student.user_id]);
+
+    await query(
+      'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
+      [req.user.id, 'DELETE_STUDENT', `Admin deleted student ${student.name} (${student.registration_number})`, req.ip]
+    );
+
+    return res.json({ message: 'Student account deleted successfully' });
+  } catch (err) {
+    console.error('deleteAdminStudent error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
