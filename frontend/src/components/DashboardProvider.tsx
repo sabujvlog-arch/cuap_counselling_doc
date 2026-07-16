@@ -36,13 +36,35 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
 
   // Availability schedule states
   const [availabilityDays, setAvailabilityDays] = useState<any[]>([]);
+  const [allStudents, setAllStudents] = useState<any[]>([]);
 
   useEffect(() => {
     fetchAppointments();
     fetchNotifications();
     fetchContacts();
     fetchAvailability();
+    fetchAllStudents();
   }, []);
+
+  const fetchAllStudents = async () => {
+    try {
+      const data = await api.appointments.list({});
+      const uniqueMap = new Map();
+      data.forEach((app: any) => {
+        if (!uniqueMap.has(app.student_id)) {
+          uniqueMap.set(app.student_id, {
+            id: app.id,
+            student_id: app.student_id,
+            student_name: app.student_name,
+            registration_number: app.registration_number
+          });
+        }
+      });
+      setAllStudents(Array.from(uniqueMap.values()));
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchAppointments = async () => {
     setLoading(true);
@@ -320,9 +342,38 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                 }} 
               />
             ) : (
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-12 text-center rounded-2xl shadow-sm text-slate-400">
-                <FileText size={48} className="mx-auto text-slate-300 mb-3" />
-                Please select a student from the Schedule tab to initialize the clinical notes editor.
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-12 text-center rounded-2xl shadow-sm text-slate-400 space-y-4">
+                <FileText size={48} className="mx-auto text-slate-300 mb-1" />
+                <p className="text-sm">Please select a student from the Schedule tab to initialize the clinical notes editor.</p>
+                {allStudents.length > 0 && (
+                  <div className="max-w-md mx-auto pt-4 border-t border-slate-100 dark:border-slate-800">
+                    <label className="block text-xs font-bold text-slate-500 mb-2 uppercase">Or open EMR directly for an existing student:</label>
+                    <select
+                      onChange={(e) => {
+                        const studentId = parseInt(e.target.value);
+                        if (studentId) {
+                          const selected = allStudents.find(s => s.student_id === studentId);
+                          if (selected) {
+                            setActiveApp({
+                              id: selected.id,
+                              student_id: selected.student_id,
+                              student_name: selected.student_name,
+                              registration_number: selected.registration_number
+                            });
+                          }
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 font-bold text-slate-800 dark:text-slate-200"
+                    >
+                      <option value="">-- Choose student from directory --</option>
+                      {allStudents.map((stud) => (
+                        <option key={stud.student_id} value={stud.student_id}>
+                          {stud.student_name} ({stud.registration_number.toUpperCase()})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             )}
           </div>

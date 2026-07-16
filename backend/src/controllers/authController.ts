@@ -107,7 +107,7 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
-    if (user.role === 'student') {
+    if (user.role === 'student' || user.role === 'provider' || user.role === 'admin') {
       const usernameMatch = await bcrypt.compare(user.username, user.password_hash);
       const changePasswordRequired = usernameMatch;
 
@@ -119,7 +119,7 @@ export const login = async (req: Request, res: Response) => {
 
       await query(
         'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
-        [user.id, 'LOGIN', `User ${user.username} bypassed 2FA (student role) and logged in successfully`, req.ip]
+        [user.id, 'LOGIN', `User ${user.username} bypassed 2FA (${user.role} role) and logged in successfully`, req.ip]
       );
 
       return res.json({
