@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 // Safe localStorage access
 const getToken = (): string | null => {
@@ -152,7 +152,10 @@ export const api = {
       body: JSON.stringify(prescription)
     }),
     getPrescription: (id: number) => request(`/clinical/prescriptions/${id}`),
-    getPrintUrl: (id: number) => `http://localhost:5000/api/clinical/prescriptions/${id}/print`
+    getPrintUrl: (id: number) => {
+      const base = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '');
+      return `${base}/api/clinical/prescriptions/${id}/print`;
+    }
   },
 
   // Messaging Operations
@@ -179,7 +182,10 @@ export const api = {
       const params = new URLSearchParams(filters as any).toString();
       return request(`/documents?${params}`);
     },
-    downloadUrl: (id: number) => `http://localhost:5000/api/documents/download/${id}`,
+    downloadUrl: (id: number) => {
+      const base = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '');
+      return `${base}/api/documents/download/${id}`;
+    },
     delete: (id: number) => request(`/documents/${id}`, {
       method: 'DELETE'
     })
@@ -207,7 +213,8 @@ export const api = {
     },
     opdExportUrl: (date?: string) => {
       const param = date ? `?date=${date}` : '';
-      return `http://localhost:5000/api/admin/opd-register/export${param}`;
+      const base = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '');
+      return `${base}/api/admin/opd-register/export${param}`;
     },
     auditLogs: () => request('/admin/audit-logs'),
     backup: () => request('/admin/backup', { method: 'POST' }),
