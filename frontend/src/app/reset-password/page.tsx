@@ -148,11 +148,13 @@ function ResetPasswordForm() {
 export default function ResetPasswordPage() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4">
-      <header className="mb-6 text-center select-none animate-fade-in">
-        <h1 className="text-xl font-black uppercase tracking-widest text-slate-850 dark:text-slate-205 flex items-center justify-center gap-2">
-          <ShieldCheck className="text-blue-600" size={24} />
-          <span>CUAP WELLNESS CENTER</span>
-        </h1>
+      <header className="mb-6 text-center select-none animate-fade-in flex flex-col items-center">
+        <div className="flex flex-col items-center gap-2 mb-2">
+          <img src="/logo.png" className="w-16 h-16 object-contain" alt="CUAP Logo" />
+          <h1 className="text-xl font-black uppercase tracking-widest text-slate-850 dark:text-slate-200">
+            CUAP WELLNESS CENTER
+          </h1>
+        </div>
         <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mt-1">
           Wellness Counseling Centre
         </p>
