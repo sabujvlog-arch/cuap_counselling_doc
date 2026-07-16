@@ -172,7 +172,7 @@ export default function Home() {
           // Dynamic Landing Splash
           <div className="text-center space-y-6 max-w-2xl animate-fade-in-up">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-full text-blue-600 dark:text-blue-400 font-semibold text-xs mb-2">
-              <Sparkles size={12} /> University EMHR Gateway
+              <Sparkles size={12} /> University Wellness Portal
             </div>
             <h2 className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
               A Secure Portal for <br />
