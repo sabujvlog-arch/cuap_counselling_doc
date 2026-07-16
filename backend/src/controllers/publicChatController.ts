@@ -6,8 +6,8 @@ const callGeminiAPI = async (prompt: string, systemInstruction: string = ''): Pr
     throw new Error('Gemini API key is not configured in .env file.');
   }
 
-  // Fallback to gemini-1.5-flash as it is highly compatible and globally available
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  // Use the verified model from psychology-portfolio
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
   
   const body: any = {
     contents: [{
