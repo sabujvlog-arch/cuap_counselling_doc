@@ -245,12 +245,12 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-blue-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-blue-950/20 flex flex-col justify-between p-6">
       
       {/* Top Banner Branding */}
-      <header className="flex justify-between items-center max-w-7xl mx-auto w-full mb-8">
-        <div className="flex items-center gap-3">
-          <img src="/logo.png" className="w-12 h-12 object-contain" alt="CUAP Logo" />
+      <header className="flex flex-col items-center justify-center text-center w-full mb-8">
+        <div className="flex flex-col items-center gap-3">
+          <img src="/logo.png" className="w-16 h-16 object-contain" alt="CUAP Logo" />
           <div>
-            <h1 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Central University of Andhra Pradesh</h1>
-            <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Student Wellness & Counseling Centre</p>
+            <h1 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-wider">Central University of Andhra Pradesh</h1>
+            <p className="text-[11px] text-slate-500 font-bold uppercase tracking-wider mt-1">Student Wellness & Counseling Centre</p>
           </div>
         </div>
       </header>
