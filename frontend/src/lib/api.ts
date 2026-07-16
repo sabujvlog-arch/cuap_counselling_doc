@@ -94,6 +94,10 @@ export const api = {
     resetPassword: (payload: any) => request('/auth/reset-password', {
       method: 'POST',
       body: JSON.stringify(payload)
+    }),
+    publicChat: (message: string, history: any[]) => request('/public/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message, history })
     })
   },
 

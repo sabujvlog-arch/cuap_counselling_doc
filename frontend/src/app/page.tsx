@@ -5,7 +5,7 @@ import { api } from '@/lib/api';
 import DashboardAdmin from '@/components/DashboardAdmin';
 import DashboardProvider from '@/components/DashboardProvider';
 import DashboardStudent from '@/components/DashboardStudent';
-import { Lock, User as UserIcon, ShieldCheck, PhoneCall, HelpCircle, KeyRound, Sparkles, ChevronRight, Eye, Mail, X } from 'lucide-react';
+import { Lock, User as UserIcon, ShieldCheck, PhoneCall, HelpCircle, KeyRound, Sparkles, ChevronRight, Eye, Mail, X, MessageSquare, Send, Bot } from 'lucide-react';
 
 export default function Home() {
   const [session, setSession] = useState<{ user: any; profile: any } | null>(null);
@@ -30,6 +30,14 @@ export default function Home() {
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotSuccess, setForgotSuccess] = useState('');
   const [forgotError, setForgotError] = useState('');
+
+  // Public Chatbot States
+  const [showChatbot, setShowChatbot] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatHistory, setChatHistory] = useState<Array<{ sender: 'user' | 'assistant'; text: string }>>([
+    { sender: 'assistant', text: "Hello! I am your CUAP Wellness Assistant. Ask me anything about counseling slots, WCCMS registrations, or general mental health tips! How can I support you today?" }
+  ]);
 
   useEffect(() => {
     checkActiveSession();
@@ -120,6 +128,27 @@ export default function Home() {
     }
   };
 
+  const handleChatSubmit = async (e?: React.FormEvent, customText?: string) => {
+    if (e) e.preventDefault();
+    
+    const textToSend = customText || chatInput;
+    if (!textToSend.trim()) return;
+
+    const updatedHistory = [...chatHistory, { sender: 'user' as const, text: textToSend }];
+    setChatHistory(updatedHistory);
+    if (!customText) setChatInput('');
+    setChatLoading(true);
+
+    try {
+      const res = await api.auth.publicChat(textToSend, chatHistory);
+      setChatHistory([...updatedHistory, { sender: 'assistant' as const, text: res.reply }]);
+    } catch (err: any) {
+      setChatHistory([...updatedHistory, { sender: 'assistant' as const, text: "I'm sorry, I'm experiencing connectivity issues right now. Please try again in a moment." }]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
   const handleLogout = () => {
     api.clearToken();
     setSession(null);
@@ -159,9 +188,6 @@ export default function Home() {
             <h1 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Central University of Andhra Pradesh</h1>
             <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Student Wellness & Counseling Centre</p>
           </div>
-        </div>
-        <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
-          <PhoneCall size={14} className="text-red-500" /> Helpline: 800-425-CUAP
         </div>
       </header>
 
@@ -433,6 +459,106 @@ export default function Home() {
               </button>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Floating Chatbot Trigger */}
+      <button
+        onClick={() => setShowChatbot(!showChatbot)}
+        className="fixed bottom-6 right-6 p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-2xl transition hover:scale-105 cursor-pointer z-50 flex items-center justify-center border border-blue-500/20"
+      >
+        {showChatbot ? <X size={24} /> : <MessageSquare size={24} />}
+      </button>
+
+      {/* Conversational Chatbot Widget */}
+      {showChatbot && (
+        <div className="fixed bottom-24 right-6 w-96 max-w-[calc(100vw-2rem)] h-[480px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl flex flex-col z-50 overflow-hidden animate-scale-in">
+          {/* Header */}
+          <div className="p-4 bg-blue-600 text-white flex items-center gap-3">
+            <div className="p-2 bg-white/10 rounded-xl">
+              <Bot size={22} className="text-white" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-extrabold text-sm leading-tight text-white">CUAP Wellness Assistant</h3>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span className="text-[10px] font-bold tracking-wide opacity-90 uppercase">Active Support</span>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowChatbot(false)}
+              className="text-white/80 hover:text-white cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Messages Body */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50 dark:bg-slate-950/40">
+            {chatHistory.map((msg, idx) => (
+              <div
+                key={idx}
+                className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-[80%] p-3 rounded-2xl text-xs font-semibold leading-relaxed shadow-sm ${
+                    msg.sender === 'user'
+                      ? 'bg-blue-600 text-white rounded-tr-none'
+                      : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-tl-none border border-slate-100 dark:border-slate-750'
+                  }`}
+                >
+                  {msg.text}
+                </div>
+              </div>
+            ))}
+            {chatLoading && (
+              <div className="flex justify-start">
+                <div className="bg-white dark:bg-slate-800 text-slate-400 dark:text-slate-500 max-w-[80%] p-3 rounded-2xl rounded-tl-none border border-slate-100 dark:border-slate-750 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"></span>
+                  <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                  <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Suggested Quick Replies */}
+          {chatHistory.length === 1 && (
+            <div className="px-4 py-2 border-t border-slate-100 dark:border-slate-850 flex flex-wrap gap-1.5 bg-slate-50/50 dark:bg-slate-950/20">
+              {[
+                { label: "Book Slot?", text: "How can I book a counseling slot?" },
+                { label: "What is WCCMS?", text: "What is the full form and purpose of WCCMS?" },
+                { label: "Self-Care Tips", text: "Can you provide some self-care tips for managing exam stress?" }
+              ].map((pill, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleChatSubmit(undefined, pill.text)}
+                  className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-1 rounded-lg border border-blue-100 dark:border-blue-900 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition cursor-pointer"
+                >
+                  {pill.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Input Form */}
+          <form onSubmit={(e) => handleChatSubmit(e)} className="p-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex gap-2">
+            <input
+              type="text"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              disabled={chatLoading}
+              placeholder="Type your message..."
+              className="flex-1 px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 focus:outline-none font-medium"
+            />
+            <button
+              type="submit"
+              disabled={chatLoading || !chatInput.trim()}
+              className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl disabled:opacity-50 transition cursor-pointer flex items-center justify-center"
+            >
+              <Send size={14} />
+            </button>
+          </form>
         </div>
       )}
     </div>

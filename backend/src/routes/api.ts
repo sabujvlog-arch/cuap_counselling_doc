@@ -66,6 +66,7 @@ import {
 } from '../controllers/adminController';
 
 import { aiAssist } from '../controllers/aiController';
+import { publicChat } from '../controllers/publicChatController';
 
 const router = Router();
 
@@ -74,6 +75,7 @@ const router = Router();
 // ==========================================
 router.post('/auth/login', login);
 router.post('/auth/verify-2fa', verify2FA);
+router.post('/public/chat', publicChat);
 router.get('/auth/me', authenticateToken, getMe);
 router.post('/auth/change-password', authenticateToken, changePassword);
 router.post('/auth/forgot-password', forgotPassword);
