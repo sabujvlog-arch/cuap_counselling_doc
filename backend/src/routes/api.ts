@@ -18,7 +18,8 @@ import {
   getAppointments,
   updateAppointmentStatus,
   getAvailableSlots,
-  verifyAppointmentQR
+  verifyAppointmentQR,
+  getProviders
 } from '../controllers/appointmentController';
 
 import {
@@ -73,7 +74,7 @@ import {
 } from '../controllers/adminController';
 
 import { aiAssist } from '../controllers/aiController';
-import { publicChat } from '../controllers/publicChatController';
+import { publicChat, studentChat } from '../controllers/publicChatController';
 
 const router = Router();
 
@@ -83,6 +84,7 @@ const router = Router();
 router.post('/auth/login', login);
 router.post('/auth/verify-2fa', verify2FA);
 router.post('/public/chat', publicChat);
+router.post('/student/chat', authenticateToken, requireRoles(['student']), studentChat);
 router.get('/auth/me', authenticateToken, getMe);
 router.post('/auth/change-password', authenticateToken, changePassword);
 router.post('/auth/forgot-password', forgotPassword);
@@ -94,6 +96,11 @@ router.post('/admin/students', authenticateToken, requireRoles(['admin']), creat
 router.get('/admin/students', authenticateToken, requireRoles(['admin']), getAdminStudents);
 router.put('/admin/students/:id', authenticateToken, requireRoles(['admin']), updateAdminStudent);
 router.delete('/admin/students/:id', authenticateToken, requireRoles(['admin']), deleteAdminStudent);
+
+// ==========================================
+// Provider List (for student booking)
+// ==========================================
+router.get('/providers', authenticateToken, getProviders);
 
 // ==========================================
 // Appointment Routes

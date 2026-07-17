@@ -98,6 +98,10 @@ export const api = {
     publicChat: (message: string, history: any[]) => request('/public/chat', {
       method: 'POST',
       body: JSON.stringify({ message, history })
+    }),
+    studentChat: (message: string, history: any[]) => request('/student/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message, history })
     })
   },
 
@@ -111,6 +115,7 @@ export const api = {
       const params = new URLSearchParams(filters as any).toString();
       return request(`/appointments?${params}`);
     },
+    listAll: () => request('/appointments'), // No date filter – all appointments for current role
     updateStatus: (id: number, statusData: any) => request(`/appointments/${id}/status`, {
       method: 'PATCH',
       body: JSON.stringify(statusData)
@@ -121,6 +126,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ qrCode })
     })
+  },
+
+  // Providers list (for student booking)
+  providers: {
+    list: () => request('/providers')
   },
 
   // EMR & Session Operations

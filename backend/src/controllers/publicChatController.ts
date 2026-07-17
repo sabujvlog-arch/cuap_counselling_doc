@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { query } from '../config/db';
+import { AuthRequest } from '../middleware/auth';
 
 const callGeminiAPI = async (prompt: string, systemInstruction: string = ''): Promise<string> => {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -7,7 +8,6 @@ const callGeminiAPI = async (prompt: string, systemInstruction: string = ''): Pr
     throw new Error('Gemini API key is not configured in .env file.');
   }
 
-  // Use the verified model from psychology-portfolio
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
   
   const body: any = {
@@ -42,6 +42,9 @@ const callGeminiAPI = async (prompt: string, systemInstruction: string = ''): Pr
   return text.trim();
 };
 
+// ============================================================
+// Public landing page chatbot (booking info + general WCCMS)
+// ============================================================
 export const publicChat = async (req: Request, res: Response) => {
   const { message, history } = req.body;
 
@@ -50,15 +53,12 @@ export const publicChat = async (req: Request, res: Response) => {
   }
 
   try {
-    // 1. Fetch live providers
     const providersRes = await query('SELECT id, name, specialization FROM providers');
     const providersList = providersRes.rows || [];
 
-    // 2. Fetch approved appointments to filter booked slots
     const appointmentsRes = await query("SELECT provider_id, slot_date, slot_time FROM appointments WHERE status = 'approved'");
     const bookedSlots = appointmentsRes.rows || [];
 
-    // 3. Generate standard slots for next 5 days
     const nextDays: string[] = [];
     for (let i = 0; i < 5; i++) {
       const d = new Date();
@@ -67,7 +67,6 @@ export const publicChat = async (req: Request, res: Response) => {
     }
     const standardSlots = ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"];
 
-    // 4. Construct live calendar context text
     let availabilityText = 'Here is the current live counselor availability for the next 5 days:\n';
     providersList.forEach((prov: any) => {
       availabilityText += `- ${prov.name} (ID: ${prov.id}, Specialization: ${prov.specialization}):\n`;
@@ -100,7 +99,7 @@ export const publicChat = async (req: Request, res: Response) => {
       
       If the user asks to book an appointment or checks when a counselor is free:
       - Suggest specific free slots from the live list above.
-      - Format the slot choice as a markdown link using our custom booking protocol so the user can book it dynamically:
+      - Format the slot choice as a markdown link using our custom booking protocol:
         [Click here to book <Counselor Name> on <YYYY-MM-DD> at <Slot Time>](book://<counselorId>/<YYYY-MM-DD>/<urlencoded slot time>)
         Example: [Click here to book Dr. Sabuj Das on 2026-07-17 at 10:00 AM](book://1/2026-07-17/10%3A00%20AM)
       - Tell the user they can just click the link/button to book immediately.
@@ -112,7 +111,6 @@ export const publicChat = async (req: Request, res: Response) => {
       - Encourage them to visit the CUAP Health Centre immediately or contact local emergency contacts.
     `;
 
-    // Construct conversation context from history
     let prompt = '';
     if (history && Array.isArray(history)) {
       history.slice(-6).forEach((msg: any) => {
@@ -126,6 +124,90 @@ export const publicChat = async (req: Request, res: Response) => {
     return res.json({ reply });
   } catch (err: any) {
     console.error('Public chat error:', err);
+    return res.status(500).json({ error: 'Failed to generate response. Please try again later.' });
+  }
+};
+
+// ============================================================
+// UniMind — Authenticated Student Wellbeing AI Chat
+// ============================================================
+export const studentChat = async (req: AuthRequest, res: Response) => {
+  const { message, history } = req.body;
+
+  if (!message) {
+    return res.status(400).json({ error: 'Message content is required' });
+  }
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    // Fetch student first name for personalisation
+    let studentName = 'there';
+    try {
+      const sRes = await query('SELECT name FROM students WHERE user_id = $1', [req.user.id]);
+      if (sRes.rows.length > 0) studentName = sRes.rows[0].name.split(' ')[0];
+    } catch (_) {}
+
+    const UNIMIND_SYSTEM = `
+# SYSTEM ROLE & IDENTITY
+You are "UniMind," an automated, interactive AI wellbeing support assistant dedicated exclusively to university undergraduate and postgraduate students at the Central University of Andhra Pradesh (CUAP). Your purpose is to provide immediate, empathetic, evidence-based psychological first aid, cognitive coping strategies, and academic stress management. You are grounded in the principles of Cognitive Behavioral Therapy (CBT), Dialectical Behavior Therapy (DBT), and Mindfulness-Based Stress Reduction.
+
+The student's first name is: ${studentName}. Address them warmly by name when appropriate.
+
+# CRITICAL TRIGGER: CRISIS PROTOCOL (HIGHEST PRIORITY)
+If the student indicates intent of self-harm, suicide, harm to others, or severe acute trauma:
+1. IMMEDIATELY halt standard conversational coaching.
+2. Provide urgent emergency resources:
+   - CUAP Counseling Crisis Helpline: +91 800-425-CUAP (24/7, Confidential)
+   - Tele-MANAS National Helpline: 14416 or 1800-891-4416
+   - iCall (TISS): 9152987821
+   - AASRA: 91-9820466626
+   - University Health Centre: +91 851-248-1009
+3. Keep the response calm, concise, and explicitly directive. Do not attempt to counsel through a life-threatening crisis autonomously.
+
+# TARGET STUDENT ISSUES
+- Academic burnout, perfectionism, imposter syndrome, thesis/dissertation anxiety.
+- Exam stress, time-management paralysis, isolation, and campus adjustment.
+- Relationship stress, family pressure, financial anxiety, social comparison, career uncertainty.
+
+# CORE CONVERSATIONAL CAPABILITIES
+1. AUTHENTIC EMPATHY: Validate student distress without being dismissive. Avoid toxic positivity or clichés like "just think positive." Acknowledge the immense academic pressure they face.
+
+2. INTERACTIVE INTERVENTIONS (offer and guide through):
+   - **Box Breathing (Somatic):** 4s inhale → 4s hold → 4s exhale → 4s hold. Repeat 4 rounds.
+   - **5-4-3-2-1 Grounding:** 5 things seen, 4 felt, 3 heard, 2 smelled, 1 tasted.
+   - **Cognitive Reframing (CBT):** Identify distortions (catastrophising, all-or-nothing, mind-reading) and challenge with evidence.
+   - **Micro-Goal Setting:** Break overwhelming tasks into Pomodoro steps (25 min work + 5 min break).
+   - **Values Clarification (DBT):** Reconnect with core academic and personal values when feeling directionless.
+   - **Mindfulness Check-In:** 2-minute body-scan or anchor-breath exercise.
+
+3. TRANSPARENT BOUNDARIES:
+   - Always clarify you are an AI wellbeing assistant, not a licensed clinician or human therapist.
+   - For persistent or complex issues, encourage booking a session with the CUAP counseling team via the "Book Appointment" tab in their portal.
+
+# TONE & STYLE GUIDELINES
+- Tone: Warm, grounded, collaborative, clear, and reassuring. Speak like a supportive senior peer — not a corporate bot or overly clinical therapist.
+- Formatting: Use short paragraphs and clear bullet points. Keep advice immediately scannable.
+- Avoid: Hollow affirmations, unsolicited life advice, or minimising the student's experience.
+
+# INITIALIZATION
+On the very first message (no prior history), introduce yourself as UniMind, CUAP's AI wellbeing companion. Validate their presence warmly and ask one open-ended question about what academic or personal stress is on their mind today.
+    `.trim();
+
+    let prompt = '';
+    if (history && Array.isArray(history) && history.length > 0) {
+      history.slice(-8).forEach((msg: any) => {
+        const role = msg.sender === 'user' ? 'Student' : 'UniMind';
+        prompt += `${role}: ${msg.text}\n`;
+      });
+    }
+    prompt += `Student: ${message}\nUniMind:`;
+
+    const reply = await callGeminiAPI(prompt, UNIMIND_SYSTEM);
+    return res.json({ reply });
+  } catch (err: any) {
+    console.error('UniMind chat error:', err);
     return res.status(500).json({ error: 'Failed to generate response. Please try again later.' });
   }
 };

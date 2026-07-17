@@ -2,6 +2,23 @@ import { Response } from 'express';
 import { query } from '../config/db';
 import { AuthRequest } from '../middleware/auth';
 
+// List all active providers (for student booking dropdown)
+export const getProviders = async (req: AuthRequest, res: Response) => {
+  try {
+    const result = await query(
+      `SELECT p.id, p.name, p.specialization, p.department, p.email,
+              u.username
+       FROM providers p
+       JOIN users u ON p.user_id = u.id
+       ORDER BY p.name ASC`
+    );
+    return res.json(result.rows);
+  } catch (err) {
+    console.error('Get providers error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 export const bookAppointment = async (req: AuthRequest, res: Response) => {
   const { providerId, date, timeSlot, reason } = req.body;
   if (!req.user || req.user.role !== 'student') {

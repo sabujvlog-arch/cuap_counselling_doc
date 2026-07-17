@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api } from '@/lib/api';
 import { 
   Calendar, Clock, BookOpen, FileText, Send, Bell, User, MessageSquare, Plus,
-  Download, Award, Shield, PhoneCall, Check, Heart, Clipboard, HelpCircle, Eye, Printer
+  Download, Award, Shield, PhoneCall, Check, Heart, Clipboard, HelpCircle, Eye, Printer, Sparkles, Bot, AlertTriangle
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import AssessmentModule from './AssessmentModule';
@@ -14,7 +14,7 @@ interface StudentProps {
 }
 
 export default function DashboardStudent({ onLogout, studentProfile, user }: StudentProps) {
-  const [activeTab, setActiveTab] = useState<'appointments' | 'prescriptions' | 'documents' | 'assessment' | 'chat' | 'feedback'>('appointments');
+  const [activeTab, setActiveTab] = useState<'appointments' | 'prescriptions' | 'documents' | 'assessment' | 'chat' | 'unimind' | 'feedback'>('appointments');
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -49,11 +49,18 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
   const [messages, setMessages] = useState<any[]>([]);
   const [replyText, setReplyText] = useState('');
 
+  // UniMind AI Wellbeing states
+  const [uniMindMessages, setUniMindMessages] = useState<{ sender: 'user' | 'ai'; text: string }[]>([]);
+  const [uniMindInput, setUniMindInput] = useState('');
+  const [uniMindLoading, setUniMindLoading] = useState(false);
+  const uniMindBottomRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     fetchAppointments();
     fetchEMR();
     fetchDocuments();
     fetchContacts();
+    fetchProviders();
     fetchAnnouncements();
     fetchAssessments();
   }, []);
@@ -136,12 +143,20 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
   const fetchContacts = async () => {
     try {
       const contacts = await api.messages.contacts();
-      setProviders(contacts.filter((c: any) => c.role === 'provider'));
       setChatContacts(contacts);
       if (contacts.length > 0 && !activeContactId) {
         setActiveContactId(contacts[0].id);
         loadChatHistory(contacts[0].id);
       }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchProviders = async () => {
+    try {
+      const data = await api.providers.list();
+      setProviders(data);
     } catch (err) {
       console.error(err);
     }
@@ -254,6 +269,38 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
     setFeedbackComments('');
   };
 
+  // UniMind chat handler
+  const handleUniMindChat = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const text = uniMindInput.trim();
+    if (!text || uniMindLoading) return;
+
+    const userMsg = { sender: 'user' as const, text };
+    const nextHistory = [...uniMindMessages, userMsg];
+    setUniMindMessages(nextHistory);
+    setUniMindInput('');
+    setUniMindLoading(true);
+
+    try {
+      const res = await api.auth.studentChat(text, nextHistory);
+      setUniMindMessages(prev => [...prev, { sender: 'ai', text: res.reply }]);
+    } catch (err: any) {
+      setUniMindMessages(prev => [
+        ...prev,
+        { sender: 'ai', text: '⚠️ I\'m having trouble connecting right now. Please try again in a moment.' }
+      ]);
+    } finally {
+      setUniMindLoading(false);
+    }
+  };
+
+  // Auto-scroll UniMind chat to bottom
+  useEffect(() => {
+    if (uniMindBottomRef.current) {
+      uniMindBottomRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [uniMindMessages, uniMindLoading]);
+
   return (
     <div className="flex flex-col lg:flex-row min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200">
       
@@ -273,6 +320,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
               { id: 'prescriptions', label: 'Counseling & Rx Logs', icon: BookOpen },
               { id: 'documents', label: 'Document Centre', icon: FileText },
               { id: 'assessment', label: 'Assessments Desk', icon: Clipboard },
+              { id: 'unimind', label: 'UniMind AI Wellbeing', icon: Sparkles },
               { id: 'chat', label: 'Secure Messenger', icon: MessageSquare },
               { id: 'feedback', label: 'Feedback & Emergency', icon: Heart }
             ].map(item => {
@@ -338,7 +386,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                       <option value="">Select Counselor</option>
                       {providers.map(p => (
                         <option key={p.id} value={p.id}>
-                          {p.display_name} ({p.specialization || 'Clinical Psychology'})
+                          Dr. {p.name} ({p.specialization || 'Clinical Psychology'})
                         </option>
                       ))}
                     </select>
@@ -778,6 +826,131 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
             </div>
           </div>
         )}
+
+        {/* TAB: UniMind AI Wellbeing */}
+        {activeTab === 'unimind' && (
+          <div className="flex flex-col h-[calc(100vh-5rem)] animate-fade-in-up">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 rounded-2xl p-6 mb-4 shadow-lg">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                  <Sparkles size={24} className="text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-white tracking-tight">UniMind AI Wellbeing</h2>
+                  <p className="text-purple-200 text-xs font-medium mt-0.5">Your 24/7 empathetic support companion — CBT, DBT & Mindfulness based</p>
+                </div>
+                <div className="ml-auto flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                  <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                  <span className="text-white text-xs font-bold">Active</span>
+                </div>
+              </div>
+              {/* Suggested prompts */}
+              {uniMindMessages.length === 0 && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {[
+                    "I\'m feeling overwhelmed with exams",
+                    "Help me with Box Breathing",
+                    "I can\'t focus on my dissertation",
+                    "I feel isolated on campus"
+                  ].map(prompt => (
+                    <button
+                      key={prompt}
+                      onClick={() => { setUniMindInput(prompt); }}
+                      className="px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-semibold rounded-xl border border-white/20 transition cursor-pointer"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Chat messages area */}
+            <div className="flex-1 overflow-y-auto space-y-4 px-1 pb-2">
+              {uniMindMessages.length === 0 && (
+                <div className="flex flex-col items-center justify-center h-full text-center py-12 text-slate-400 space-y-3">
+                  <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-950/40 dark:to-purple-950/40 flex items-center justify-center">
+                    <Bot size={36} className="text-violet-500" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-600 dark:text-slate-300 text-sm">Hello, I\'m UniMind 👋</p>
+                    <p className="text-xs mt-1 max-w-xs">Your private AI wellbeing companion. Start a conversation or pick a topic above — I\'m here to help.</p>
+                  </div>
+                </div>
+              )}
+
+              {uniMindMessages.map((msg, idx) => (
+                <div key={idx} className={`flex gap-3 ${msg.sender === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                  {/* Avatar */}
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                    msg.sender === 'ai'
+                      ? 'bg-gradient-to-br from-violet-500 to-purple-600 shadow-sm'
+                      : 'bg-blue-100 dark:bg-slate-700'
+                  }`}>
+                    {msg.sender === 'ai'
+                      ? <Sparkles size={14} className="text-white" />
+                      : <User size={14} className="text-blue-600 dark:text-slate-300" />
+                    }
+                  </div>
+                  {/* Bubble */}
+                  <div className={`max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm ${
+                    msg.sender === 'user'
+                      ? 'bg-blue-600 text-white rounded-tr-sm'
+                      : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-700 rounded-tl-sm'
+                  }`}>
+                    {msg.text.split('\n').map((line, i) => (
+                      <p key={i} className={i > 0 ? 'mt-1' : ''}>{line}</p>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              {/* Typing indicator */}
+              {uniMindLoading && (
+                <div className="flex gap-3 flex-row">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0">
+                    <Sparkles size={14} className="text-white" />
+                  </div>
+                  <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 px-4 py-3 rounded-2xl rounded-tl-sm shadow-sm">
+                    <div className="flex gap-1.5 items-center h-4">
+                      <span className="w-2 h-2 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-2 h-2 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-2 h-2 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={uniMindBottomRef} />
+            </div>
+
+            {/* Safety disclaimer */}
+            <div className="flex items-center gap-2 py-2 px-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 rounded-xl mb-3 text-amber-700 dark:text-amber-400">
+              <AlertTriangle size={13} className="shrink-0" />
+              <p className="text-[10px] font-semibold">UniMind is an AI assistant, not a licensed therapist. For emergencies call <strong>Tele-MANAS: 14416</strong> or visit the CUAP Health Centre.</p>
+            </div>
+
+            {/* Input bar */}
+            <form onSubmit={handleUniMindChat} className="flex gap-3">
+              <input
+                type="text"
+                value={uniMindInput}
+                onChange={e => setUniMindInput(e.target.value)}
+                placeholder="Share what\'s on your mind..."
+                disabled={uniMindLoading}
+                className="flex-1 px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-400 dark:focus:ring-violet-600 transition disabled:opacity-60"
+              />
+              <button
+                type="submit"
+                disabled={uniMindLoading || !uniMindInput.trim()}
+                className="px-5 py-3 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white font-bold rounded-2xl transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-2"
+              >
+                <Send size={16} />
+              </button>
+            </form>
+          </div>
+        )}
+
       </main>
     </div>
   );

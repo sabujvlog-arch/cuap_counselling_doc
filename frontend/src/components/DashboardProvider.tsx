@@ -17,6 +17,13 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
   const [appointments, setAppointments] = useState<any[]>([]);
   const [activeApp, setActiveApp] = useState<any>(null); // Active appointment for writing SOAP notes
   const [loading, setLoading] = useState(false);
+
+  // Reschedule modal state
+  const [rescheduleApp, setRescheduleApp] = useState<any>(null);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleTime, setRescheduleTime] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
+  const [scheduleFilter, setScheduleFilter] = useState<'all' | 'pending' | 'approved' | 'completed' | 'cancelled'>('all');
   
   // Prescription builder state
   const [presStudentId, setPresStudentId] = useState('');
@@ -69,7 +76,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
   const fetchAppointments = async () => {
     setLoading(true);
     try {
-      const data = await api.appointments.list({ date: new Date().toISOString().split('T')[0] });
+      const data = await api.appointments.listAll(); // Load ALL appointments, not just today
       setAppointments(data);
     } catch (err) {
       console.error(err);
@@ -257,55 +264,185 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
       {/* Main Workspace content */}
       <main className="flex-1 p-6 lg:p-10 overflow-y-auto max-h-screen">
         
-        {/* TAB 1: SCHEDULE */}
+        {/* TAB 1: SCHEDULE – full appointment management */}
         {activeTab === 'schedule' && (
-          <div className="space-y-8 animate-fade-in-up">
-            <div>
-              <h2 className="text-2xl font-black tracking-tight">Today's Appointment Schedule</h2>
-              <p className="text-xs text-slate-500 mt-1">Manage today's clinical patient workflow</p>
+          <div className="space-y-6 animate-fade-in-up">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-black tracking-tight">Appointment Management</h2>
+                <p className="text-xs text-slate-500 mt-1">View, approve, reject and reschedule patient bookings</p>
+              </div>
+              {/* Status filter */}
+              <div className="flex gap-2 flex-wrap">
+                {(['all', 'pending', 'approved', 'completed', 'cancelled'] as const).map(f => (
+                  <button
+                    key={f}
+                    onClick={() => setScheduleFilter(f)}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition cursor-pointer ${
+                      scheduleFilter === f
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    {f.charAt(0).toUpperCase() + f.slice(1)}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl shadow-sm">
-              {appointments.length === 0 ? (
-                <div className="py-12 text-center text-slate-400">No appointments scheduled for today.</div>
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-2xl shadow-sm overflow-hidden">
+              {appointments.filter(a => scheduleFilter === 'all' || a.status === scheduleFilter).length === 0 ? (
+                <div className="py-16 text-center text-slate-400">
+                  <CalendarIcon size={48} className="mx-auto text-slate-300 mb-3" />
+                  No {scheduleFilter === 'all' ? '' : scheduleFilter} appointments.
+                </div>
               ) : (
-                <div className="space-y-4">
-                  {appointments.map((a, idx) => (
-                    <div 
-                      key={idx} 
-                      className="p-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-900/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:border-blue-500 transition"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm text-slate-900 dark:text-white">{a.student_name}</span>
-                          <span className="text-xs text-slate-400 font-mono">({a.registration_number.toUpperCase()})</span>
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {appointments
+                    .filter(a => scheduleFilter === 'all' || a.status === scheduleFilter)
+                    .map((a, idx) => (
+                      <div key={idx} className="p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-sm text-slate-900 dark:text-white">{a.student_name}</span>
+                            <span className="text-xs text-slate-400 font-mono">({(a.registration_number || '').toUpperCase()})</span>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-1">
+                            <strong>Date:</strong> {a.slot_date} &nbsp;|&nbsp;
+                            <strong>Time:</strong> {a.slot_time} &nbsp;|&nbsp;
+                            <strong>Dept:</strong> {a.student_dept || '—'}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-0.5"><strong>Reason:</strong> {a.reason}</p>
                         </div>
-                        <p className="text-xs text-slate-500 mt-1"><strong>Time Slot:</strong> {a.slot_time} | <strong>Reason:</strong> {a.reason}</p>
-                      </div>
 
-                      <div className="flex gap-2">
-                        {a.status === 'approved' && (
-                          <button
-                            onClick={() => {
-                              setActiveApp(a);
-                              setActiveTab('clinical');
-                            }}
-                            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition cursor-pointer"
-                          >
-                            Open SOAP Editor
-                          </button>
-                        )}
-                        <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
-                          a.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-300' : 'bg-blue-100 text-blue-850 dark:bg-blue-950/40 dark:text-blue-300'
-                        }`}>
-                          {a.status}
-                        </span>
+                        <div className="flex flex-wrap gap-2 items-center shrink-0">
+                          {/* Status badge */}
+                          <span className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
+                            a.status === 'approved'   ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300' :
+                            a.status === 'completed'  ? 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-300' :
+                            a.status === 'pending'    ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300' :
+                            a.status === 'waiting'    ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300' :
+                                                        'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                          }`}>
+                            {a.status}
+                          </span>
+
+                          {/* Approve (only when pending) */}
+                          {a.status === 'pending' && (
+                            <button
+                              disabled={actionLoading}
+                              onClick={async () => {
+                                setActionLoading(true);
+                                try {
+                                  await api.appointments.updateStatus(a.id, { status: 'approved' });
+                                  fetchAppointments();
+                                } finally { setActionLoading(false); }
+                              }}
+                              className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-xl transition cursor-pointer disabled:opacity-50"
+                            >
+                              ✓ Approve
+                            </button>
+                          )}
+
+                          {/* Reject (pending or approved) */}
+                          {(a.status === 'pending' || a.status === 'approved') && (
+                            <button
+                              disabled={actionLoading}
+                              onClick={async () => {
+                                if (!confirm(`Cancel appointment for ${a.student_name}?`)) return;
+                                setActionLoading(true);
+                                try {
+                                  await api.appointments.updateStatus(a.id, { status: 'cancelled' });
+                                  fetchAppointments();
+                                } finally { setActionLoading(false); }
+                              }}
+                              className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold rounded-xl border border-red-200 transition cursor-pointer disabled:opacity-50"
+                            >
+                              ✕ Cancel
+                            </button>
+                          )}
+
+                          {/* Reschedule (pending or approved) */}
+                          {(a.status === 'pending' || a.status === 'approved') && (
+                            <button
+                              onClick={() => { setRescheduleApp(a); setRescheduleDate(a.slot_date); setRescheduleTime(a.slot_time); }}
+                              className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl transition cursor-pointer"
+                            >
+                              ↻ Reschedule
+                            </button>
+                          )}
+
+                          {/* Open SOAP editor (approved) */}
+                          {a.status === 'approved' && (
+                            <button
+                              onClick={() => { setActiveApp(a); setActiveTab('clinical'); }}
+                              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition cursor-pointer"
+                            >
+                              Open Notes
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               )}
             </div>
+
+            {/* Reschedule Modal */}
+            {rescheduleApp && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-8 w-full max-w-md">
+                  <h3 className="text-lg font-black mb-1">Reschedule Appointment</h3>
+                  <p className="text-xs text-slate-500 mb-5">Patient: <strong>{rescheduleApp.student_name}</strong></p>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">New Date</label>
+                      <input
+                        type="date"
+                        value={rescheduleDate}
+                        onChange={e => setRescheduleDate(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm bg-slate-50 dark:bg-slate-950"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">New Time Slot</label>
+                      <input
+                        type="time"
+                        value={rescheduleTime}
+                        onChange={e => setRescheduleTime(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm bg-slate-50 dark:bg-slate-950"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-3 mt-6">
+                    <button
+                      onClick={() => setRescheduleApp(null)}
+                      className="flex-1 py-2.5 border border-slate-200 dark:border-slate-800 text-xs font-bold rounded-xl hover:bg-slate-50 transition cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      disabled={actionLoading || !rescheduleDate || !rescheduleTime}
+                      onClick={async () => {
+                        setActionLoading(true);
+                        try {
+                          await api.appointments.updateStatus(rescheduleApp.id, {
+                            status: 'rescheduled',
+                            date: rescheduleDate,
+                            timeSlot: rescheduleTime
+                          });
+                          setRescheduleApp(null);
+                          fetchAppointments();
+                        } finally { setActionLoading(false); }
+                      }}
+                      className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition cursor-pointer disabled:opacity-50"
+                    >
+                      Confirm Reschedule
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
