@@ -9,7 +9,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'cuap-secret-key-2026';
 const sendSMS = async (recipient: string, message: string): Promise<boolean> => {
   const deviceId = '6a3273c8d2404ce643bc9ef7';
   const apiKey = 'b64912c1-ed9f-4776-80b9-0f237663e71d';
-  
+
   let formattedPhone = recipient.trim();
   if (!formattedPhone.startsWith('+')) {
     if (formattedPhone.length === 10) {
@@ -21,17 +21,20 @@ const sendSMS = async (recipient: string, message: string): Promise<boolean> => 
 
   try {
     console.log(`Sending SMS to ${formattedPhone} via Textbee...`);
-    const response = await fetch(`https://api.textbee.dev/api/v1/gateway/devices/${deviceId}/send-sms`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey
+    const response = await fetch(
+      `https://api.textbee.dev/api/v1/gateway/devices/${deviceId}/send-sms`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+        },
+        body: JSON.stringify({
+          recipients: [formattedPhone],
+          message: message,
+        }),
       },
-      body: JSON.stringify({
-        recipients: [formattedPhone],
-        message: message
-      })
-    });
+    );
 
     if (response.ok) {
       const data = await response.json();
@@ -48,8 +51,14 @@ const sendSMS = async (recipient: string, message: string): Promise<boolean> => 
   }
 };
 
-const sendEmail = async (recipient: string, subject: string, htmlContent: string): Promise<boolean> => {
-  const apiKey = process.env.BREVO_API_KEY || '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';
+const sendEmail = async (
+  recipient: string,
+  subject: string,
+  htmlContent: string,
+): Promise<boolean> => {
+  const apiKey =
+    process.env.BREVO_API_KEY ||
+    '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';
   const senderEmail = process.env.SENDER_EMAIL || 'sabujd880@gmail.com';
   const senderName = process.env.SENDER_NAME || 'Sabuj Counseling Support';
 
@@ -58,19 +67,19 @@ const sendEmail = async (recipient: string, subject: string, htmlContent: string
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
-        'accept': 'application/json',
+        accept: 'application/json',
         'api-key': apiKey,
-        'content-type': 'application/json'
+        'content-type': 'application/json',
       },
       body: JSON.stringify({
         sender: {
           name: senderName,
-          email: senderEmail
+          email: senderEmail,
         },
         to: [{ email: recipient }],
         subject: subject,
-        htmlContent: htmlContent
-      })
+        htmlContent: htmlContent,
+      }),
     });
 
     if (response.ok) {
@@ -96,111 +105,55 @@ export const login = async (req: Request, res: Response) => {
   }
 
   try {
-    const userRes = await query('SELECT * FROM users WHERE username = $1', [(username || '').toLowerCase().trim()]);
+    const userRes = await query('SELECT * FROM users WHERE username = $1', [
+      (username || '').toLowerCase().trim(),
+    ]);
     if (userRes.rows.length === 0) {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
     const user = userRes.rows[0];
-    const passwordMatch = await bcrypt.compare(password, user.password_hash);
+    let passwordMatch = false;
+
+    // Student temporary credentials rule: Username = Password (Student ID = Student ID)
+    if (user.role === 'student') {
+      if ((username || '').toLowerCase().trim() === (password || '').toLowerCase().trim()) {
+        passwordMatch = true;
+      }
+    }
+
+    if (!passwordMatch) {
+      passwordMatch = await bcrypt.compare(password, user.password_hash);
+    }
+
     if (!passwordMatch) {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
-    if (user.role === 'student' || user.role === 'provider' || user.role === 'admin') {
-      const usernameMatch = await bcrypt.compare(user.username, user.password_hash);
-      const changePasswordRequired = usernameMatch;
+    const changePasswordRequired =
+      (username || '').toLowerCase().trim() === (password || '').toLowerCase().trim();
 
-      const token = jwt.sign(
-        { id: user.id, username: user.username, role: user.role },
-        JWT_SECRET,
-        { expiresIn: '24h' }
-      );
+    const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, {
+      expiresIn: '24h',
+    });
 
-      await query(
-        'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
-        [user.id, 'LOGIN', `User ${user.username} bypassed 2FA (${user.role} role) and logged in successfully`, req.ip]
-      );
-
-      return res.json({
-        requires2FA: false,
-        token,
-        user: {
-          id: user.id,
-          username: user.username,
-          role: user.role,
-        },
-        changePasswordRequired
-      });
-    }
-
-    // Generate random 6-digit OTP code
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes expiration
-
-    // Save OTP to DB
     await query(
-      'UPDATE users SET otp_code = $1, otp_expires_at = $2 WHERE id = $3',
-      [otpCode, expiresAt.toISOString(), user.id]
+      'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
+      [user.id, 'LOGIN', `User ${user.username} logged in successfully (2FA disabled)`, req.ip],
     );
 
-    // Retrieve user's phone number and email
-    let userPhone = null;
-    let userEmail = null;
-    
-    if (user.role === 'student') {
-      const studRes = await query('SELECT phone, email FROM students WHERE user_id = $1', [user.id]);
-      userPhone = studRes.rows[0]?.phone || null;
-      userEmail = studRes.rows[0]?.email || null;
-    } else if (user.role === 'provider') {
-      const provRes = await query('SELECT phone, email FROM providers WHERE user_id = $1', [user.id]);
-      userPhone = provRes.rows[0]?.phone || null;
-      userEmail = provRes.rows[0]?.email || null;
-    } else if (user.role === 'admin') {
-      const uRes = await query('SELECT phone, email FROM users WHERE id = $1', [user.id]);
-      userPhone = uRes.rows[0]?.phone || null;
-      userEmail = uRes.rows[0]?.email || null;
-    }
-
-    // Dispatch SMS via Textbee
-    let smsSent = false;
-    if (userPhone) {
-      smsSent = await sendSMS(userPhone, `[CUAP SWCC] Your login OTP is ${otpCode}. Valid for 5 minutes.`);
-    }
-
-    // Dispatch Email via Brevo
-    let emailSent = false;
-    if (userEmail) {
-      const emailHtml = `
-        <div style="font-family: sans-serif; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; max-width: 480px; margin: 0 auto; background-color: #ffffff;">
-          <h2 style="color: #1e3a8a; margin-top: 0; font-family: sans-serif; border-bottom: 2px solid #3b82f6; padding-bottom: 12px;">CUAP Student Wellness Centre</h2>
-          <p style="font-size: 14px; color: #475569;">Hello <strong>${user.username.toUpperCase()}</strong>,</p>
-          <p style="font-size: 14px; color: #475569;">Your two-factor security OTP code for WCCMS is:</p>
-          <div style="background-color: #f1f5f9; padding: 16px; border-radius: 8px; font-size: 24px; font-weight: bold; letter-spacing: 4px; text-align: center; margin: 20px 0; color: #2563eb; border: 1px dashed #cbd5e1;">
-            ${otpCode}
-          </div>
-          <p style="font-size: 12px; color: #94a3b8; line-height: 1.5;">This code is valid for 5 minutes. If you did not request this login, please change your password immediately.</p>
-        </div>
-      `;
-      emailSent = await sendEmail(userEmail, "Your CUAP WCCMS Security OTP Code", emailHtml);
-    }
-
-    // Logging without sensitive OTP disclosure
-    console.log(`\n======================================================`);
-    console.log(` [2FA DISPATCH] Generated secure OTP for ${user.username.toUpperCase()}`);
-    console.log(` Recipients: Phone (${userPhone || 'None'}), Email (${userEmail || 'None'})`);
-    console.log(` SMS Status: ${smsSent ? 'SENT' : 'FAILED/SKIPPED'}`);
-    console.log(` Email Status: ${emailSent ? 'SENT' : 'FAILED/SKIPPED'}`);
-    console.log(` Expiration: 5 minutes (${expiresAt.toLocaleTimeString()})`);
-    console.log(`======================================================\n`);
-
     return res.json({
-      requires2FA: true,
-      username: user.username,
-      message: `2FA verification code dispatched. ${smsSent ? `SMS sent to ***${userPhone?.slice(-4)}. ` : ''}${emailSent ? `Email sent to ${userEmail?.slice(0, 3)}***@${userEmail?.split('@')[1]}.` : ''}`
+      requires2FA: false,
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+      },
+      changePasswordRequired,
     });
   } catch (err) {
-    console.error('Login 2FA initialization error:', err);
+    console.error('Login error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
@@ -213,7 +166,9 @@ export const verify2FA = async (req: Request, res: Response) => {
   }
 
   try {
-    const userRes = await query('SELECT * FROM users WHERE username = $1', [(username || '').toLowerCase().trim()]);
+    const userRes = await query('SELECT * FROM users WHERE username = $1', [
+      (username || '').toLowerCase().trim(),
+    ]);
     if (userRes.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -245,16 +200,14 @@ export const verify2FA = async (req: Request, res: Response) => {
     }
 
     // Sign token
-    const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
+    const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, {
+      expiresIn: '24h',
+    });
 
     // Audit logs
     await query(
       'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
-      [user.id, 'LOGIN', `User ${user.username} passed 2FA and logged in successfully`, req.ip]
+      [user.id, 'LOGIN', `User ${user.username} passed 2FA and logged in successfully`, req.ip],
     );
 
     return res.json({
@@ -264,7 +217,7 @@ export const verify2FA = async (req: Request, res: Response) => {
         username: user.username,
         role: user.role,
       },
-      changePasswordRequired
+      changePasswordRequired,
     });
   } catch (err) {
     console.error('Verify 2FA error:', err);
@@ -278,7 +231,9 @@ export const getMe = async (req: AuthRequest, res: Response) => {
   }
 
   try {
-    const userRes = await query('SELECT id, username, role, created_at FROM users WHERE id = $1', [req.user.id]);
+    const userRes = await query('SELECT id, username, role, created_at FROM users WHERE id = $1', [
+      req.user.id,
+    ]);
     if (userRes.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -286,10 +241,17 @@ export const getMe = async (req: AuthRequest, res: Response) => {
     const user = userRes.rows[0];
     let profile = null;
 
-    if (user.role === 'provider') {
+    if (user.role === 'provider' || user.role === 'dept-head' || user.role === 'super-admin') {
       const providerRes = await query('SELECT * FROM providers WHERE user_id = $1', [user.id]);
       profile = providerRes.rows[0] || null;
     } else if (user.role === 'student') {
+      // Ensure student_type column exists gracefully
+      try {
+        await query(
+          `ALTER TABLE students ADD COLUMN IF NOT EXISTS student_type VARCHAR(20) DEFAULT 'day_scholar'`,
+          [],
+        );
+      } catch (_) {}
       const studentRes = await query('SELECT * FROM students WHERE user_id = $1', [user.id]);
       profile = studentRes.rows[0] || null;
     }
@@ -297,6 +259,50 @@ export const getMe = async (req: AuthRequest, res: Response) => {
     return res.json({ user, profile });
   } catch (err) {
     console.error('getMe error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// GET /auth/permissions — returns module flags for the logged-in student
+export const getPermissions = async (req: AuthRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const isStudent = req.user.role === 'student';
+    let studentType = 'day_scholar';
+
+    if (isStudent) {
+      try {
+        await query(
+          `ALTER TABLE students ADD COLUMN IF NOT EXISTS student_type VARCHAR(20) DEFAULT 'day_scholar'`,
+          [],
+        );
+      } catch (_) {}
+      const studentRes = await query('SELECT student_type FROM students WHERE user_id = $1', [
+        req.user.id,
+      ]);
+      studentType = studentRes.rows[0]?.student_type || 'day_scholar';
+    }
+
+    const isHosteller = studentType === 'hosteller';
+
+    return res.json({
+      modules: {
+        counselling: true,
+        hostel: isHosteller,
+        mess: false,
+        main_gate: false,
+        library: false,
+        support_tickets: true,
+        academic: false,
+        notifications: true,
+      },
+      student_type: studentType,
+    });
+  } catch (err) {
+    console.error('getPermissions error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
@@ -326,7 +332,7 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
 
     await query(
       'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
-      [req.user.id, 'CHANGE_PASSWORD', 'User changed their password', req.ip]
+      [req.user.id, 'CHANGE_PASSWORD', 'User changed their password', req.ip],
     );
 
     return res.json({ message: 'Password updated successfully' });
@@ -337,14 +343,36 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
 };
 
 export const createProvider = async (req: AuthRequest, res: Response) => {
-  const { username, password, name, employeeId, department, qualification, specialization, photoUrl, signatureUrl, phone, email } = req.body;
+  const {
+    username,
+    password,
+    name,
+    employeeId,
+    department,
+    qualification,
+    specialization,
+    photoUrl,
+    signatureUrl,
+    phone,
+    email,
+  } = req.body;
 
-  if (!username || !password || !name || !employeeId || !department || !qualification || !specialization) {
+  if (
+    !username ||
+    !password ||
+    !name ||
+    !employeeId ||
+    !department ||
+    !qualification ||
+    !specialization
+  ) {
     return res.status(400).json({ error: 'All primary provider details are required' });
   }
 
   try {
-    const checkUser = await query('SELECT id FROM users WHERE username = $1', [(username || '').toLowerCase().trim()]);
+    const checkUser = await query('SELECT id FROM users WHERE username = $1', [
+      (username || '').toLowerCase().trim(),
+    ]);
     if (checkUser.rows.length > 0) {
       return res.status(400).json({ error: 'Username is already taken' });
     }
@@ -355,30 +383,54 @@ export const createProvider = async (req: AuthRequest, res: Response) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    
+
     await query(
       'INSERT INTO users (username, password_hash, role, phone, email) VALUES ($1, $2, $3, $4, $5)',
-      [(username || '').toLowerCase().trim(), hashedPassword, 'provider', phone || null, email || null]
+      [
+        (username || '').toLowerCase().trim(),
+        hashedPassword,
+        'provider',
+        phone || null,
+        email || null,
+      ],
     );
 
-    const userRes = await query('SELECT id FROM users WHERE username = $1', [(username || '').toLowerCase().trim()]);
+    const userRes = await query('SELECT id FROM users WHERE username = $1', [
+      (username || '').toLowerCase().trim(),
+    ]);
     const userId = userRes.rows[0].id;
 
     await query(
       'INSERT INTO providers (user_id, name, employee_id, department, qualification, specialization, photo_url, signature_url, phone, email) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
-      [userId, name, employeeId, department, qualification, specialization, photoUrl || null, signatureUrl || null, phone || null, email || null]
+      [
+        userId,
+        name,
+        employeeId,
+        department,
+        qualification,
+        specialization,
+        photoUrl || null,
+        signatureUrl || null,
+        phone || null,
+        email || null,
+      ],
     );
 
     for (let day = 1; day <= 5; day++) {
       await query(
         'INSERT INTO availability (provider_id, day_of_week, start_time, end_time, break_start, break_end, is_holiday) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-        [userId, day, '09:00', '17:00', '13:00', '14:00', false]
+        [userId, day, '09:00', '17:00', '13:00', '14:00', false],
       );
     }
 
     await query(
       'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
-      [req.user?.id || null, 'CREATE_PROVIDER', `Admin created provider ${name} (${employeeId})`, req.ip]
+      [
+        req.user?.id || null,
+        'CREATE_PROVIDER',
+        `Admin created provider ${name} (${employeeId})`,
+        req.ip,
+      ],
     );
 
     return res.status(201).json({ message: 'Provider created successfully' });
@@ -400,13 +452,29 @@ export const createStudent = async (req: AuthRequest, res: Response) => {
     phone,
     email,
     hostelScholar,
+    studentType,
     emergencyContact,
     emergencyPhone,
     bloodGroup,
-    address
+    address,
   } = req.body;
 
-  if (!registrationNumber || !name || !age || !gender || !dob || !department || !semester || !phone || !email || !hostelScholar || !emergencyContact || !emergencyPhone || !bloodGroup || !address) {
+  if (
+    !registrationNumber ||
+    !name ||
+    !age ||
+    !gender ||
+    !dob ||
+    !department ||
+    !semester ||
+    !phone ||
+    !email ||
+    !hostelScholar ||
+    !emergencyContact ||
+    !emergencyPhone ||
+    !bloodGroup ||
+    !address
+  ) {
     return res.status(400).json({ error: 'All student fields are required' });
   }
 
@@ -417,24 +485,63 @@ export const createStudent = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Student registration number already exists' });
     }
 
+    // Default password = registration number (hashed). Student must change on first login.
     const hashedPassword = await bcrypt.hash(regNorm, 10);
-    
-    await query(
-      'INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3)',
-      [regNorm, hashedPassword, 'student']
-    );
+
+    await query('INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3)', [
+      regNorm,
+      hashedPassword,
+      'student',
+    ]);
 
     const userRes = await query('SELECT id FROM users WHERE username = $1', [regNorm]);
     const userId = userRes.rows[0].id;
 
+    // Ensure student_type column exists
+    try {
+      await query(
+        `ALTER TABLE students ADD COLUMN IF NOT EXISTS student_type VARCHAR(20) DEFAULT 'day_scholar'`,
+        [],
+      );
+    } catch (_) {}
+
+    // Derive student_type from hostelScholar flag or explicit field
+    const resolvedStudentType =
+      studentType ||
+      (hostelScholar === 'Hosteller' || hostelScholar === true || hostelScholar === 'true'
+        ? 'hosteller'
+        : 'day_scholar');
+
     await query(
-      'INSERT INTO students (user_id, registration_number, name, age, gender, dob, department, semester, phone, email, hostel_scholar, emergency_contact, emergency_phone, blood_group, address) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)',
-      [userId, regNorm, name, parseInt(age), gender, dob, department, semester, phone, email, hostelScholar, emergencyContact, emergencyPhone, bloodGroup, address]
+      'INSERT INTO students (user_id, registration_number, name, age, gender, dob, department, semester, phone, email, hostel_scholar, student_type, emergency_contact, emergency_phone, blood_group, address) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)',
+      [
+        userId,
+        regNorm,
+        name,
+        parseInt(age),
+        gender,
+        dob,
+        department,
+        semester,
+        phone,
+        email,
+        hostelScholar,
+        resolvedStudentType,
+        emergencyContact,
+        emergencyPhone,
+        bloodGroup,
+        address,
+      ],
     );
 
     await query(
       'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
-      [req.user?.id || null, 'CREATE_STUDENT', `Admin created student ${name} (${regNorm})`, req.ip]
+      [
+        req.user?.id || null,
+        'CREATE_STUDENT',
+        `Admin created student ${name} (${regNorm}) type=${resolvedStudentType}`,
+        req.ip,
+      ],
     );
 
     return res.status(201).json({ message: 'Student registered successfully' });
@@ -452,10 +559,15 @@ export const forgotPassword = async (req: Request, res: Response) => {
   }
 
   try {
-    const userRes = await query('SELECT * FROM users WHERE username = $1', [(username || '').toLowerCase().trim()]);
+    const userRes = await query('SELECT * FROM users WHERE username = $1', [
+      (username || '').toLowerCase().trim(),
+    ]);
     if (userRes.rows.length === 0) {
       // Return 200 to prevent username harvesting
-      return res.json({ message: 'If the username is registered, a password reset link has been sent to your email.' });
+      return res.json({
+        message:
+          'If the username is registered, a password reset link has been sent to your email.',
+      });
     }
 
     const user = userRes.rows[0];
@@ -473,15 +585,13 @@ export const forgotPassword = async (req: Request, res: Response) => {
     }
 
     if (!userEmail) {
-      return res.status(400).json({ error: 'No registered email found for this user. Please contact the administrator.' });
+      return res.status(400).json({
+        error: 'No registered email found for this user. Please contact the administrator.',
+      });
     }
 
     // Generate JWT token valid for 15 minutes
-    const token = jwt.sign(
-      { username: user.username },
-      JWT_SECRET,
-      { expiresIn: '15m' }
-    );
+    const token = jwt.sign({ username: user.username }, JWT_SECRET, { expiresIn: '15m' });
 
     const resetLink = `http://localhost:3000/reset-password?token=${token}&username=${user.username}`;
     const emailHtml = `
@@ -498,12 +608,27 @@ export const forgotPassword = async (req: Request, res: Response) => {
       </div>
     `;
 
-    const emailSent = await sendEmail(userEmail, "Reset Your CUAP WCCMS Password", emailHtml);
-    if (!emailSent) {
-      return res.status(500).json({ error: 'Failed to dispatch recovery email. Please check SMTP configuration.' });
-    }
+    const emailSent = await sendEmail(
+      userEmail,
+      'Password Reset Link - CUAP Wellness Centre',
+      emailHtml,
+    );
+    if (emailSent) {
+      return res.json({
+        message: 'A password reset link has been sent to your registered email address.',
+      });
+    } else {
+      console.log(`\n======================================================`);
+      console.log(` [PASSWORD RESET] Brevo dispatch failed. Fallback to console.`);
+      console.log(` User: ${user.username.toUpperCase()}`);
+      console.log(` Reset Link: ${resetLink}`);
+      console.log(`======================================================\n`);
 
-    return res.json({ message: 'If the username is registered, a password reset link has been sent to your email.' });
+      return res.status(500).json({
+        error:
+          'Failed to dispatch password reset email. However, the link has been logged to the developer console.',
+      });
+    }
   } catch (err) {
     console.error('Forgot password error:', err);
     return res.status(500).json({ error: 'Internal server error' });
@@ -524,14 +649,24 @@ export const resetPassword = async (req: Request, res: Response) => {
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await query('UPDATE users SET password_hash = $1 WHERE username = $2', [hashedPassword, username.toLowerCase().trim()]);
+    await query('UPDATE users SET password_hash = $1 WHERE username = $2', [
+      hashedPassword,
+      username.toLowerCase().trim(),
+    ]);
 
-    const userRes = await query('SELECT id FROM users WHERE username = $1', [username.toLowerCase().trim()]);
+    const userRes = await query('SELECT id FROM users WHERE username = $1', [
+      username.toLowerCase().trim(),
+    ]);
     const userId = userRes.rows[0]?.id || null;
 
     await query(
       'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
-      [userId, 'RESET_PASSWORD', `User reset password successfully via email verification link`, req.ip]
+      [
+        userId,
+        'RESET_PASSWORD',
+        `User reset password successfully via email verification link`,
+        req.ip,
+      ],
     );
 
     return res.json({ message: 'Password reset successfully. You can now log in.' });

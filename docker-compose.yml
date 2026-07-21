@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: postgrespassword
       POSTGRES_DB: wccms
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - wccms-postgres-data:/var/lib/postgresql/data
 
@@ -22,7 +22,7 @@ services:
       PGADMIN_DEFAULT_EMAIL: admin@cuap.ac.in
       PGADMIN_DEFAULT_PASSWORD: pgadminpassword
     ports:
-      - "5050:80"
+      - '5050:80'
     depends_on:
       - database
 

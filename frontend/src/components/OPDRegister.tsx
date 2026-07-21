@@ -30,8 +30,12 @@ export default function OPDRegister() {
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
         <div>
-          <h2 className="text-lg font-bold text-slate-800 dark:text-white">Daily OPD Patient Register</h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Track and export outpatient counseling register logs</p>
+          <h2 className="text-lg font-bold text-slate-800 dark:text-white">
+            Daily OPD Patient Register
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Track and export outpatient counseling register logs
+          </p>
         </div>
         <div className="flex gap-3">
           <input
@@ -50,7 +54,9 @@ export default function OPDRegister() {
       </div>
 
       {loading ? (
-        <div className="py-12 text-center text-sm font-semibold text-slate-500">Loading Register Logs...</div>
+        <div className="py-12 text-center text-sm font-semibold text-slate-500">
+          Loading Register Logs...
+        </div>
       ) : records.length === 0 ? (
         <div className="py-12 text-center text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
           No patients registered for this date.
@@ -64,7 +70,7 @@ export default function OPDRegister() {
                 <th className="py-3 px-4">Time</th>
                 <th className="py-3 px-4">Student (Reg No)</th>
                 <th className="py-3 px-4">Dept / Sem</th>
-                <th className="py-3 px-4">Assigned Provider</th>
+                <th className="py-3 px-4">Assigned Counselor</th>
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4">Diagnosis</th>
               </tr>
@@ -75,22 +81,32 @@ export default function OPDRegister() {
                   key={idx}
                   className="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50/50 dark:hover:bg-slate-800/20 text-slate-700 dark:text-slate-300 text-sm transition"
                 >
-                  <td className="py-3.5 px-4 font-semibold text-blue-600 dark:text-blue-400">#{r.token}</td>
+                  <td className="py-3.5 px-4 font-semibold text-blue-600 dark:text-blue-400">
+                    #{r.token}
+                  </td>
                   <td className="py-3.5 px-4 font-medium">{r.time}</td>
                   <td className="py-3.5 px-4">
                     <span className="font-semibold">{r.student_name}</span>
-                    <span className="block text-xs text-slate-400 font-mono mt-0.5">{r.registration_number?.toUpperCase()}</span>
+                    <span className="block text-xs text-slate-400 font-mono mt-0.5">
+                      {r.registration_number?.toUpperCase()}
+                    </span>
                   </td>
-                  <td className="py-3.5 px-4 text-xs font-semibold">{r.department} (Sem {r.semester})</td>
-                  <td className="py-3.5 px-4 font-medium text-slate-600 dark:text-slate-400">Dr. {r.provider_name}</td>
+                  <td className="py-3.5 px-4 text-xs font-semibold">
+                    {r.department} (Sem {r.semester})
+                  </td>
+                  <td className="py-3.5 px-4 font-medium text-slate-600 dark:text-slate-400">
+                    Dr. {r.provider_name}
+                  </td>
                   <td className="py-3.5 px-4">
-                    <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
-                      r.status === 'completed' 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-300' 
-                        : (r.status === 'approved' 
-                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300'
-                          : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950/40 dark:text-yellow-300')
-                    }`}>
+                    <span
+                      className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
+                        r.status === 'completed'
+                          ? 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-300'
+                          : r.status === 'approved'
+                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300'
+                            : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950/40 dark:text-yellow-300'
+                      }`}
+                    >
                       {r.status}
                     </span>
                   </td>

@@ -21,15 +21,17 @@ const runTests = async () => {
     const studentLoginRes = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: '25bec01', password: '25BEC01' })
+      body: JSON.stringify({ username: '25bec01', password: '25BEC01' }),
     });
-    
+
     if (!studentLoginRes.ok) {
       const errText = await studentLoginRes.text();
-      throw new Error(`Student login failed with status: ${studentLoginRes.status}. Body: ${errText}`);
+      throw new Error(
+        `Student login failed with status: ${studentLoginRes.status}. Body: ${errText}`,
+      );
     }
-    
-    const studentData = await studentLoginRes.json() as any;
+
+    const studentData = (await studentLoginRes.json()) as any;
     console.log('  -> Status:', studentLoginRes.status);
     console.log('  -> Requires 2FA?', studentData.requires2FA);
     console.log('  -> Session Token Received:', studentData.token ? 'YES' : 'NO');
@@ -45,15 +47,15 @@ const runTests = async () => {
     const adminLoginRes = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'admin', password: '2026' })
+      body: JSON.stringify({ username: 'admin', password: '2026' }),
     });
-    
+
     if (!adminLoginRes.ok) {
       const errText = await adminLoginRes.text();
       throw new Error(`Admin login failed with status: ${adminLoginRes.status}. Body: ${errText}`);
     }
-    
-    const adminData = await adminLoginRes.json() as any;
+
+    const adminData = (await adminLoginRes.json()) as any;
     console.log('  -> Status:', adminLoginRes.status);
     console.log('  -> Requires 2FA?', adminData.requires2FA);
     if (!adminData.requires2FA) {
@@ -68,7 +70,7 @@ const runTests = async () => {
     const adminVerifyRes = await fetch(`${BASE_URL}/auth/verify-2fa`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'admin', otpCode: adminOtp })
+      body: JSON.stringify({ username: 'admin', otpCode: adminOtp }),
     });
 
     if (!adminVerifyRes.ok) {
@@ -76,7 +78,7 @@ const runTests = async () => {
       throw new Error(`Admin 2FA verification failed: ${adminVerifyRes.status}. Body: ${errText}`);
     }
 
-    const adminSession = await adminVerifyRes.json() as any;
+    const adminSession = (await adminVerifyRes.json()) as any;
     console.log('  -> Session Token Received:', adminSession.token ? 'YES' : 'NO');
     if (!adminSession.token) {
       throw new Error('Admin 2FA verification did not return token');
@@ -90,15 +92,15 @@ const runTests = async () => {
     const providerLoginRes = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'provider', password: '2026' })
+      body: JSON.stringify({ username: 'provider', password: '2026' }),
     });
-    
+
     if (!providerLoginRes.ok) {
       const errText = await providerLoginRes.text();
       throw new Error(`Provider login failed: ${providerLoginRes.status}. Body: ${errText}`);
     }
-    
-    const providerData = await providerLoginRes.json() as any;
+
+    const providerData = (await providerLoginRes.json()) as any;
     console.log('  -> Status:', providerLoginRes.status);
     console.log('  -> Requires 2FA?', providerData.requires2FA);
     if (!providerData.requires2FA) {
@@ -106,22 +108,26 @@ const runTests = async () => {
     }
 
     // Query the database directly to get the generated OTP code for provider
-    const providerOtpRes = await query('SELECT otp_code FROM users WHERE username = ?', ['provider']);
+    const providerOtpRes = await query('SELECT otp_code FROM users WHERE username = ?', [
+      'provider',
+    ]);
     const providerOtp = providerOtpRes.rows[0]?.otp_code;
     console.log('  -> Fetched 2FA OTP from Database:', providerOtp);
 
     const providerVerifyRes = await fetch(`${BASE_URL}/auth/verify-2fa`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'provider', otpCode: providerOtp })
+      body: JSON.stringify({ username: 'provider', otpCode: providerOtp }),
     });
 
     if (!providerVerifyRes.ok) {
       const errText = await providerVerifyRes.text();
-      throw new Error(`Provider 2FA verification failed: ${providerVerifyRes.status}. Body: ${errText}`);
+      throw new Error(
+        `Provider 2FA verification failed: ${providerVerifyRes.status}. Body: ${errText}`,
+      );
     }
 
-    const providerSession = await providerVerifyRes.json() as any;
+    const providerSession = (await providerVerifyRes.json()) as any;
     console.log('  -> Session Token Received:', providerSession.token ? 'YES' : 'NO');
     if (!providerSession.token) {
       throw new Error('Provider 2FA verification did not return token');
@@ -132,20 +138,20 @@ const runTests = async () => {
     // TEST 4: Forgot & Reset Password Flow
     // ----------------------------------------------------
     console.log('[TEST 4/4] Forgot & Reset Password Flow...');
-    
+
     // Trigger Forgot Password API
     const forgotRes = await fetch(`${BASE_URL}/auth/forgot-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: '25bec01' })
+      body: JSON.stringify({ username: '25bec01' }),
     });
 
     if (!forgotRes.ok) {
       const errText = await forgotRes.text();
       throw new Error(`Forgot password API request failed: ${forgotRes.status}. Body: ${errText}`);
     }
-    
-    const forgotData = await forgotRes.json() as any;
+
+    const forgotData = (await forgotRes.json()) as any;
     console.log('  -> Forgot Password API Response:', forgotData.message);
 
     // Generate a valid JWT token signed with same secret to bypass the email transport wait
@@ -156,7 +162,11 @@ const runTests = async () => {
     const resetRes = await fetch(`${BASE_URL}/auth/reset-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: '25bec01', token: resetToken, newPassword: 'NEW_SECRET_2026' })
+      body: JSON.stringify({
+        username: '25bec01',
+        token: resetToken,
+        newPassword: 'NEW_SECRET_2026',
+      }),
     });
 
     if (!resetRes.ok) {
@@ -164,22 +174,24 @@ const runTests = async () => {
       throw new Error(`Reset password API request failed: ${resetRes.status}. Body: ${errText}`);
     }
 
-    const resetData = await resetRes.json() as any;
+    const resetData = (await resetRes.json()) as any;
     console.log('  -> Reset Password API Response:', resetData.message || 'Success');
 
     // Verify login with new password
     const studentNewLoginRes = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: '25bec01', password: 'NEW_SECRET_2026' })
+      body: JSON.stringify({ username: '25bec01', password: 'NEW_SECRET_2026' }),
     });
 
     if (!studentNewLoginRes.ok) {
       const errText = await studentNewLoginRes.text();
-      throw new Error(`Login verification with new password failed: ${studentNewLoginRes.status}. Body: ${errText}`);
+      throw new Error(
+        `Login verification with new password failed: ${studentNewLoginRes.status}. Body: ${errText}`,
+      );
     }
 
-    const studentNewData = await studentNewLoginRes.json() as any;
+    const studentNewData = (await studentNewLoginRes.json()) as any;
     console.log('  -> New Password Login Status:', studentNewLoginRes.status);
     console.log('  -> Requires 2FA?', studentNewData.requires2FA);
     console.log('  -> Session Token Received:', studentNewData.token ? 'YES' : 'NO');
@@ -192,7 +204,7 @@ const runTests = async () => {
     await fetch(`${BASE_URL}/auth/reset-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: '25bec01', token: revertToken, newPassword: '25BEC01' })
+      body: JSON.stringify({ username: '25bec01', token: revertToken, newPassword: '25BEC01' }),
     });
     console.log('  -> Reverted student password to default seed value');
     console.log('  [PASS] Forgot & Reset Password flow verified.\n');
@@ -200,7 +212,6 @@ const runTests = async () => {
     console.log('========================================================');
     console.log('   [SUCCESS] ALL WCCMS AUTH FLOWS ARE FULLY FUNCTIONAL');
     console.log('========================================================');
-
   } catch (err: any) {
     console.error('\n[FAIL] Integration test failed:', err.message);
     process.exit(1);

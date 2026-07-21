@@ -54,9 +54,36 @@ const scoreAssessment = (type: string, answers: Record<string, number>) => {
       subScores = { depression: depScore, anxiety: anxScore, stress: strScore };
 
       // Category evaluations
-      const depEval = depScore <= 9 ? 'Normal' : depScore <= 13 ? 'Mild' : depScore <= 20 ? 'Moderate' : depScore <= 27 ? 'Severe' : 'Extremely Severe';
-      const anxEval = anxScore <= 7 ? 'Normal' : anxScore <= 9 ? 'Mild' : anxScore <= 14 ? 'Moderate' : anxScore <= 19 ? 'Severe' : 'Extremely Severe';
-      const strEval = strScore <= 14 ? 'Normal' : strScore <= 18 ? 'Mild' : strScore <= 25 ? 'Moderate' : strScore <= 33 ? 'Severe' : 'Extremely Severe';
+      const depEval =
+        depScore <= 9
+          ? 'Normal'
+          : depScore <= 13
+            ? 'Mild'
+            : depScore <= 20
+              ? 'Moderate'
+              : depScore <= 27
+                ? 'Severe'
+                : 'Extremely Severe';
+      const anxEval =
+        anxScore <= 7
+          ? 'Normal'
+          : anxScore <= 9
+            ? 'Mild'
+            : anxScore <= 14
+              ? 'Moderate'
+              : anxScore <= 19
+                ? 'Severe'
+                : 'Extremely Severe';
+      const strEval =
+        strScore <= 14
+          ? 'Normal'
+          : strScore <= 18
+            ? 'Mild'
+            : strScore <= 25
+              ? 'Moderate'
+              : strScore <= 33
+                ? 'Severe'
+                : 'Extremely Severe';
 
       interpretation = `Depression: ${depEval} (${depScore}), Anxiety: ${anxEval} (${anxScore}), Stress: ${strEval} (${strScore})`;
       break;
@@ -86,7 +113,9 @@ export const submitAssessment = async (req: AuthRequest, res: Response) => {
   }
 
   if (!studentId || !type || !answers) {
-    return res.status(400).json({ error: 'Student ID, assessment type, and answers are required.' });
+    return res
+      .status(400)
+      .json({ error: 'Student ID, assessment type, and answers are required.' });
   }
 
   try {
@@ -94,9 +123,13 @@ export const submitAssessment = async (req: AuthRequest, res: Response) => {
 
     // If client is student, verify they are submitting for themselves
     if (req.user.role === 'student') {
-      const studentProfile = await query('SELECT id FROM students WHERE user_id = $1', [req.user.id]);
+      const studentProfile = await query('SELECT id FROM students WHERE user_id = $1', [
+        req.user.id,
+      ]);
       if (studentProfile.rows.length === 0 || studentProfile.rows[0].id !== parseInt(studentId)) {
-        return res.status(403).json({ error: 'Forbidden. Students can only submit their own assessments.' });
+        return res
+          .status(403)
+          .json({ error: 'Forbidden. Students can only submit their own assessments.' });
       }
       resolvedStudentId = studentProfile.rows[0].id;
     }
@@ -118,27 +151,32 @@ export const submitAssessment = async (req: AuthRequest, res: Response) => {
     await query(
       `INSERT INTO assessments (student_id, provider_id, type, scores, report) 
        VALUES ($1, $2, $3, $4, $5)`,
-      [resolvedStudentId, providerId, type, scoresJson, reportText]
+      [resolvedStudentId, providerId, type, scoresJson, reportText],
     );
 
     // Get the assessment ID to return it
     const fetchNew = await query(
       'SELECT id FROM assessments WHERE student_id = $1 AND type = $2 ORDER BY created_at DESC LIMIT 1',
-      [resolvedStudentId, type]
+      [resolvedStudentId, type],
     );
     const assessmentId = fetchNew.rows[0].id;
 
     // Audit log
     await query(
       'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
-      [req.user.id, 'SUBMIT_ASSESSMENT', `Submitted ${type} assessment (Score: ${score}) for Student ID ${resolvedStudentId}`, req.ip]
+      [
+        req.user.id,
+        'SUBMIT_ASSESSMENT',
+        `Submitted ${type} assessment (Score: ${score}) for Student ID ${resolvedStudentId}`,
+        req.ip,
+      ],
     );
 
     return res.status(201).json({
       message: 'Assessment scored and recorded successfully.',
       id: assessmentId,
       score,
-      interpretation
+      interpretation,
     });
   } catch (err) {
     console.error('Submit assessment error:', err);
@@ -180,7 +218,7 @@ export const getAssessments = async (req: AuthRequest, res: Response) => {
     sql += ' ORDER BY a.assessment_date DESC, a.created_at DESC';
 
     const dbRes = await query(sql, params);
-    
+
     // Parse scores JSON string back if it was sqlite/text
     const results = dbRes.rows.map((row: any) => {
       let parsedScores = row.scores;
@@ -214,7 +252,7 @@ export const getAssessmentDetails = async (req: AuthRequest, res: Response) => {
        FROM assessments a
        JOIN students s ON a.student_id = s.id
        WHERE a.id = $1`,
-      [id]
+      [id],
     );
 
     if (assessRes.rows.length === 0) {
@@ -242,7 +280,7 @@ export const getAssessmentDetails = async (req: AuthRequest, res: Response) => {
 
     return res.json({
       ...assessment,
-      scores: parsedScores
+      scores: parsedScores,
     });
   } catch (err) {
     console.error('Get assessment details error:', err);

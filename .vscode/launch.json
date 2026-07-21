@@ -1,0 +1,35 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node-terminal",
+      "request": "launch",
+      "name": "Debug Backend (Express)",
+      "command": "npm run dev",
+      "cwd": "${workspaceFolder}/backend",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "type": "node-terminal",
+      "request": "launch",
+      "name": "Debug Frontend (Next.js Server)",
+      "command": "npm run dev",
+      "cwd": "${workspaceFolder}/frontend",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "Debug Frontend (Chrome Client)",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}/frontend",
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Full Stack (Backend + Frontend)",
+      "configurations": ["Debug Backend (Express)", "Debug Frontend (Next.js Server)"]
+    }
+  ]
+}

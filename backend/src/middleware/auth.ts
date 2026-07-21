@@ -39,8 +39,8 @@ export const requireRoles = (roles: string[]) => {
     }
 
     if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ 
-        error: `Access denied. Requires one of the following roles: ${roles.join(', ')}` 
+      return res.status(403).json({
+        error: `Access denied. Requires one of the following roles: ${roles.join(', ')}`,
       });
     }
 

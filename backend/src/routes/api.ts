@@ -6,11 +6,12 @@ import {
   login,
   verify2FA,
   getMe,
+  getPermissions,
   changePassword,
   createProvider,
   createStudent,
   forgotPassword,
-  resetPassword
+  resetPassword,
 } from '../controllers/authController';
 
 import {
@@ -19,7 +20,13 @@ import {
   updateAppointmentStatus,
   getAvailableSlots,
   verifyAppointmentQR,
-  getProviders
+  getProviders,
+  getCounselorSettings,
+  updateCounselorSettings,
+  bookOnBehalf,
+  registerEmergency,
+  registerSpot,
+  scheduleFollowUp,
 } from '../controllers/appointmentController';
 
 import {
@@ -27,15 +34,35 @@ import {
   getSession,
   getSessionVersions,
   getStudentEMR,
+  getAllAssessments,
   saveMSELog,
   getMSELogs,
-  saveChildCaseHistory,
-  getChildCaseHistories,
+  saveCaseHistory,
+  getCaseHistories,
   getMSEPrintLayout,
-  getChildCaseHistoryPrintLayout,
+  getCaseHistoryPrintLayout,
   createPrescription,
   getPrescription,
-  getPrescriptionPrintLayout
+  getPrescriptionPrintLayout,
+  orderTest,
+  getPendingTests,
+  submitTestResults,
+  getStudentTests,
+  getCompiledClientReport,
+  cosignSession,
+  getHighRiskSessions,
+  // Phase 3 — Report Access Control
+  grantReportAccess,
+  revokeReportAccess,
+  getStudentAccessibleReports,
+  // Phase 4 — UniMind AI
+  aiClinicalSuggestions,
+  aiDraftToReport,
+  // Phase 5 — Session Drafts
+  saveSessionDraft,
+  getSessionDraft,
+  toggleReportVisibility,
+  getGeneratedReports,
 } from '../controllers/clinicalController';
 
 import {
@@ -43,20 +70,23 @@ import {
   getMessages,
   getConversations,
   markAsRead,
-  getAvailableContacts
+  getAvailableContacts,
 } from '../controllers/messageController';
 
 import {
   uploadDocument,
   getDocuments,
   downloadDocument,
-  deleteDocument
+  deleteDocument,
+  submitConsent,
 } from '../controllers/documentController';
+
+import { toggleAssessments } from '../controllers/studentController';
 
 import {
   submitAssessment,
   getAssessments,
-  getAssessmentDetails
+  getAssessmentDetails,
 } from '../controllers/assessmentController';
 
 import {
@@ -68,9 +98,15 @@ import {
   restoreDatabase,
   getAnnouncements,
   createAnnouncement,
+  updateAnnouncement,
+  deleteAnnouncement,
+  listBackups,
+  deleteBackup,
+  downloadBackup,
+  sanitizeDatabase,
   getAdminStudents,
   updateAdminStudent,
-  deleteAdminStudent
+  deleteAdminStudent,
 } from '../controllers/adminController';
 
 import { aiAssist } from '../controllers/aiController';
@@ -86,16 +122,42 @@ router.post('/auth/verify-2fa', verify2FA);
 router.post('/public/chat', publicChat);
 router.post('/student/chat', authenticateToken, requireRoles(['student']), studentChat);
 router.get('/auth/me', authenticateToken, getMe);
+router.get('/auth/permissions', authenticateToken, getPermissions);
 router.post('/auth/change-password', authenticateToken, changePassword);
 router.post('/auth/forgot-password', forgotPassword);
 router.post('/auth/reset-password', resetPassword);
 
-// Provider and Student registrations (Admin only)
-router.post('/admin/providers', authenticateToken, requireRoles(['admin']), createProvider);
-router.post('/admin/students', authenticateToken, requireRoles(['admin']), createStudent);
-router.get('/admin/students', authenticateToken, requireRoles(['admin']), getAdminStudents);
-router.put('/admin/students/:id', authenticateToken, requireRoles(['admin']), updateAdminStudent);
-router.delete('/admin/students/:id', authenticateToken, requireRoles(['admin']), deleteAdminStudent);
+// Provider and Student registrations (Admin & Front-desk)
+router.post(
+  '/admin/providers',
+  authenticateToken,
+  requireRoles(['admin', 'super-admin']),
+  createProvider,
+);
+router.post(
+  '/admin/students',
+  authenticateToken,
+  requireRoles(['admin', 'front-desk', 'super-admin']),
+  createStudent,
+);
+router.get(
+  '/admin/students',
+  authenticateToken,
+  requireRoles(['admin', 'front-desk', 'super-admin']),
+  getAdminStudents,
+);
+router.put(
+  '/admin/students/:id',
+  authenticateToken,
+  requireRoles(['admin', 'front-desk', 'super-admin']),
+  updateAdminStudent,
+);
+router.delete(
+  '/admin/students/:id',
+  authenticateToken,
+  requireRoles(['admin', 'super-admin']),
+  deleteAdminStudent,
+);
 
 // ==========================================
 // Provider List (for student booking)
@@ -105,32 +167,169 @@ router.get('/providers', authenticateToken, getProviders);
 // ==========================================
 // Appointment Routes
 // ==========================================
-router.post('/appointments', authenticateToken, requireRoles(['student']), bookAppointment);
+router.post('/appointments', authenticateToken, bookAppointment);
+router.post('/appointments/book-on-behalf', authenticateToken, bookOnBehalf);
+router.post('/appointments/emergency', authenticateToken, registerEmergency);
+router.post('/appointments/spot', authenticateToken, registerSpot);
+router.post('/appointments/follow-up', authenticateToken, scheduleFollowUp);
 router.get('/appointments', authenticateToken, getAppointments);
 router.patch('/appointments/:id/status', authenticateToken, updateAppointmentStatus);
 router.get('/appointments/available-slots', authenticateToken, getAvailableSlots);
-router.post('/appointments/verify-qr', authenticateToken, requireRoles(['admin', 'provider']), verifyAppointmentQR);
+router.get('/counselor/settings', authenticateToken, getCounselorSettings);
+router.post('/counselor/settings', authenticateToken, updateCounselorSettings);
+router.post(
+  '/appointments/verify-qr',
+  authenticateToken,
+  requireRoles(['admin', 'provider']),
+  verifyAppointmentQR,
+);
 
 // ==========================================
 // Clinical EMR & Prescription Routes
 // ==========================================
-router.post('/clinical/sessions', authenticateToken, requireRoles(['provider']), saveSession);
+router.post(
+  '/clinical/sessions',
+  authenticateToken,
+  requireRoles(['provider', 'clinician', 'dept-head', 'super-admin']),
+  saveSession,
+);
 router.get('/clinical/sessions/:id', authenticateToken, getSession);
-router.get('/clinical/sessions/:id/versions', authenticateToken, requireRoles(['provider']), getSessionVersions);
+router.get(
+  '/clinical/sessions/:id/versions',
+  authenticateToken,
+  requireRoles(['provider', 'clinician', 'dept-head', 'super-admin']),
+  getSessionVersions,
+);
 router.get('/clinical/emr/student/:studentId', authenticateToken, getStudentEMR);
-router.post('/clinical/ai-assist', authenticateToken, requireRoles(['provider']), aiAssist);
-router.post('/clinical/mse', authenticateToken, requireRoles(['provider']), saveMSELog);
+router.get('/clinical/generated-reports', authenticateToken, getGeneratedReports);
+router.post('/clinical/reports/:type/:id/release', authenticateToken, toggleReportVisibility);
+router.get(
+  '/clinical/assessments',
+  authenticateToken,
+  requireRoles(['admin', 'provider', 'dept-head', 'super-admin']),
+  getAllAssessments,
+);
+router.post(
+  '/clinical/ai-assist',
+  authenticateToken,
+  requireRoles(['provider', 'clinician', 'dept-head', 'super-admin']),
+  aiAssist,
+);
+router.post(
+  '/clinical/mse',
+  authenticateToken,
+  requireRoles(['provider', 'clinician', 'dept-head', 'super-admin']),
+  saveMSELog,
+);
 router.get('/clinical/mse/student/:studentId', authenticateToken, getMSELogs);
 router.get('/clinical/mse/:id/print', getMSEPrintLayout);
 
-router.post('/clinical/child-case-history', authenticateToken, requireRoles(['provider']), saveChildCaseHistory);
-router.get('/clinical/child-case-history/student/:studentId', authenticateToken, getChildCaseHistories);
-router.get('/clinical/child-case-history/:id/print', getChildCaseHistoryPrintLayout);
+router.post(
+  '/clinical/case-history',
+  authenticateToken,
+  requireRoles(['provider', 'clinician', 'dept-head', 'super-admin']),
+  saveCaseHistory,
+);
+router.get('/clinical/case-history/student/:studentId', authenticateToken, getCaseHistories);
+router.get('/clinical/case-history/:id/print', getCaseHistoryPrintLayout);
 
-router.post('/clinical/prescriptions', authenticateToken, requireRoles(['provider']), createPrescription);
+router.post(
+  '/clinical/prescriptions',
+  authenticateToken,
+  requireRoles(['provider', 'clinician', 'dept-head', 'super-admin']),
+  createPrescription,
+);
 router.get('/clinical/prescriptions/:id', authenticateToken, getPrescription);
 // Public print route, prints individual prescriptions
 router.get('/clinical/prescriptions/:id/print', getPrescriptionPrintLayout);
+
+// Investigations/Tests and Compiled Report Routes
+router.post(
+  '/clinical/tests',
+  authenticateToken,
+  requireRoles(['provider', 'clinician', 'dept-head', 'super-admin']),
+  orderTest,
+);
+router.get(
+  '/clinical/tests/pending',
+  authenticateToken,
+  requireRoles(['technician', 'admin', 'super-admin']),
+  getPendingTests,
+);
+router.post(
+  '/clinical/tests/:id/results',
+  authenticateToken,
+  requireRoles(['technician', 'admin', 'super-admin']),
+  submitTestResults,
+);
+router.get('/clinical/tests/student/:studentId', authenticateToken, getStudentTests);
+router.get('/clinical/sessions/:id/compiled-report', getCompiledClientReport);
+router.post(
+  '/clinical/sessions/:id/cosign',
+  authenticateToken,
+  requireRoles(['dept-head', 'super-admin']),
+  cosignSession,
+);
+router.get(
+  '/clinical/sessions/high-risk/pending',
+  authenticateToken,
+  requireRoles(['dept-head', 'admin', 'super-admin']),
+  getHighRiskSessions,
+);
+
+// ==========================================
+// Phase 3 — Report Access Control
+// ==========================================
+router.post(
+  '/clinical/sessions/:id/grant-access',
+  authenticateToken,
+  requireRoles(['provider', 'clinician', 'dept-head', 'super-admin']),
+  grantReportAccess,
+);
+router.post(
+  '/clinical/sessions/:id/revoke-access',
+  authenticateToken,
+  requireRoles(['provider', 'clinician', 'dept-head', 'super-admin']),
+  revokeReportAccess,
+);
+router.get(
+  '/student/my-reports',
+  authenticateToken,
+  requireRoles(['student']),
+  getStudentAccessibleReports,
+);
+
+// ==========================================
+// Phase 4 — UniMind AI Clinical Assistant
+// ==========================================
+router.post(
+  '/clinical/ai/suggestions',
+  authenticateToken,
+  requireRoles(['provider', 'clinician', 'dept-head', 'super-admin']),
+  aiClinicalSuggestions,
+);
+router.post(
+  '/clinical/ai/draft-to-report',
+  authenticateToken,
+  requireRoles(['provider', 'clinician', 'dept-head', 'super-admin']),
+  aiDraftToReport,
+);
+
+// ==========================================
+// Phase 5 — Session Drafts (Private Workspace)
+// ==========================================
+router.post(
+  '/clinical/session-drafts',
+  authenticateToken,
+  requireRoles(['provider', 'clinician', 'dept-head', 'super-admin']),
+  saveSessionDraft,
+);
+router.get(
+  '/clinical/session-drafts/:sessionId',
+  authenticateToken,
+  requireRoles(['provider', 'clinician', 'dept-head', 'super-admin']),
+  getSessionDraft,
+);
 
 // ==========================================
 // Secure Messaging Routes
@@ -148,6 +347,8 @@ router.post('/documents/upload', authenticateToken, uploadDocument);
 router.get('/documents', authenticateToken, getDocuments);
 router.get('/documents/download/:id', authenticateToken, downloadDocument);
 router.delete('/documents/:id', authenticateToken, requireRoles(['admin']), deleteDocument);
+router.post('/student/consent', authenticateToken, requireRoles(['student']), submitConsent);
+router.post('/student/toggle-assessments', authenticateToken, toggleAssessments);
 
 // ==========================================
 // Assessments Module Routes
@@ -160,12 +361,38 @@ router.get('/assessments/:id', authenticateToken, getAssessmentDetails);
 // Admin Reports & System Settings Routes
 // ==========================================
 router.get('/admin/analytics', authenticateToken, requireRoles(['admin']), getAnalytics);
-router.get('/admin/opd-register', authenticateToken, requireRoles(['admin', 'provider']), getOPDRegister);
-router.get('/admin/opd-register/export', authenticateToken, requireRoles(['admin', 'provider']), exportOPDRegisterCSV);
+router.get(
+  '/admin/opd-register',
+  authenticateToken,
+  requireRoles(['admin', 'provider']),
+  getOPDRegister,
+);
+router.get(
+  '/admin/opd-register/export',
+  authenticateToken,
+  requireRoles(['admin', 'provider']),
+  exportOPDRegisterCSV,
+);
 router.get('/admin/audit-logs', authenticateToken, requireRoles(['admin']), getAuditLogs);
 router.post('/admin/backup', authenticateToken, requireRoles(['admin']), backupDatabase);
 router.post('/admin/restore', authenticateToken, requireRoles(['admin']), restoreDatabase);
+router.get('/admin/backups', authenticateToken, requireRoles(['admin']), listBackups);
+router.delete('/admin/backups/:fileName', authenticateToken, requireRoles(['admin']), deleteBackup);
+router.get('/admin/backups/:fileName/download', downloadBackup); // Direct download handles auth internally if query token is present
+router.post('/admin/sanitize', authenticateToken, requireRoles(['admin']), sanitizeDatabase);
 router.get('/admin/announcements', authenticateToken, getAnnouncements);
 router.post('/admin/announcements', authenticateToken, requireRoles(['admin']), createAnnouncement);
+router.put(
+  '/admin/announcements/:id',
+  authenticateToken,
+  requireRoles(['admin']),
+  updateAnnouncement,
+);
+router.delete(
+  '/admin/announcements/:id',
+  authenticateToken,
+  requireRoles(['admin']),
+  deleteAnnouncement,
+);
 
 export default router;

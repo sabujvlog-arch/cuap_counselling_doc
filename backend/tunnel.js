@@ -7,7 +7,7 @@ const localtunnel = require('localtunnel');
   try {
     const backendTunnel = await localtunnel({ port: 5000 });
     console.log('🎉 Backend API Tunnel is live at:', backendTunnel.url);
-    
+
     backendTunnel.on('close', () => {
       console.log('Backend tunnel closed.');
     });
@@ -19,7 +19,7 @@ const localtunnel = require('localtunnel');
   try {
     const frontendTunnel = await localtunnel({ port: 3000 });
     console.log('🎉 Frontend Portal Tunnel is live at:', frontendTunnel.url);
-    
+
     frontendTunnel.on('close', () => {
       console.log('Frontend tunnel closed.');
     });

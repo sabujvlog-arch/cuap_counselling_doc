@@ -1,0 +1,22 @@
+# Build outputs
+.next
+dist
+build
+out
+
+# Dependencies
+node_modules
+
+# Database and backups
+*.db
+db_backups
+
+# Environment and logs
+.env*
+*.log
+
+# Lockfiles (prettier doesn't format them by default but good to ignore)
+package-lock.json
+
+# Markdown formatting rules can conflict or be noisy, adjust as needed
+# (Optionally include or exclude)

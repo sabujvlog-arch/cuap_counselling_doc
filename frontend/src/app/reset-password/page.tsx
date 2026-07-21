@@ -1,9 +1,10 @@
-"use client";
+'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Lock, ShieldCheck, KeyRound, Eye, EyeOff } from 'lucide-react';
+import ThemeToggle from '@/components/ui/ThemeToggle';
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -20,7 +21,9 @@ function ResetPasswordForm() {
 
   useEffect(() => {
     if (!token || !username) {
-      setError('Invalid or incomplete recovery link. Make sure to copy the full URL from your email.');
+      setError(
+        'Invalid or incomplete recovery link. Make sure to copy the full URL from your email.',
+      );
     }
   }, [token, username]);
 
@@ -49,7 +52,7 @@ function ResetPasswordForm() {
       const res = await api.auth.resetPassword({
         username,
         token,
-        newPassword
+        newPassword,
       });
       setSuccess(res.message || 'Password reset successfully!');
       setTimeout(() => {
@@ -69,8 +72,12 @@ function ResetPasswordForm() {
           <KeyRound size={24} />
         </div>
         <div>
-          <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">Create New Password</h2>
-          <p className="text-xs text-slate-500">Resetting password for {username ? username.toUpperCase() : 'user'}</p>
+          <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">
+            Create New Password
+          </h2>
+          <p className="text-xs text-slate-500">
+            Resetting password for {username ? username.toUpperCase() : 'user'}
+          </p>
         </div>
       </div>
 
@@ -86,7 +93,7 @@ function ResetPasswordForm() {
         </div>
       )}
 
-      {(!token || !username) ? (
+      {!token || !username ? (
         <button
           onClick={() => router.push('/')}
           className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-2xl font-bold text-sm transition cursor-pointer"
@@ -96,7 +103,9 @@ function ResetPasswordForm() {
       ) : !success ? (
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">New Password</label>
+            <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
+              New Password
+            </label>
             <div className="relative">
               <Lock className="absolute left-3.5 top-3.5 text-slate-400" size={16} />
               <input
@@ -118,7 +127,9 @@ function ResetPasswordForm() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Confirm Password</label>
+            <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
+              Confirm Password
+            </label>
             <div className="relative">
               <Lock className="absolute left-3.5 top-3.5 text-slate-400" size={16} />
               <input
@@ -147,7 +158,10 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4 relative">
+      <div className="absolute top-4 right-4 z-50">
+        <ThemeToggle />
+      </div>
       <header className="mb-6 text-center select-none animate-fade-in flex flex-col items-center">
         <div className="flex flex-col items-center gap-2 mb-2">
           <img src="/logo.png" className="w-16 h-16 object-contain" alt="CUAP Logo" />
@@ -160,12 +174,14 @@ export default function ResetPasswordPage() {
         </p>
       </header>
 
-      <Suspense fallback={
-        <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-2xl flex flex-col items-center justify-center">
-          <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-sm font-bold text-slate-500">Loading reset parameters...</p>
-        </div>
-      }>
+      <Suspense
+        fallback={
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-2xl flex flex-col items-center justify-center">
+            <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p className="text-sm font-bold text-slate-500">Loading reset parameters...</p>
+          </div>
+        }
+      >
         <ResetPasswordForm />
       </Suspense>
 

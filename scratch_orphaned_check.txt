@@ -1,0 +1,185 @@
+﻿          )}
+
+
+
+                  </div>
+
+                  {studentProfile?.informed_consent_signed ? (
+                    <div className="space-y-3 text-xs leading-relaxed text-slate-500">
+                      <p className="p-3 bg-green-50/50 dark:bg-green-950/10 text-green-700 dark:text-green-400 border border-green-100 dark:border-green-900/30 rounded-xl font-bold">
+                        âœ“ You have completed and submitted the Digital Counseling Consent Form.
+                      </p>
+                      <div className="space-y-1">
+                        <p>
+                          <strong>Date Signed:</strong>{' '}
+                          {new Date(studentProfile.consent_date).toLocaleDateString()}
+                        </p>
+                        <p>
+                          <strong>Digital Signature:</strong>{' '}
+                          <span className="font-serif italic font-bold">
+                            {studentProfile.name || 'Student'}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleSubmitConsent} className="space-y-4 text-xs">
+                      <p className="text-slate-500 leading-relaxed">
+                        Please review and sign the counseling agreement before attending your first session.
+                      </p>
+
+                      <div className="space-y-3 p-3 bg-slate-50 dark:bg-slate-950 rounded-xl max-h-48 overflow-y-auto border border-slate-200 dark:border-slate-800">
+                        <label className="flex items-start gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            required
+                            checked={consentAccepted}
+                            onChange={(e) => setConsentAccepted(e.target.checked)}
+                            className="rounded text-blue-600 focus:ring-blue-500 mt-0.5"
+                          />
+                          <span>
+                            <strong>Consent for Counseling:</strong> I voluntarily consent to participate in psychological counseling services at CUAP.
+                          </span>
+                        </label>
+
+                        <label className="flex items-start gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            required
+                            checked={confidentialityAccepted}
+                            onChange={(e) => setConfidentialityAccepted(e.target.checked)}
+                            className="rounded text-blue-600 focus:ring-blue-500 mt-0.5"
+                          />
+                          <span>
+                            <strong>Confidentiality Agreement:</strong> I understand that discussions with my counselor are strictly confidential, except as required by law.
+                          </span>
+                        </label>
+
+                        <label className="flex items-start gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            required
+                            checked={recordsAccepted}
+                            onChange={(e) => setRecordsAccepted(e.target.checked)}
+                            className="rounded text-blue-600 focus:ring-blue-500 mt-0.5"
+                          />
+                          <span>
+                            <strong>Electronic Record Consent:</strong> I consent to WCCMS storing encrypted counseling records and notes.
+                          </span>
+                        </label>
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-bold mb-1 uppercase tracking-wide text-[10px]">
+                          Digital Signature (Type Full Name) *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={signatureName}
+                          onChange={(e) => setSignatureName(e.target.value)}
+                          placeholder="Your official name"
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-950 font-medium text-slate-800 dark:text-white"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs transition shadow-sm cursor-pointer"
+                      >
+                        Submit Consent Form
+                      </button>
+                    </form>
+                  )}
+                </div>
+
+                {/* Upload Document */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-5 rounded-2xl shadow-sm h-fit">
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-white mb-4">
+                    Upload Document
+                  </h3>
+                  <form onSubmit={handleFileUpload} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
+                        Document Classification
+                      </label>
+                      <select
+                        value={uploadCategory}
+                        onChange={(e) => setUploadCategory(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950 font-medium text-slate-800 dark:text-white"
+                      >
+                        <option value="consent">Digital Consent Form</option>
+                        <option value="report">Clinical Report</option>
+                        <option value="certificate">Counseling Certificate</option>
+                        <option value="session_doc">Assessment Sheet</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
+                        Select File (PDF, Images)
+                      </label>
+                      <input
+                        id="file-uploader"
+                        type="file"
+                        required
+                        onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                        className="w-full text-xs font-semibold file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition shadow-sm cursor-pointer"
+                    >
+                      Upload Document
+                    </button>
+                  </form>
+                </div>
+
+                {/* Active Documents */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-5 rounded-2xl shadow-sm">
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-white mb-4">
+                    Active Documents
+                  </h3>
+                  {documents.length === 0 ? (
+                    <div className="py-12 text-center text-slate-400">No documents uploaded.</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {documents.map((d, idx) => (
+                        <div
+                          key={idx}
+                          className="p-4 border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 rounded-xl flex items-center justify-between"
+                        >
+                          <div>
+                            <span className="font-bold text-sm block text-slate-900 dark:text-white">
+                              {d.file_name}
+                            </span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 bg-blue-50 dark:bg-slate-800 text-blue-600 dark:text-blue-400 rounded uppercase inline-block mt-1">
+                              {d.category}
+                            </span>
+                            <span className="text-[10px] text-slate-400 ml-2 font-medium">
+                              Version: v{d.version}
+                            </span>
+                          </div>
+                          <a
+                            href={api.documents.downloadUrl(d.id)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-2 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition text-slate-500 hover:text-slate-800"
+                            title="Download File"
+                          >
+                            <Download size={16} />
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'assessment' && (() => {
+            const hasAcceptedAppointment = appointments.some((a) => a.status === 'approved' || a.status === 'completed');
+            const isAssessmentsUnlocked = studentProfile?.assessments_enabled || hasAcceptedAppointment;

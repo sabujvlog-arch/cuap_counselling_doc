@@ -1,630 +1,421 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect } from 'react';
-import { api } from '@/lib/api';
-import DashboardAdmin from '@/components/DashboardAdmin';
-import DashboardProvider from '@/components/DashboardProvider';
-import DashboardStudent from '@/components/DashboardStudent';
-import { Lock, User as UserIcon, ShieldCheck, PhoneCall, HelpCircle, KeyRound, Sparkles, ChevronRight, Eye, Mail, X, MessageSquare, Send, Bot } from 'lucide-react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { useTheme } from '@/context/ThemeContext';
+import {
+  Lock,
+  ChevronRight,
+  Eye,
+  EyeOff,
+  Shield,
+  Mail,
+  User as UserIcon,
+  Sun,
+  Moon,
+} from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { APP } from '@/constants/app';
+import type { PortalId } from '@/constants/app';
+import ThemeToggle from '@/components/ui/ThemeToggle';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import ErrorBoundary from '@/components/ui/ErrorBoundary';
+import ChatbotWidget from '@/components/auth/ChatbotWidget';
+import ErrorAlert from '@/components/ui/ErrorAlert';
+import PortalSelector from '@/components/auth/PortalSelector';
+import LoginForm from '@/components/auth/LoginForm';
 
-export default function Home() {
-  const [session, setSession] = useState<{ user: any; profile: any } | null>(null);
-  const [loading, setLoading] = useState(true);
-  
-  // Login form states
-  const [showPortal, setShowPortal] = useState(false);
+// ── Lazy-loaded role dashboards ─────────────────────────────────
+const DashboardAdmin = lazy(() => import('@/components/DashboardAdmin'));
+const DashboardProvider = lazy(() => import('@/components/DashboardProvider'));
+const DashboardStudent = lazy(() => import('@/components/DashboardStudent'));
+const DashboardFrontDesk = lazy(() => import('@/components/DashboardFrontDesk'));
+const DashboardTechnician = lazy(() => import('@/components/DashboardTechnician'));
+const DashboardDeptHead = lazy(() => import('@/components/DashboardDeptHead'));
+
+// ─────────────────────────────────────────────────────────────────
+// Dashboard router
+// ─────────────────────────────────────────────────────────────────
+function DashboardRouter() {
+  const { role, user, profile, logout } = useAuth();
+  const sharedProps = { onLogout: logout, user };
+
+  switch (role) {
+    case 'admin':
+    case 'super-admin':
+      return <DashboardAdmin {...sharedProps} adminUsername={user?.username ?? ''} />;
+    case 'provider':
+    case 'clinician':
+      return <DashboardProvider {...sharedProps} providerProfile={profile} />;
+    case 'student':
+      return <DashboardStudent {...sharedProps} studentProfile={profile} />;
+    case 'front-desk':
+      return <DashboardFrontDesk {...sharedProps} />;
+    case 'technician':
+      return <DashboardTechnician {...sharedProps} />;
+    case 'dept-head':
+      return <DashboardDeptHead {...sharedProps} providerProfile={profile} />;
+    default:
+      return (
+        <div
+          className="min-h-screen flex items-center justify-center"
+          style={{ background: 'var(--bg)' }}
+        >
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+            Unknown role: <code>{role}</code>. Please contact your system administrator.
+          </p>
+        </div>
+      );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Security Login Card  (matches reference screenshot style)
+// ─────────────────────────────────────────────────────────────────
+function SecurityLoginCard() {
+  const { login } = useAuth();
+
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [authLoading, setAuthLoading] = useState(false);
 
   // 2FA state
   const [requires2FA, setRequires2FA] = useState(false);
   const [otpCode, setOtpCode] = useState('');
-  const [otpSentUser, setOtpSentUser] = useState('');
-  const [loginRole, setLoginRole] = useState<'student' | 'provider' | 'admin'>('student');
+  const [otpUser, setOtpUser] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
 
-  // Forgot password state
-  const [showForgotModal, setShowForgotModal] = useState(false);
-  const [forgotUsername, setForgotUsername] = useState('');
-  const [forgotLoading, setForgotLoading] = useState(false);
-  const [forgotSuccess, setForgotSuccess] = useState('');
-  const [forgotError, setForgotError] = useState('');
-
-  // Public Chatbot States
-  const [showChatbot, setShowChatbot] = useState(false);
-  const [chatInput, setChatInput] = useState('');
-  const [chatLoading, setChatLoading] = useState(false);
-  const [chatHistory, setChatHistory] = useState<Array<{ sender: 'user' | 'assistant'; text: string }>>([
-    { sender: 'assistant', text: "Hello! I am your CUAP Wellness Assistant. Ask me anything about counseling slots, WCCMS registrations, or general mental health tips! How can I support you today?" }
-  ]);
-
-  useEffect(() => {
-    checkActiveSession();
-  }, []);
-
-  const checkActiveSession = async () => {
-    const token = api.getToken();
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const data = await api.auth.me();
-      setSession(data);
-      setShowPortal(true);
-    } catch (err) {
-      console.error("Expired session token cleared.");
-      api.clearToken();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLoginSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setAuthLoading(true);
-
+    setLoading(true);
     try {
-      const res = await api.auth.login({
-        username,
-        password
-      });
-
-      if (res.requires2FA) {
+      const result = await login({ username, password });
+      if (result.requires2FA) {
         setRequires2FA(true);
-        setOtpSentUser(res.username);
-      } else {
-        // Fallback or immediate login
-        const data = await api.auth.me();
-        setSession(data);
-        setShowPortal(true);
+        setOtpUser(result.username ?? username);
+      } else if (!result.success) {
+        setError(result.error ?? 'Invalid credentials. Please try again.');
       }
-    } catch (err: any) {
-      setError(err.message || 'Invalid username or password');
     } finally {
-      setAuthLoading(false);
+      setLoading(false);
     }
   };
 
-  const handle2FAVerify = async (e: React.FormEvent) => {
+  const handleOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setAuthLoading(true);
-
+    setOtpLoading(true);
     try {
-      await api.auth.verify2FA(otpSentUser, otpCode);
-      const data = await api.auth.me();
-      setSession(data);
-      setShowPortal(true);
-      
-      // Clear OTP form states
-      setRequires2FA(false);
-      setOtpCode('');
-      setOtpSentUser('');
-      setUsername('');
-      setPassword('');
-    } catch (err: any) {
-      setError(err.message || 'Incorrect verification code. Please check server logs.');
+      const { api } = await import('@/lib/api');
+      await api.auth.verify2FA(otpUser, otpCode);
+      // AuthContext will detect the token and redirect
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Invalid OTP code.');
     } finally {
-      setAuthLoading(false);
+      setOtpLoading(false);
     }
   };
 
-  const handleForgotSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setForgotError('');
-    setForgotSuccess('');
-    setForgotLoading(true);
-    try {
-      const res = await api.auth.forgotPassword(forgotUsername);
-      setForgotSuccess(res.message || 'If the username is registered, a password reset link has been sent to your email.');
-    } catch (err: any) {
-      setForgotError(err.message || 'Failed to request reset link.');
-    } finally {
-      setForgotLoading(false);
-    }
-  };
-
-  const handleChatSubmit = async (e?: React.FormEvent, customText?: string) => {
-    if (e) e.preventDefault();
-    
-    const textToSend = customText || chatInput;
-    if (!textToSend.trim()) return;
-
-    const updatedHistory = [...chatHistory, { sender: 'user' as const, text: textToSend }];
-    setChatHistory(updatedHistory);
-    if (!customText) setChatInput('');
-    setChatLoading(true);
-
-    try {
-      const res = await api.auth.publicChat(textToSend, chatHistory);
-      setChatHistory([...updatedHistory, { sender: 'assistant' as const, text: res.reply }]);
-    } catch (err: any) {
-      setChatHistory([...updatedHistory, { sender: 'assistant' as const, text: "I'm sorry, I'm experiencing connectivity issues right now. Please try again in a moment." }]);
-    } finally {
-      setChatLoading(false);
-    }
-  };
-
-  const handleAIChatBooking = async (providerId: number, date: string, slot: string) => {
-    if (!session || session.user.role !== 'student') {
-      alert("Please log in to your Student Account first to book this appointment.");
-      return;
-    }
-    
-    try {
-      setChatLoading(true);
-      const res = await api.appointments.book({
-        providerId,
-        date,
-        timeSlot: slot,
-        reason: "Scheduled dynamically via CUAP AI Chatbot Assistant"
-      });
-      alert(res.message || "Appointment booked successfully!");
-      
-      setChatHistory(prev => [...prev, {
-        sender: 'assistant' as const,
-        text: `Confirmed! I've booked your slot with the counselor on ${date} at ${slot}. You can check your Student Dashboard to view the status.`
-      }]);
-    } catch (err: any) {
-      alert(err.message || "Failed to book slot");
-    } finally {
-      setChatLoading(false);
-    }
-  };
-
-  const renderMessageContent = (text: string) => {
-    const regex = /\[([^\]]+)\]\(book:\/\/([^\/]+)\/([^\/]+)\/([^)]+)\)/g;
-    
-    const parts = [];
-    let lastIndex = 0;
-    let match;
-    
-    while ((match = regex.exec(text)) !== null) {
-      if (match.index > lastIndex) {
-        parts.push(<span key={`text-${lastIndex}`}>{text.substring(lastIndex, match.index)}</span>);
-      }
-      
-      const label = match[1];
-      const providerId = parseInt(match[2]);
-      const date = match[3];
-      const slot = decodeURIComponent(match[4]);
-      
-      parts.push(
-        <button
-          key={`book-${match.index}`}
-          onClick={() => handleAIChatBooking(providerId, date, slot)}
-          className="mt-2 block w-full py-2 px-3 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-blue-600 dark:text-blue-400 font-extrabold text-[11px] rounded-xl border border-blue-150 dark:border-blue-900 shadow-xs hover:scale-[1.02] transition cursor-pointer text-center"
-        >
-          📅 Confirm: {label.replace("Click here to ", "")}
-        </button>
-      );
-      
-      lastIndex = regex.lastIndex;
-    }
-    
-    if (lastIndex < text.length) {
-      parts.push(<span key={`text-${lastIndex}`}>{text.substring(lastIndex)}</span>);
-    }
-    
-    return parts.length > 0 ? parts : text;
-  };
-
-  const handleLogout = () => {
-    api.clearToken();
-    setSession(null);
-    setShowPortal(false);
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-center items-center font-bold text-slate-500">
-        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4" />
-        Checking WCCMS Portal Session...
-      </div>
-    );
-  }
-
-  // Render dashboard depending on verified active session
-  if (session) {
-    const role = session.user.role;
-    if (role === 'admin') {
-      return <DashboardAdmin onLogout={handleLogout} adminUsername={session.user.username} />;
-    } else if (role === 'provider') {
-      return <DashboardProvider onLogout={handleLogout} providerProfile={session.profile} user={session.user} />;
-    } else if (role === 'student') {
-      return <DashboardStudent onLogout={handleLogout} studentProfile={session.profile} user={session.user} />;
-    }
-  }
-
-  // Render Portal login or landing screen
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-blue-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-blue-950/20 flex flex-col justify-between p-6">
-      
-      {/* Top Banner Branding */}
-      <header className="flex flex-col items-center justify-center text-center w-full mb-8">
-        <div className="flex flex-col items-center gap-3">
-          <img src="/logo.png" className="w-24 h-24 object-contain" alt="CUAP Logo" />
+    <div
+      className="w-full max-w-[420px] rounded-2xl overflow-hidden animate-fade-in-up"
+      style={{
+        background: 'rgba(255,255,255,0.96)',
+        backdropFilter: 'blur(20px)',
+        boxShadow: '0 32px 64px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.6)',
+      }}
+    >
+      {/* ── Header ── */}
+      <div className="px-8 pt-8 pb-5">
+        {/* CUAP Brand Row */}
+        <div className="flex items-center gap-3 mb-6 pb-5 border-b border-slate-100">
+          <Image
+            src="/logo.png"
+            alt="CUAP Emblem"
+            width={52}
+            height={52}
+            className="object-contain"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
+          />
           <div>
-            <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white uppercase tracking-wider">Central University of Andhra Pradesh</h1>
-            <p className="text-xs md:text-sm text-slate-500 font-bold uppercase tracking-wider mt-1">Student Wellness & Counseling Centre</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-none mb-0.5">
+              ಕೇಂದ್ರ ವಿಶ್ವವಿದ್ಯಾಲಯ · ಆಂಧ್ರ ಪ್ರದೇಶ
+            </p>
+            <p className="text-[11px] font-black text-blue-700 uppercase tracking-wide leading-tight">
+              Central University of Andhra Pradesh
+            </p>
+            <p className="text-[9px] text-slate-400 mt-0.5">
+              Established by an act of Parliament in 2009.
+            </p>
           </div>
         </div>
-      </header>
 
-      {/* Main landing cards layout */}
-      <main className="flex-1 flex flex-col justify-center items-center max-w-4xl mx-auto w-full py-6">
-        
-        {!showPortal ? (
-          // Dynamic Landing Splash
-          <div className="text-center space-y-6 max-w-2xl animate-fade-in-up">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-full text-blue-600 dark:text-blue-400 font-semibold text-xs mb-2">
-              <Sparkles size={12} /> University Wellness Portal
+        {/* Title */}
+        <div className="flex items-center gap-2.5 mb-6">
+          <div className="p-2 rounded-xl bg-blue-50">
+            <Shield size={18} className="text-blue-600" />
+          </div>
+          <div>
+            <h1 className="text-lg font-black text-slate-800 leading-tight">Security Portal</h1>
+            <p className="text-[11px] text-slate-400 font-semibold">{APP.systemFull}</p>
+          </div>
+        </div>
+
+        <ErrorAlert message={error} onClose={() => setError('')} className="mb-4" />
+
+        {/* ── Login Form ── */}
+        {!requires2FA ? (
+          <form onSubmit={handleLogin} className="space-y-3">
+            {/* Username */}
+            <div className="relative">
+              <UserIcon
+                size={15}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                id="login-username"
+                type="text"
+                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Username / Registration Number"
+                className="w-full pl-10 pr-4 py-3 rounded-xl text-sm font-medium outline-none transition-all"
+                style={{
+                  background: '#F1F5F9',
+                  border: '1.5px solid #E2E8F0',
+                  color: '#0F172A',
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#3B82F6';
+                  e.target.style.background = '#fff';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#E2E8F0';
+                  e.target.style.background = '#F1F5F9';
+                }}
+              />
             </div>
-            <h2 className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
-              A Secure Portal for <br />
-              <span className="text-blue-600 dark:text-blue-400">Mental Health & Wellness</span>
-            </h2>
-            <p className="text-sm text-slate-500 leading-relaxed max-w-lg mx-auto">
-              Welcome to the central counseling support ecosystem of Central University of Andhra Pradesh. Book slots, complete diagnostic screenings, and communicate securely with specialists.
-            </p>
-            <div className="pt-4 flex justify-center gap-4">
+
+            {/* Password */}
+            <div className="relative">
+              <Lock
+                size={15}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                id="login-password"
+                type={showPassword ? 'text' : 'password'}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter Password / PIN"
+                className="w-full pl-10 pr-11 py-3 rounded-xl text-sm font-medium outline-none transition-all"
+                style={{
+                  background: '#F1F5F9',
+                  border: '1.5px solid #E2E8F0',
+                  color: '#0F172A',
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#3B82F6';
+                  e.target.style.background = '#fff';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#E2E8F0';
+                  e.target.style.background = '#F1F5F9';
+                }}
+              />
               <button
-                onClick={() => setShowPortal(true)}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold shadow-md hover:shadow-lg transition cursor-pointer"
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+                aria-label={showPassword ? 'Hide' : 'Show'}
               >
-                Enter WCCMS Portal
-                <ChevronRight size={18} />
+                {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
               </button>
             </div>
-          </div>
-        ) : (
-          // Secure Gateway Forms Container
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-8 rounded-3xl shadow-xl animate-fade-in-up">
-            
-            {/* Dynamic Card Header */}
-            <div className="text-center mb-6">
-              <h3 className="text-xl font-extrabold text-slate-900 dark:text-white">
-                {loginRole === 'student' ? 'Student Wellness Portal' : 
-                 loginRole === 'provider' ? 'Specialist EMR Portal' : 
-                 'WCCMS Administrator Portal'}
-              </h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                {loginRole === 'student' ? 'Complete diagnostic screenings and book counseling appointments' : 
-                 loginRole === 'provider' ? 'Manage counseling schedules, write SOAP notes, and review EMR' : 
-                 'Manage specialists, students lists, and database backups'}
-              </p>
-            </div>
 
-            {/* Segmented Role Switcher */}
-            <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-xl mb-6">
-              {[
-                { id: 'student', label: 'Student' },
-                { id: 'provider', label: 'Counselor' },
-                { id: 'admin', label: 'Admin' }
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => {
-                    setLoginRole(tab.id as any);
-                    setError('');
-                    setUsername('');
-                    setPassword('');
-                  }}
-                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                    loginRole === tab.id
-                      ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
-                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {error && (
-              <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-xl text-xs font-semibold mb-4 leading-relaxed">
-                {error}
-              </div>
-            )}
-
-            {!requires2FA ? (
-              // STEP 1: CREDENTIALS INPUT
-              <form onSubmit={handleLoginSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
-                    {loginRole === 'student' ? 'University Registration Number' : 
-                     loginRole === 'provider' ? 'Counselor Staff Username' : 
-                     'Administrator Username'}
-                  </label>
-                  <div className="relative">
-                    <UserIcon className="absolute left-3.5 top-3 text-slate-400" size={16} />
-                    <input
-                      type="text"
-                      required
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      placeholder={
-                        loginRole === 'student' ? 'e.g. 25BEC01' : 
-                        loginRole === 'provider' ? 'e.g. provider' : 
-                        'e.g. admin'
-                      }
-                      className="w-full pl-10 pr-3 py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950 font-medium"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Portal Password</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3.5 top-3 text-slate-400" size={16} />
-                    <input
-                      type="password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder={loginRole === 'student' ? 'Default: Registration Number' : '••••••••'}
-                      className="w-full pl-10 pr-3 py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950 font-medium"
-                    />
-                  </div>
-                  <div className="flex justify-between items-center mt-1.5 px-0.5 text-[11px] font-bold">
-                    <span className="text-slate-400">
-                      {loginRole === 'student' ? 'Default: Your Reg Number' : ''}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setForgotUsername(username);
-                        setForgotError('');
-                        setForgotSuccess('');
-                        setShowForgotModal(true);
-                      }}
-                      className="text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-                    >
-                      Forgot Password?
-                    </button>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={authLoading}
-                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow transition disabled:opacity-50 cursor-pointer"
-                >
-                  {authLoading ? 'Signing In...' : 'Verify Credentials'}
-                </button>
-              </form>
-            ) : (
-              // STEP 2: 2FA OTP CODE ENTRY
-              <form onSubmit={handle2FAVerify} className="space-y-4">
-                <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-800 text-blue-900 dark:text-blue-300 rounded-xl text-xs leading-relaxed font-semibold mb-3">
-                  Two-factor authentication code generated. Find the 6-digit OTP in your terminal logs / server logs.
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase text-center">Enter 6-Digit OTP Code</label>
-                  <div className="relative">
-                    <KeyRound className="absolute left-3.5 top-3.5 text-slate-400" size={16} />
-                    <input
-                      type="text"
-                      required
-                      maxLength={6}
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value)}
-                      placeholder="000000"
-                      className="w-full text-center pl-10 pr-3 py-3 border border-slate-200 dark:border-slate-800 rounded-xl text-lg font-bold font-mono focus:outline-none bg-slate-50 dark:bg-slate-950 tracking-widest"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => { setRequires2FA(false); setError(''); }}
-                    className="w-1/3 py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={authLoading}
-                    className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow transition disabled:opacity-50 cursor-pointer"
-                  >
-                    {authLoading ? 'Verifying...' : 'Unlock Session'}
-                  </button>
-                </div>
-              </form>
-            )}
-
+            {/* Submit */}
             <button
-              onClick={() => { setShowPortal(false); setError(''); setRequires2FA(false); }}
-              className="w-full text-center text-slate-450 hover:text-slate-600 dark:hover:text-slate-300 text-xs font-bold mt-4 cursor-pointer block"
+              id="login-submit-btn"
+              type="submit"
+              disabled={loading || !username || !password}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white transition-all cursor-pointer"
+              style={{
+                background: loading
+                  ? '#93C5FD'
+                  : 'linear-gradient(135deg, #2563EB 0%, #3B82F6 60%, #60A5FA 100%)',
+                boxShadow: loading ? 'none' : '0 4px 14px rgba(37,99,235,0.35)',
+                opacity: !username || !password ? 0.6 : 1,
+              }}
             >
-              Return to Landing Portal
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Authenticating…
+                </span>
+              ) : (
+                <>
+                  <Lock size={14} />
+                  Unlock Portal
+                  <ChevronRight size={14} />
+                </>
+              )}
             </button>
-          </div>
+          </form>
+        ) : (
+          /* ── 2FA Form ── */
+          <form onSubmit={handleOtp} className="space-y-3">
+            <div
+              className="p-3 rounded-xl text-xs font-semibold leading-relaxed"
+              style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', color: '#1D4ED8' }}
+            >
+              A 6-digit code has been sent. Enter it below to unlock your session.
+            </div>
+            <div className="relative">
+              <Lock
+                size={15}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                id="otp-input"
+                type="text"
+                required
+                maxLength={6}
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="000000"
+                className="w-full pl-10 pr-4 py-3 rounded-xl text-center text-lg font-black tracking-[0.4em] outline-none transition-all"
+                style={{ background: '#F1F5F9', border: '1.5px solid #E2E8F0', color: '#0F172A' }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#3B82F6';
+                  e.target.style.background = '#fff';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#E2E8F0';
+                  e.target.style.background = '#F1F5F9';
+                }}
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setRequires2FA(false);
+                  setError('');
+                  setOtpCode('');
+                }}
+                className="w-1/3 py-2.5 rounded-xl text-xs font-bold border text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+                style={{ border: '1.5px solid #E2E8F0' }}
+              >
+                Back
+              </button>
+              <button
+                id="otp-submit-btn"
+                type="submit"
+                disabled={otpLoading || otpCode.length < 6}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white transition cursor-pointer"
+                style={{
+                  background: 'linear-gradient(135deg, #2563EB 0%, #3B82F6 100%)',
+                  opacity: otpCode.length < 6 ? 0.6 : 1,
+                }}
+              >
+                {otpLoading ? 'Verifying…' : 'Unlock Session →'}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+
+      {/* ── Footer Contact ── */}
+      <div className="px-8 py-5 text-center border-t border-slate-100">
+        <p className="text-[10px] text-slate-400 mb-1">Contact developer for help:</p>
+        <a
+          href="mailto:admin@cuap.edu.in"
+          className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 transition flex items-center justify-center gap-1 mb-1"
+        >
+          <Mail size={10} />
+          admin@cuap.edu.in
+        </a>
+        <p className="text-[10px] font-semibold text-slate-500">Shri Abhishek More Tripathi</p>
+        <p className="text-[10px] text-slate-400">Analyst and Lead Developer — Data Centre, CUAP</p>
+      </div>
+
+      {/* ── Theme toggle inside card ── */}
+      <div className="flex justify-center pb-4">
+        <ThemeToggle />
+      </div>
+    </div>
+  );
+}
+
+export default function Home() {
+  const { isAuthenticated, role, loading } = useAuth();
+  const { mode, toggleTheme, isDark } = useTheme();
+  const [selectedPortal, setSelectedPortal] = useState<PortalId | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && isAuthenticated && role) {
+      if (role === 'student') {
+        router.push('/student/dashboard');
+      } else if (role === 'provider' || role === 'clinician' || role === 'dept-head') {
+        router.push('/counselor/dashboard');
+      } else if (role === 'admin' || role === 'super-admin') {
+        router.push('/admin/dashboard');
+      }
+    }
+  }, [isAuthenticated, role, loading, router]);
+
+  if (loading) {
+    return <LoadingSpinner fullPage label="Checking session…" size="lg" />;
+  }
+
+  // If already authenticated and redirected, show loading
+  if (isAuthenticated && role) {
+    return <LoadingSpinner fullPage label="Redirecting to dashboard…" size="lg" />;
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-[#0B0F19] text-slate-800 dark:text-slate-200 transition-colors duration-200">
+      {/* Navbar/Header */}
+      <header className="w-full border-b border-slate-100 dark:border-slate-850 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md px-6 py-4 flex items-center justify-between sticky top-0 z-30">
+        <div className="flex items-center gap-3">
+          <Image
+            src="/logo.png"
+            alt="CUAP Logo"
+            width={34}
+            height={34}
+            priority
+            className="rounded-full"
+          />
+          <h1 className="text-sm md:text-base font-extrabold text-slate-800 dark:text-white tracking-tight">
+            Wellness Counseling Centre Management System
+          </h1>
+        </div>
+
+        {/* Pill-style Theme Toggle */}
+        <ThemeToggle />
+      </header>
+
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col items-center justify-center py-8">
+        {!selectedPortal ? (
+          <PortalSelector onSelect={setSelectedPortal} />
+        ) : (
+          <LoginForm portalId={selectedPortal} onBack={() => setSelectedPortal(null)} />
         )}
       </main>
 
-      {/* Footer System Credits */}
-      <footer className="text-center text-[10px] text-slate-400 uppercase tracking-widest max-w-7xl mx-auto w-full mt-8 border-t border-slate-200 dark:border-slate-900 pt-6">
-        CUAP WCCMS &copy; 2026 | Built for Central University of Andhra Pradesh
-      </footer>
-
-      {showForgotModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative animate-scale-in">
-            <button
-              onClick={() => setShowForgotModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
-            >
-              <X size={20} />
-            </button>
-
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-2xl">
-                <Mail size={22} />
-              </div>
-              <div>
-                <h3 className="font-extrabold text-slate-900 dark:text-white text-lg">Password Recovery</h3>
-                <p className="text-xs text-slate-500">Request a secure password reset link</p>
-              </div>
-            </div>
-
-            {forgotError && (
-              <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-xl text-xs font-semibold mb-4">
-                {forgotError}
-              </div>
-            )}
-
-            {forgotSuccess && (
-              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 rounded-xl text-xs font-semibold mb-4 leading-relaxed">
-                {forgotSuccess}
-              </div>
-            )}
-
-            {!forgotSuccess ? (
-              <form onSubmit={handleForgotSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
-                    Enter Username / Reg Number
-                  </label>
-                  <div className="relative">
-                    <UserIcon className="absolute left-3.5 top-3 text-slate-400" size={16} />
-                    <input
-                      type="text"
-                      required
-                      value={forgotUsername}
-                      onChange={(e) => setForgotUsername(e.target.value)}
-                      placeholder="e.g. 25BEC01 or provider"
-                      className="w-full pl-10 pr-3 py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950 font-medium"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={forgotLoading}
-                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow transition disabled:opacity-50 cursor-pointer"
-                >
-                  {forgotLoading ? 'Requesting Reset...' : 'Send Recovery Email'}
-                </button>
-              </form>
-            ) : (
-              <button
-                onClick={() => setShowForgotModal(false)}
-                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl font-bold text-sm transition cursor-pointer"
-              >
-                Close Modal
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Floating Chatbot Trigger */}
-      <button
-        onClick={() => setShowChatbot(!showChatbot)}
-        className="fixed bottom-6 right-6 p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-2xl transition hover:scale-105 cursor-pointer z-50 flex items-center justify-center border border-blue-500/20"
-      >
-        {showChatbot ? <X size={24} /> : <MessageSquare size={24} />}
-      </button>
-
-      {/* Conversational Chatbot Widget */}
-      {showChatbot && (
-        <div className="fixed bottom-24 right-6 w-96 max-w-[calc(100vw-2rem)] h-[480px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl flex flex-col z-50 overflow-hidden animate-scale-in">
-          {/* Header */}
-          <div className="p-4 bg-blue-600 text-white flex items-center gap-3">
-            <div className="p-2 bg-white/10 rounded-xl">
-              <Bot size={22} className="text-white" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-extrabold text-sm leading-tight text-white">CUAP Wellness Assistant</h3>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span className="text-[10px] font-bold tracking-wide opacity-90 uppercase">Active Support</span>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowChatbot(false)}
-              className="text-white/80 hover:text-white cursor-pointer"
-            >
-              <X size={18} />
-            </button>
-          </div>
-
-          {/* Messages Body */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50 dark:bg-slate-950/40">
-            {chatHistory.map((msg, idx) => (
-              <div
-                key={idx}
-                className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[80%] p-3 rounded-2xl text-xs font-semibold leading-relaxed shadow-sm ${
-                    msg.sender === 'user'
-                      ? 'bg-blue-600 text-white rounded-tr-none'
-                      : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-tl-none border border-slate-100 dark:border-slate-750'
-                  }`}
-                >
-                  {renderMessageContent(msg.text)}
-                </div>
-              </div>
-            ))}
-            {chatLoading && (
-              <div className="flex justify-start">
-                <div className="bg-white dark:bg-slate-800 text-slate-400 dark:text-slate-500 max-w-[80%] p-3 rounded-2xl rounded-tl-none border border-slate-100 dark:border-slate-750 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"></span>
-                  <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]"></span>
-                  <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.4s]"></span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Suggested Quick Replies */}
-          {chatHistory.length === 1 && (
-            <div className="px-4 py-2 border-t border-slate-100 dark:border-slate-850 flex flex-wrap gap-1.5 bg-slate-50/50 dark:bg-slate-950/20">
-              {[
-                { label: "Book Slot?", text: "How can I book a counseling slot?" },
-                { label: "What is WCCMS?", text: "What is the full form and purpose of WCCMS?" },
-                { label: "Self-Care Tips", text: "Can you provide some self-care tips for managing exam stress?" }
-              ].map((pill, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleChatSubmit(undefined, pill.text)}
-                  className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-1 rounded-lg border border-blue-100 dark:border-blue-900 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition cursor-pointer"
-                >
-                  {pill.label}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Input Form */}
-          <form onSubmit={(e) => handleChatSubmit(e)} className="p-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex gap-2">
-            <input
-              type="text"
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              disabled={chatLoading}
-              placeholder="Type your message..."
-              className="flex-1 px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 focus:outline-none font-medium"
-            />
-            <button
-              type="submit"
-              disabled={chatLoading || !chatInput.trim()}
-              className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl disabled:opacity-50 transition cursor-pointer flex items-center justify-center"
-            >
-              <Send size={14} />
-            </button>
-          </form>
-        </div>
-      )}
+      {/* Chatbot (floating) */}
+      <div className="relative z-20">
+        <ChatbotWidget />
+      </div>
     </div>
   );
 }

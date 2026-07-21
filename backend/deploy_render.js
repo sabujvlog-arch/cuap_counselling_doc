@@ -2,9 +2,9 @@ const API_KEY = 'rnd_gY41Zvndj1LfArSKqXSLHYDFrrdh';
 const REPO_URL = 'https://github.com/sabujvlog-arch/cuap_counseLLING_doc';
 
 const headers = {
-  'Authorization': `Bearer ${API_KEY}`,
+  Authorization: `Bearer ${API_KEY}`,
   'Content-Type': 'application/json',
-  'Accept': 'application/json'
+  Accept: 'application/json',
 };
 
 const deploy = async () => {
@@ -40,25 +40,29 @@ const deploy = async () => {
         rootDir: 'backend',
         envSpecificDetails: {
           buildCommand: 'npm install && npm run build',
-          startCommand: 'npm start'
-        }
+          startCommand: 'npm start',
+        },
       },
       envVars: [
         { key: 'PORT', value: '5000' },
         { key: 'DB_TYPE', value: 'sqlite' },
         { key: 'JWT_SECRET', value: 'cuap-wccms-super-secret-key-2026' },
         { key: 'DB_ENCRYPTION_KEY', value: 'cuap-wccms-encryption-aes-key-2026' },
-        { key: 'BREVO_API_KEY', value: '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' },
+        {
+          key: 'BREVO_API_KEY',
+          value:
+            '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',
+        },
         { key: 'SENDER_EMAIL', value: 'sabujd880@gmail.com' },
         { key: 'SENDER_NAME', value: 'Sabuj Counseling Support' },
-        { key: 'GEMINI_API_KEY', value: 'AQ.Ab8RN6IUqTTOqclK75V9v-Q8p0kNhcKCDrHYH8j4KBJXhYUCGQ' }
-      ]
+        { key: 'GEMINI_API_KEY', value: 'AQ.Ab8RN6IUqTTOqclK75V9v-Q8p0kNhcKCDrHYH8j4KBJXhYUCGQ' },
+      ],
     };
 
     const backendRes = await fetch('https://api.render.com/v1/services', {
       method: 'POST',
       headers,
-      body: JSON.stringify(backendPayload)
+      body: JSON.stringify(backendPayload),
     });
 
     if (!backendRes.ok) {
@@ -80,9 +84,9 @@ const deploy = async () => {
     let backendUrl = '';
     const servicesRes = await fetch('https://api.render.com/v1/services?limit=20', { headers });
     const services = await servicesRes.json();
-    
+
     // Render API returns array of objects with service field
-    const backendService = services.find(s => s.service.name === 'cuap-wccms-backend');
+    const backendService = services.find((s) => s.service.name === 'cuap-wccms-backend');
     if (backendService) {
       backendUrl = backendService.service.url;
       console.log(`  -> Backend Public URL: ${backendUrl}`);
@@ -106,18 +110,16 @@ const deploy = async () => {
         rootDir: 'frontend',
         envSpecificDetails: {
           buildCommand: 'npm install && npm run build',
-          startCommand: 'npm start'
-        }
+          startCommand: 'npm start',
+        },
       },
-      envVars: [
-        { key: 'NEXT_PUBLIC_API_URL', value: `${backendUrl}/api` }
-      ]
+      envVars: [{ key: 'NEXT_PUBLIC_API_URL', value: `${backendUrl}/api` }],
     };
 
     const frontendRes = await fetch('https://api.render.com/v1/services', {
       method: 'POST',
       headers,
-      body: JSON.stringify(frontendPayload)
+      body: JSON.stringify(frontendPayload),
     });
 
     if (!frontendRes.ok) {
@@ -140,7 +142,6 @@ const deploy = async () => {
     console.log(` Frontend Service: https://cuap-wccms-frontend.onrender.com`);
     console.log(' Check your Render Dashboard to view the build logs.');
     console.log('========================================================');
-
   } catch (err) {
     console.error('Deployment script failed:', err.message);
   }

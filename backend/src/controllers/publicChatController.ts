@@ -9,23 +9,25 @@ const callGeminiAPI = async (prompt: string, systemInstruction: string = ''): Pr
   }
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
-  
+
   const body: any = {
-    contents: [{
-      parts: [{ text: prompt }]
-    }]
+    contents: [
+      {
+        parts: [{ text: prompt }],
+      },
+    ],
   };
 
   if (systemInstruction) {
     body.systemInstruction = {
-      parts: [{ text: systemInstruction }]
+      parts: [{ text: systemInstruction }],
     };
   }
 
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
@@ -56,7 +58,9 @@ export const publicChat = async (req: Request, res: Response) => {
     const providersRes = await query('SELECT id, name, specialization FROM providers');
     const providersList = providersRes.rows || [];
 
-    const appointmentsRes = await query("SELECT provider_id, slot_date, slot_time FROM appointments WHERE status = 'approved'");
+    const appointmentsRes = await query(
+      "SELECT provider_id, slot_date, slot_time FROM appointments WHERE status = 'approved'",
+    );
     const bookedSlots = appointmentsRes.rows || [];
 
     const nextDays: string[] = [];
@@ -65,15 +69,16 @@ export const publicChat = async (req: Request, res: Response) => {
       d.setDate(d.getDate() + i);
       nextDays.push(d.toISOString().split('T')[0]);
     }
-    const standardSlots = ["09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"];
+    const standardSlots = ['09:00 AM', '10:00 AM', '11:00 AM', '02:00 PM', '03:00 PM', '04:00 PM'];
 
     let availabilityText = 'Here is the current live counselor availability for the next 5 days:\n';
     providersList.forEach((prov: any) => {
       availabilityText += `- ${prov.name} (ID: ${prov.id}, Specialization: ${prov.specialization}):\n`;
-      nextDays.forEach(date => {
-        const freeForDay = standardSlots.filter(slot => {
+      nextDays.forEach((date) => {
+        const freeForDay = standardSlots.filter((slot) => {
           return !bookedSlots.some((b: any) => {
-            const bDate = b.slot_date instanceof Date ? b.slot_date.toISOString().split('T')[0] : b.slot_date;
+            const bDate =
+              b.slot_date instanceof Date ? b.slot_date.toISOString().split('T')[0] : b.slot_date;
             return b.provider_id === prov.id && bDate === date && b.slot_time === slot;
           });
         });

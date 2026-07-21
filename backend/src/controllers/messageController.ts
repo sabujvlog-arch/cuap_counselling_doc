@@ -25,7 +25,7 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
 
     // Validate messaging rules (e.g. Student <-> Provider, Admin <-> Provider, Admin <-> Admin/Student maybe)
     // The prompt says: Student ↔ Provider, Provider ↔ Admin, Admin ↔ Provider.
-    const isAllowed = 
+    const isAllowed =
       (senderRole === 'student' && receiverRole === 'provider') ||
       (senderRole === 'provider' && receiverRole === 'student') ||
       (senderRole === 'provider' && receiverRole === 'admin') ||
@@ -33,21 +33,22 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
       (senderRole === 'admin' && receiverRole === 'admin'); // Admins can talk to each other
 
     if (!isAllowed) {
-      return res.status(403).json({ 
-        error: `Messaging between ${senderRole} and ${receiverRole} is not permitted by communication rules.` 
+      return res.status(403).json({
+        error: `Messaging between ${senderRole} and ${receiverRole} is not permitted by communication rules.`,
       });
     }
 
     await query(
       'INSERT INTO messages (sender_id, receiver_id, content, attachment_url) VALUES ($1, $2, $3, $4)',
-      [req.user.id, receiverId, content, attachmentUrl || null]
+      [req.user.id, receiverId, content, attachmentUrl || null],
     );
 
     // Notify the receiver
-    await query(
-      'INSERT INTO notifications (user_id, type, message) VALUES ($1, $2, $3)',
-      [receiverId, 'message', `New message from ${req.user.username}: "${content.substring(0, 30)}${content.length > 30 ? '...' : ''}"`]
-    );
+    await query('INSERT INTO notifications (user_id, type, message) VALUES ($1, $2, $3)', [
+      receiverId,
+      'message',
+      `New message from ${req.user.username}: "${content.substring(0, 30)}${content.length > 30 ? '...' : ''}"`,
+    ]);
 
     return res.status(201).json({ message: 'Message sent successfully' });
   } catch (err) {
@@ -75,7 +76,7 @@ export const getMessages = async (req: AuthRequest, res: Response) => {
        WHERE (m.sender_id = $1 AND m.receiver_id = $2)
           OR (m.sender_id = $2 AND m.receiver_id = $1)
        ORDER BY m.created_at ASC`,
-      [req.user.id, otherUserId]
+      [req.user.id, otherUserId],
     );
 
     return res.json(msgsRes.rows);
@@ -105,7 +106,7 @@ export const getConversations = async (req: AuthRequest, res: Response) => {
          UNION
          SELECT receiver_id FROM messages WHERE sender_id = $1
        )`,
-      [req.user.id]
+      [req.user.id],
     );
 
     const conversations = [];
@@ -118,7 +119,7 @@ export const getConversations = async (req: AuthRequest, res: Response) => {
          WHERE (sender_id = $1 AND receiver_id = $2)
             OR (sender_id = $2 AND receiver_id = $1)
          ORDER BY created_at DESC LIMIT 1`,
-        [req.user.id, otherUser.id]
+        [req.user.id, otherUser.id],
       );
 
       // Get unread count
@@ -126,14 +127,15 @@ export const getConversations = async (req: AuthRequest, res: Response) => {
         `SELECT COUNT(*) as count 
          FROM messages 
          WHERE sender_id = $1 AND receiver_id = $2 AND read_at IS NULL`,
-        [otherUser.id, req.user.id]
+        [otherUser.id, req.user.id],
       );
 
-      const displayName = otherUser.role === 'provider' 
-        ? `Dr. ${otherUser.provider_name || otherUser.username}`
-        : (otherUser.role === 'student' 
-          ? (otherUser.student_name || otherUser.username)
-          : `Admin (${otherUser.username})`);
+      const displayName =
+        otherUser.role === 'provider'
+          ? `Dr. ${otherUser.provider_name || otherUser.username}`
+          : otherUser.role === 'student'
+            ? otherUser.student_name || otherUser.username
+            : `Admin (${otherUser.username})`;
 
       conversations.push({
         id: otherUser.id,
@@ -143,7 +145,7 @@ export const getConversations = async (req: AuthRequest, res: Response) => {
         lastMessage: lastMsgRes.rows[0]?.content || '',
         lastMessageSenderId: lastMsgRes.rows[0]?.sender_id || null,
         lastMessageTime: lastMsgRes.rows[0]?.created_at || null,
-        unreadCount: parseInt(unreadRes.rows[0]?.count || '0')
+        unreadCount: parseInt(unreadRes.rows[0]?.count || '0'),
       });
     }
 
@@ -173,7 +175,7 @@ export const markAsRead = async (req: AuthRequest, res: Response) => {
       `UPDATE messages 
        SET read_at = CURRENT_TIMESTAMP 
        WHERE sender_id = $1 AND receiver_id = $2 AND read_at IS NULL`,
-      [otherUserId, req.user.id]
+      [otherUserId, req.user.id],
     );
 
     return res.json({ message: 'Messages marked as read' });
