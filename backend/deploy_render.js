@@ -1,4 +1,4 @@
-const API_KEY = 'rnd_gY41Zvndj1LfArSKqXSLHYDFrrdh';
+const API_KEY = process.env.RENDER_API_KEY || '';
 const REPO_URL = 'https://github.com/sabujvlog-arch/cuap_counseLLING_doc';
 
 const headers = {
@@ -50,12 +50,11 @@ const deploy = async () => {
         { key: 'DB_ENCRYPTION_KEY', value: 'cuap-wccms-encryption-aes-key-2026' },
         {
           key: 'BREVO_API_KEY',
-          value:
-            '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',
+          value: process.env.BREVO_API_KEY || '',
         },
-        { key: 'SENDER_EMAIL', value: 'sabujd880@gmail.com' },
-        { key: 'SENDER_NAME', value: 'Sabuj Counseling Support' },
-        { key: 'GEMINI_API_KEY', value: 'AQ.Ab8RN6IUqTTOqclK75V9v-Q8p0kNhcKCDrHYH8j4KBJXhYUCGQ' },
+        { key: 'SENDER_EMAIL', value: process.env.SENDER_EMAIL || 'sabujd880@gmail.com' },
+        { key: 'SENDER_NAME', value: process.env.SENDER_NAME || 'Sabuj Counseling Support' },
+        { key: 'GEMINI_API_KEY', value: process.env.GEMINI_API_KEY || '' },
       ],
     };
 

@@ -56,9 +56,7 @@ const sendEmail = async (
   subject: string,
   htmlContent: string,
 ): Promise<boolean> => {
-  const apiKey =
-    process.env.BREVO_API_KEY ||
-    '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';
+  const apiKey = process.env.BREVO_API_KEY || '';
   const senderEmail = process.env.SENDER_EMAIL || 'sabujd880@gmail.com';
   const senderName = process.env.SENDER_NAME || 'Sabuj Counseling Support';
 
