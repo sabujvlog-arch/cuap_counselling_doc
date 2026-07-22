@@ -1,5 +1,8 @@
 import { Router } from 'express';
 import { authenticateToken, requireRoles } from '../middleware/auth';
+import { validateRequest } from '../middleware/validation';
+import { loginSchema, changePasswordSchema, saveSessionSchema } from '../utils/schemas';
+import { performanceMetrics } from '../middleware/monitor';
 
 // Controller Imports
 import {
@@ -138,13 +141,18 @@ const router = Router();
 // ==========================================
 // Authentication Routes
 // ==========================================
-router.post('/auth/login', authRateLimiter, login);
+router.post('/auth/login', authRateLimiter, validateRequest(loginSchema), login);
 router.post('/auth/verify-2fa', verify2FA);
 router.post('/public/chat', chatbotRateLimiter, publicChat);
 router.post('/student/chat', authenticateToken, requireRoles(['student']), studentChat);
 router.get('/auth/me', authenticateToken, getMe);
 router.get('/auth/permissions', authenticateToken, getPermissions);
-router.post('/auth/change-password', authenticateToken, changePassword);
+router.post(
+  '/auth/change-password',
+  authenticateToken,
+  validateRequest(changePasswordSchema),
+  changePassword,
+);
 router.post('/auth/forgot-password', authRateLimiter, forgotPassword);
 router.post('/auth/reset-password', authRateLimiter, resetPassword);
 
@@ -212,6 +220,7 @@ router.post(
   '/clinical/sessions',
   authenticateToken,
   requireRoles(['provider', 'clinician', 'dept-head', 'super-admin']),
+  validateRequest(saveSessionSchema),
   saveSession,
 );
 router.get('/clinical/sessions/:id', authenticateToken, getSession);
@@ -403,6 +412,27 @@ router.get('/assessments/:id/pdf', authenticateToken, downloadAssessmentPDF);
 // Admin Reports & System Settings Routes
 // ==========================================
 router.get('/admin/analytics', authenticateToken, requireRoles(['admin']), getAnalytics);
+router.get('/admin/metrics', authenticateToken, requireRoles(['admin']), (req, res) => {
+  const avgResponseTime =
+    performanceMetrics.totalRequests > 0
+      ? Math.round(performanceMetrics.totalResponseTimeMs / performanceMetrics.totalRequests)
+      : 0;
+
+  res.json({
+    uptimeSeconds: Math.round(process.uptime()),
+    totalRequests: performanceMetrics.totalRequests,
+    successfulRequests: performanceMetrics.successfulRequests,
+    failedRequests: performanceMetrics.failedRequests,
+    avgResponseTimeMs: avgResponseTime,
+    slowRequestsCount: performanceMetrics.slowRequestsCount,
+    endpointBreakdown: Object.entries(performanceMetrics.endpointStats).map(([route, stat]) => ({
+      route,
+      requestsCount: stat.count,
+      avgTimeMs: Math.round(stat.totalTimeMs / stat.count),
+      errorsCount: stat.errors,
+    })),
+  });
+});
 router.get(
   '/admin/opd-register',
   authenticateToken,
@@ -438,4 +468,4 @@ router.delete(
 );
 
 export default router;
-// Trigger nodemon reload final rbac unimind reboot complete final touch
+// Trigger nodemon reload final rbac unimind reboot complete final touch monitoring complete final

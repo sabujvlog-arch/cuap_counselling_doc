@@ -3,9 +3,29 @@ import cors from 'cors';
 import path from 'path';
 import { initDb, query } from './config/db';
 import apiRouter from './routes/api';
+import { monitorMiddleware } from './middleware/monitor';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Enable instrumentation monitoring
+app.use(monitorMiddleware);
+
+// Enforce Security Headers
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' *",
+  );
+  if (req.secure || req.headers['x-forwarded-proto'] === 'https') {
+    res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  }
+  next();
+});
 
 // Enable CORS
 app.use(
