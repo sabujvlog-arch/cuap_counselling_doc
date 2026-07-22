@@ -369,6 +369,11 @@ export const api = {
         method: 'POST',
       }),
     getHighRiskSessions: () => request('/clinical/sessions/high-risk/pending'),
+    aiClinicalSuggestions: (payload: any) =>
+      request('/clinical/ai/suggestions', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
   },
 
   // Messaging Operations
