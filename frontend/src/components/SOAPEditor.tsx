@@ -134,6 +134,27 @@ export default function SOAPEditor({
   const [historyLoading, setHistoryLoading] = useState(false);
   const [selectedVersionIdx, setSelectedVersionIdx] = useState<number | null>(null);
 
+  // UniMind AI Suggestion States
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<any>(null);
+
+  const getAiSuggestions = async () => {
+    setAiLoading(true);
+    try {
+      const response = await api.clinical.aiClinicalSuggestions({
+        presentingConcerns: presentingComplaint || '',
+        sessionNotes: (subjective || '') + ' ' + (objective || ''),
+        clinicianMode,
+      });
+      setAiSuggestions(response);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'Failed to fetch AI suggestions.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const openHistoryModal = async () => {
     if (!sessionId) {
       alert('Please save this session draft to generate version history.');
@@ -2364,6 +2385,336 @@ export default function SOAPEditor({
                   <option key={o}>{o}</option>
                 ))}
               </select>
+            </div>
+
+            {/* UniMind AI Suggestions Integration */}
+            <div
+              style={{
+                marginTop: 24,
+                borderTop: '1px solid rgba(255,255,255,0.08)',
+                paddingTop: 18,
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: 14,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <Brain size={18} className="text-purple-400" />
+                  <strong style={{ fontSize: '0.9rem', color: '#e9d5ff' }}>
+                    UniMind AI Clinical Assistant
+                  </strong>
+                </div>
+                <button
+                  type="button"
+                  className="emr-btn emr-btn-sm"
+                  style={{
+                    background: 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)',
+                    color: 'white',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    padding: '6px 12px',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                  }}
+                  disabled={aiLoading}
+                  onClick={getAiSuggestions}
+                >
+                  {aiLoading ? (
+                    <>
+                      <RefreshCw size={13} className="animate-spin" /> Analyzing notes...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={13} /> Get AI Suggestions
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {!aiSuggestions && !aiLoading && (
+                <div
+                  style={{
+                    fontSize: '0.82rem',
+                    color: '#9ca3af',
+                    background: 'rgba(255,255,255,0.02)',
+                    padding: 12,
+                    borderRadius: 6,
+                    border: '1px dashed rgba(255,255,255,0.1)',
+                  }}
+                >
+                  Need support? Fill out the Subjective notes above and click "Get AI Suggestions"
+                  to receive clinical insights, matched coping strategies, and recommended
+                  therapeutic approaches.
+                </div>
+              )}
+
+              {aiSuggestions && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {aiSuggestions.riskIndicators && aiSuggestions.riskIndicators.length > 0 && (
+                    <div
+                      style={{
+                        background: 'rgba(239,68,68,0.08)',
+                        border: '1px solid rgba(239,68,68,0.25)',
+                        borderRadius: 6,
+                        padding: 12,
+                        fontSize: '0.8rem',
+                        color: '#fca5a5',
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 5,
+                          fontWeight: 'bold',
+                          marginBottom: 5,
+                        }}
+                      >
+                        <ShieldAlert size={14} className="text-red-400" /> Clinical Alert & Risk
+                        Warnings
+                      </div>
+                      <ul style={{ margin: 0, paddingLeft: 16 }}>
+                        {aiSuggestions.riskIndicators.map((item: string, idx: number) => (
+                          <li key={idx} style={{ marginBottom: 2 }}>
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  <div className="emr-grid-2" style={{ gap: 12 }}>
+                    <div
+                      style={{
+                        background: 'rgba(255,255,255,0.015)',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        borderRadius: 6,
+                        padding: 12,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontWeight: 'bold',
+                          fontSize: '0.82rem',
+                          marginBottom: 8,
+                          color: '#c084fc',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                        }}
+                      >
+                        <Brain size={13} /> Clinical Insights
+                      </div>
+                      {aiSuggestions.clinicalInsights &&
+                      aiSuggestions.clinicalInsights.length > 0 ? (
+                        <ul
+                          style={{
+                            margin: 0,
+                            paddingLeft: 16,
+                            fontSize: '0.78rem',
+                            color: '#d1d5db',
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          {aiSuggestions.clinicalInsights.map((item: string, idx: number) => (
+                            <li key={idx} style={{ marginBottom: 5 }}>
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <span style={{ fontSize: '0.78rem', color: '#9ca3af' }}>
+                          No special clinical insights detected.
+                        </span>
+                      )}
+                    </div>
+
+                    <div
+                      style={{
+                        background: 'rgba(255,255,255,0.015)',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        borderRadius: 6,
+                        padding: 12,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontWeight: 'bold',
+                          fontSize: '0.82rem',
+                          marginBottom: 8,
+                          color: '#818cf8',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                        }}
+                      >
+                        <Lightbulb size={13} /> Coping Strategies
+                      </div>
+                      {aiSuggestions.copingStrategies &&
+                      aiSuggestions.copingStrategies.length > 0 ? (
+                        <ul
+                          style={{
+                            margin: 0,
+                            paddingLeft: 16,
+                            fontSize: '0.78rem',
+                            color: '#d1d5db',
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          {aiSuggestions.copingStrategies.map((item: string, idx: number) => (
+                            <li key={idx} style={{ marginBottom: 6 }}>
+                              {item}{' '}
+                              <button
+                                type="button"
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#818cf8',
+                                  cursor: 'pointer',
+                                  fontSize: '0.72rem',
+                                  fontWeight: '500',
+                                  padding: 0,
+                                  marginLeft: 5,
+                                }}
+                                onClick={() => {
+                                  setPlan((prev) =>
+                                    prev
+                                      ? `${prev}\n- Suggested coping strategy: ${item}`
+                                      : `- Suggested coping strategy: ${item}`,
+                                  );
+                                }}
+                              >
+                                [Add to Plan]
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <span style={{ fontSize: '0.78rem', color: '#9ca3af' }}>
+                          No strategies found.
+                        </span>
+                      )}
+                    </div>
+
+                    <div
+                      style={{
+                        background: 'rgba(255,255,255,0.015)',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        borderRadius: 6,
+                        padding: 12,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontWeight: 'bold',
+                          fontSize: '0.82rem',
+                          marginBottom: 8,
+                          color: '#34d399',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                        }}
+                      >
+                        <ClipboardList size={13} /> Therapeutic Approaches
+                      </div>
+                      {aiSuggestions.therapeuticApproaches &&
+                      aiSuggestions.therapeuticApproaches.length > 0 ? (
+                        <ul
+                          style={{
+                            margin: 0,
+                            paddingLeft: 16,
+                            fontSize: '0.78rem',
+                            color: '#d1d5db',
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          {aiSuggestions.therapeuticApproaches.map((item: string, idx: number) => (
+                            <li key={idx} style={{ marginBottom: 6 }}>
+                              {item}{' '}
+                              <button
+                                type="button"
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#34d399',
+                                  cursor: 'pointer',
+                                  fontSize: '0.72rem',
+                                  fontWeight: '500',
+                                  padding: 0,
+                                  marginLeft: 5,
+                                }}
+                                onClick={() => {
+                                  setAssessment((prev) =>
+                                    prev ? `${prev}\nApproach: ${item}` : `Approach: ${item}`,
+                                  );
+                                }}
+                              >
+                                [Add to Assessment]
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <span style={{ fontSize: '0.78rem', color: '#9ca3af' }}>
+                          No approaches identified.
+                        </span>
+                      )}
+                    </div>
+
+                    <div
+                      style={{
+                        background: 'rgba(255,255,255,0.015)',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        borderRadius: 6,
+                        padding: 12,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontWeight: 'bold',
+                          fontSize: '0.82rem',
+                          marginBottom: 8,
+                          color: '#fbbf24',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                        }}
+                      >
+                        <Clock size={13} /> Follow-up Suggestions
+                      </div>
+                      {aiSuggestions.followupSuggestions &&
+                      aiSuggestions.followupSuggestions.length > 0 ? (
+                        <ul
+                          style={{
+                            margin: 0,
+                            paddingLeft: 16,
+                            fontSize: '0.78rem',
+                            color: '#d1d5db',
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          {aiSuggestions.followupSuggestions.map((item: string, idx: number) => (
+                            <li key={idx} style={{ marginBottom: 5 }}>
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <span style={{ fontSize: '0.78rem', color: '#9ca3af' }}>
+                          No follow-up recommendations.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </AccordionSection>
 
