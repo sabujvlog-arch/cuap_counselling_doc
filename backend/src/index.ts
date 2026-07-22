@@ -180,7 +180,7 @@ const startServer = async () => {
 
     app.listen(PORT, () => {
       console.log(`================================================`);
-      console.log(` WCCMS Express Backend running on port ${PORT} `);
+      console.log(` WCCMS Express Backend running on port ${PORT}`);
       console.log(` Health check: http://localhost:${PORT}/health   `);
       console.log(`================================================`);
 

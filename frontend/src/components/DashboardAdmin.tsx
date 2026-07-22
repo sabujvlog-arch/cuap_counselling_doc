@@ -21,6 +21,7 @@ import {
   Users,
   Calendar,
   Activity,
+  Bell,
   RefreshCw,
   Plus,
   Trash2,
@@ -48,6 +49,9 @@ import ThemeToggle from './ui/ThemeToggle';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useSidebar } from '@/hooks/useSidebar';
 import Sidebar from './ui/Sidebar';
+import Breadcrumbs from './ui/Breadcrumbs';
+import NotificationCenter from './ui/NotificationCenter';
+import EnterpriseTable from './ui/EnterpriseTable';
 import { BookOpen, Clipboard, Heart } from 'lucide-react';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
@@ -78,6 +82,20 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
   // Sidebar state hook
   const sidebar = useSidebar();
   const { sidebarCollapsed } = sidebar;
+
+  const [notifCenterOpen, setNotifCenterOpen] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+  const tabLabels: Record<string, string> = {
+    overview: 'Overview & Charts',
+    providers: 'Manage Counselors',
+    students: 'Manage Students',
+    appointments: 'Appointments Manager',
+    opd: 'OPD Patient Register',
+    repository: 'Assessment Repository',
+    audits: 'System Audit Logs',
+    settings: 'Backup & Settings',
+  };
 
   // EMR Repository states
   const [repository, setRepository] = useState<any[]>([]);
@@ -590,9 +608,24 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
               <span className="text-[10px] text-slate-400 font-mono block">{adminUsername}</span>
             </div>
             <ThemeToggle />
+
+            {/* Notification Bell */}
+            <button
+              onClick={() => setNotifCenterOpen(true)}
+              className="p-2 text-slate-500 hover:text-blue-600 dark:hover:text-blue-450 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-850 transition relative cursor-pointer"
+              title="Notifications"
+            >
+              <Bell size={18} />
+              {unreadNotifications > 0 && (
+                <span className="absolute top-1 right-1 w-4 h-4 bg-rose-500 rounded-full text-[9px] font-black text-white flex items-center justify-center animate-pulse">
+                  {unreadNotifications}
+                </span>
+              )}
+            </button>
+
             <button
               onClick={onLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-red-50 dark:bg-slate-800 dark:hover:bg-red-950/20 text-slate-600 hover:text-red-655 dark:text-slate-350 dark:hover:text-red-400 rounded-xl text-xs font-bold transition cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-red-50 dark:bg-slate-800 dark:hover:bg-red-950/20 text-slate-600 hover:text-red-650 dark:text-slate-350 dark:hover:text-red-400 rounded-xl text-xs font-bold transition cursor-pointer"
             >
               <LogOut size={14} /> Sign Out
             </button>
@@ -600,6 +633,10 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
         </header>
 
         <div className="flex-1 p-6 lg:p-10 space-y-8">
+          <Breadcrumbs
+            portalName="Admin Portal"
+            activeTabLabel={tabLabels[activeTab] || activeTab}
+          />
           {/* TAB 1: OVERVIEW */}
           {activeTab === 'overview' && (
             <div className="space-y-8 animate-fade-in-up">
@@ -2236,46 +2273,59 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
               </div>
 
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-5 rounded-2xl shadow-sm">
-                <div className="overflow-y-auto max-h-[500px]">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 text-xs font-bold uppercase">
-                        <th className="py-3 px-4">Operator</th>
-                        <th className="py-3 px-4">Action</th>
-                        <th className="py-3 px-4">Details</th>
-                        <th className="py-3 px-4">IP Address</th>
-                        <th className="py-3 px-4">Timestamp</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {auditLogs.map((log, idx) => (
-                        <tr
-                          key={idx}
-                          className="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50/50 dark:hover:bg-slate-800/10 text-xs"
-                        >
-                          <td className="py-3 px-4">
-                            <span className="font-semibold block">{log.username || 'System'}</span>
-                            <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
-                              {log.role || 'daemon'}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono font-bold rounded">
-                              {log.action}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-slate-500">{log.details}</td>
-                          <td className="py-3 px-4 font-mono font-medium text-slate-400">
-                            {log.ip_address}
-                          </td>
-                          <td className="py-3 px-4 font-medium">
-                            {new Date(log.created_at).toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                {(() => {
+                  const auditColumns = [
+                    {
+                      key: 'username',
+                      header: 'Operator',
+                      render: (log: any) => (
+                        <div>
+                          <span className="font-semibold block text-slate-800 dark:text-white">
+                            {log.username || 'System'}
+                          </span>
+                          <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
+                            {log.role || 'daemon'}
+                          </span>
+                        </div>
+                      ),
+                    },
+                    {
+                      key: 'action',
+                      header: 'Action',
+                      render: (log: any) => (
+                        <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-350 font-mono font-bold rounded">
+                          {log.action}
+                        </span>
+                      ),
+                    },
+                    {
+                      key: 'details',
+                      header: 'Details',
+                    },
+                    {
+                      key: 'ip_address',
+                      header: 'IP Address',
+                      render: (log: any) => (
+                        <span className="font-mono text-slate-400">{log.ip_address}</span>
+                      ),
+                    },
+                    {
+                      key: 'created_at',
+                      header: 'Timestamp',
+                      render: (log: any) => new Date(log.created_at).toLocaleString(),
+                    },
+                  ];
+
+                  return (
+                    <EnterpriseTable
+                      data={auditLogs}
+                      columns={auditColumns}
+                      rowKey={(log: any) => log.id || log.created_at}
+                      placeholder="No audit logs found on record."
+                      searchPlaceholder="Search audit events..."
+                    />
+                  );
+                })()}
               </div>
             </div>
           )}
@@ -3571,6 +3621,13 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
           </div>
         </div>
       )}
+
+      {/* Slide-over Notification Center panel */}
+      <NotificationCenter
+        isOpen={notifCenterOpen}
+        onClose={() => setNotifCenterOpen(false)}
+        onUpdateCount={setUnreadNotifications}
+      />
     </div>
   );
 }

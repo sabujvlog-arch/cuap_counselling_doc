@@ -27,6 +27,7 @@ import {
   Trash2,
   AlertCircle,
   X,
+  LayoutDashboard,
 } from 'lucide-react';
 import {
   LineChart,
@@ -44,6 +45,8 @@ import ThemeToggle from './ui/ThemeToggle';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useSidebar } from '@/hooks/useSidebar';
 import Sidebar from './ui/Sidebar';
+import Breadcrumbs from './ui/Breadcrumbs';
+import NotificationCenter from './ui/NotificationCenter';
 
 interface StudentProps {
   onLogout: () => void;
@@ -89,8 +92,15 @@ function ComingSoonCard({
 
 export default function DashboardStudent({ onLogout, studentProfile, user }: StudentProps) {
   const [activeTab, setActiveTab] = useState<
-    'appointments' | 'prescriptions' | 'documents' | 'assessment' | 'chat' | 'unimind' | 'feedback'
-  >('appointments');
+    | 'overview'
+    | 'appointments'
+    | 'prescriptions'
+    | 'documents'
+    | 'assessment'
+    | 'chat'
+    | 'unimind'
+    | 'feedback'
+  >('overview');
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [permissions, setPermissions] = useState<any>(null);
@@ -102,6 +112,18 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
   const { sidebarCollapsed } = sidebar;
 
   const [isStatusAccordionOpen, setIsStatusAccordionOpen] = useState(false);
+  const [notifCenterOpen, setNotifCenterOpen] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+  const tabLabels: Record<string, string> = {
+    overview: 'Dashboard Overview',
+    appointments: 'Request Appointment',
+    prescriptions: 'Counselling & Rx Logs',
+    documents: 'Document Centre',
+    assessment: 'Assessments Desk',
+    chat: 'Secure Messenger',
+    feedback: 'Feedback & Emergency',
+  };
 
   // Auth context for refreshing profile state
   const { refreshSession } = useAuth();
@@ -498,6 +520,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
 
       <Sidebar
         navItems={[
+          { id: 'overview', label: 'Dashboard Overview', icon: LayoutDashboard },
           { id: 'appointments', label: 'Book Appointment', icon: Calendar },
           { id: 'prescriptions', label: 'Counseling & Rx Logs', icon: BookOpen },
           { id: 'documents', label: 'Document Centre', icon: FileText },
@@ -542,6 +565,21 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
               </span>
             </div>
             <ThemeToggle />
+
+            {/* Notification Bell */}
+            <button
+              onClick={() => setNotifCenterOpen(true)}
+              className="p-2 text-slate-500 hover:text-blue-600 dark:hover:text-blue-450 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-850 transition relative cursor-pointer"
+              title="Notifications"
+            >
+              <Bell size={18} />
+              {unreadNotifications > 0 && (
+                <span className="absolute top-1 right-1 w-4 h-4 bg-rose-500 rounded-full text-[9px] font-black text-white flex items-center justify-center animate-pulse">
+                  {unreadNotifications}
+                </span>
+              )}
+            </button>
+
             <button
               onClick={onLogout}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-red-50 dark:bg-slate-800 dark:hover:bg-red-950/20 text-slate-600 hover:text-red-650 dark:text-slate-350 dark:hover:text-red-400 rounded-xl text-xs font-bold transition cursor-pointer"
@@ -552,6 +590,210 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
         </header>
 
         <div className="flex-1 p-6 lg:p-10 space-y-8">
+          <Breadcrumbs
+            portalName="Student Portal"
+            activeTabLabel={tabLabels[activeTab] || activeTab}
+          />
+
+          {activeTab === 'overview' && (
+            <div className="space-y-8 animate-fade-in-up">
+              <div>
+                <h2 className="text-2xl font-black tracking-tight font-sans">
+                  Welcome to Student Wellness Hub 👋
+                </h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  Access counseling schedules, EMR summaries, self-screenings, and AI helpers in one
+                  workspace
+                </p>
+              </div>
+
+              {/* KPI Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* KPI 1: Next Session */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-slate-450 tracking-wider">
+                      Next Appointment
+                    </span>
+                    <h3 className="text-base font-extrabold text-slate-855 dark:text-slate-100 mt-2 leading-snug">
+                      {appointments.find((a) => a.status === 'approved')
+                        ? `Dr. ${appointments.find((a) => a.status === 'approved').provider_name}`
+                        : 'No active session'}
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {appointments.find((a) => a.status === 'approved')
+                        ? `${appointments.find((a) => a.status === 'approved').slot_date} at ${appointments.find((a) => a.status === 'approved').slot_time}`
+                        : 'Schedule a session below'}
+                    </p>
+                  </div>
+                  {appointments.find((a) => a.status === 'approved') && (
+                    <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider mt-4">
+                      ✓ Confirmed
+                    </span>
+                  )}
+                </div>
+
+                {/* KPI 2: Consent */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-slate-450 tracking-wider">
+                      Counseling Consent
+                    </span>
+                    <h3 className="text-base font-extrabold text-slate-855 dark:text-slate-100 mt-2 leading-snug">
+                      {studentProfile?.informed_consent_signed
+                        ? 'Signed & Submitted'
+                        : 'Pending signature'}
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {studentProfile?.informed_consent_signed
+                        ? `Consent date: ${new Date(studentProfile.consent_date).toLocaleDateString()}`
+                        : 'Action required in Document Centre'}
+                    </p>
+                  </div>
+                  <span
+                    className={`text-[10px] font-bold uppercase tracking-wider mt-4 ${
+                      studentProfile?.informed_consent_signed
+                        ? 'text-emerald-600'
+                        : 'text-amber-500 animate-pulse'
+                    }`}
+                  >
+                    {studentProfile?.informed_consent_signed ? '✓ Compliant' : '⚠️ Unsigned'}
+                  </span>
+                </div>
+
+                {/* KPI 3: Screenings */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-slate-450 tracking-wider">
+                      Self-Assessments
+                    </span>
+                    <h3 className="text-base font-extrabold text-slate-855 dark:text-slate-100 mt-2 leading-snug">
+                      {historicalAssessments.length} Completed
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Take mental health quizzes (PHQ-9, GAD-7)
+                    </p>
+                  </div>
+                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider mt-4">
+                    Track Severity
+                  </span>
+                </div>
+
+                {/* KPI 4: Unread messages */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-slate-450 tracking-wider">
+                      Announcements
+                    </span>
+                    <h3 className="text-base font-extrabold text-slate-855 dark:text-slate-100 mt-2 leading-snug">
+                      {announcements.length} Published
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Latest:{' '}
+                      {announcements[0]
+                        ? announcements[0].message.substring(0, 30) + '...'
+                        : 'None'}
+                    </p>
+                  </div>
+                  <span className="text-[10px] text-indigo-650 dark:text-indigo-400 font-bold uppercase tracking-wider mt-4">
+                    Central Bulletins
+                  </span>
+                </div>
+              </div>
+
+              {/* Quick Actions Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <button
+                  onClick={() => setActiveTab('appointments')}
+                  className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-slate-900 dark:to-slate-855 border border-blue-200/50 dark:border-slate-800 rounded-2xl text-left cursor-pointer transition hover:-translate-y-0.5 hover:shadow-sm"
+                >
+                  <Calendar className="text-blue-600 dark:text-blue-400 mb-3" size={20} />
+                  <h4 className="font-bold text-xs text-slate-800 dark:text-white">Book Session</h4>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Find an available slot</p>
+                </button>
+                <button
+                  onClick={() => setActiveTab('documents')}
+                  className="p-4 bg-gradient-to-br from-violet-50 to-violet-100 dark:from-slate-900 dark:to-slate-855 border border-violet-200/50 dark:border-slate-800 rounded-2xl text-left cursor-pointer transition hover:-translate-y-0.5 hover:shadow-sm"
+                >
+                  <FileText className="text-violet-600 dark:text-violet-400 mb-3" size={20} />
+                  <h4 className="font-bold text-xs text-slate-800 dark:text-white">
+                    Consent & Files
+                  </h4>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Upload history records</p>
+                </button>
+                <button
+                  onClick={() => setActiveTab('assessment')}
+                  className="p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-slate-900 dark:to-slate-855 border border-emerald-200/50 dark:border-slate-800 rounded-2xl text-left cursor-pointer transition hover:-translate-y-0.5 hover:shadow-sm"
+                >
+                  <Clipboard className="text-emerald-600 dark:text-emerald-400 mb-3" size={20} />
+                  <h4 className="font-bold text-xs text-slate-800 dark:text-white">
+                    Start Screening
+                  </h4>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Analyze mood patterns</p>
+                </button>
+                <button
+                  onClick={() => setActiveTab('feedback')}
+                  className="p-4 bg-gradient-to-br from-rose-50 to-rose-100 dark:from-slate-900 dark:to-slate-855 border border-rose-200/50 dark:border-slate-800 rounded-2xl text-left cursor-pointer transition hover:-translate-y-0.5 hover:shadow-sm"
+                >
+                  <Heart className="text-rose-600 dark:text-rose-400 mb-3" size={20} />
+                  <h4 className="font-bold text-xs text-slate-800 dark:text-white">
+                    Crisis Support
+                  </h4>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Emergency direct numbers</p>
+                </button>
+              </div>
+
+              {/* Line Chart */}
+              {historicalAssessments && historicalAssessments.length > 0 ? (
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-855 p-6 rounded-2xl shadow-sm">
+                  <h3 className="text-sm font-bold text-slate-850 dark:text-slate-100 mb-6 uppercase tracking-wider text-[10px]">
+                    📊 Self-Screening Score Progression
+                  </h3>
+                  <div className="h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" strokeOpacity={0.5} />
+                        <XAxis dataKey="date" stroke="#94A3B8" fontSize={10} fontStyle="bold" />
+                        <YAxis stroke="#94A3B8" fontSize={10} fontStyle="bold" />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'var(--card)',
+                            borderColor: 'var(--border)',
+                            borderRadius: '12px',
+                          }}
+                        />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="phq9"
+                          stroke="#3B82F6"
+                          strokeWidth={3}
+                          connectNulls
+                          activeDot={{ r: 6 }}
+                          name="PHQ-9 (Depression)"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="gad7"
+                          stroke="#10B981"
+                          strokeWidth={3}
+                          connectNulls
+                          activeDot={{ r: 6 }}
+                          name="GAD-7 (Anxiety)"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-12 rounded-2xl text-center text-slate-400 text-xs font-semibold">
+                  No screening assessments completed yet. Take your first self-quiz in the
+                  "Assessments Desk" tab to map your progress!
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'appointments' && (
             <div className="space-y-8 animate-fade-in-up">
               <div>
@@ -1909,6 +2151,13 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
           </div>
         </div>
       )}
+
+      {/* Slide-over Notification Center panel */}
+      <NotificationCenter
+        isOpen={notifCenterOpen}
+        onClose={() => setNotifCenterOpen(false)}
+        onUpdateCount={setUnreadNotifications}
+      />
     </div>
   );
 }

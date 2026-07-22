@@ -499,6 +499,16 @@ export const api = {
       }),
   },
 
+  // Notifications Operations
+  notifications: {
+    list: () => request('/notifications'),
+    markRead: (id?: number) =>
+      request('/notifications/read', {
+        method: 'POST',
+        body: JSON.stringify({ id }),
+      }),
+  },
+
   // Student specific simulator operations
   students: {
     toggleAssessments: (payload: { studentId: number; enabled: boolean }) =>

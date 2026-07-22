@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+// SWCC Workspace Counselor Portal Component
 import { api } from '@/lib/api';
 import {
   Calendar as CalendarIcon,
@@ -46,6 +47,9 @@ import ThemeToggle from './ui/ThemeToggle';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useSidebar } from '@/hooks/useSidebar';
 import Sidebar from './ui/Sidebar';
+import Breadcrumbs from './ui/Breadcrumbs';
+import NotificationCenter from './ui/NotificationCenter';
+import EnterpriseTable from './ui/EnterpriseTable';
 
 interface ProviderProps {
   onLogout: () => void;
@@ -69,6 +73,21 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
   const [appointments, setAppointments] = useState<any[]>([]);
   const [activeApp, setActiveApp] = useState<any>(null); // Active appointment for writing SOAP notes
   const [loading, setLoading] = useState(false);
+  const [notifCenterOpen, setNotifCenterOpen] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+  const tabLabels: Record<string, string> = {
+    dashboard: 'Workspace Dashboard',
+    students: 'Assigned Students',
+    schedule: "Today's Schedule",
+    'counselling-emr': 'Session Notes',
+    prescription: 'Prescription Desk',
+    chat: 'Secure Messenger',
+    availability: 'Schedule & Availability',
+    repository: 'EMR Repository',
+    'generated-reports': 'Generated Reports',
+    notifications: 'Announcements',
+  };
 
   const isMobile = useMediaQuery('(max-width: 1023px)');
 
@@ -516,9 +535,24 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
               </span>
             </div>
             <ThemeToggle />
+
+            {/* Notification Bell */}
+            <button
+              onClick={() => setNotifCenterOpen(true)}
+              className="p-2 text-slate-500 hover:text-blue-600 dark:hover:text-blue-450 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-850 transition relative cursor-pointer"
+              title="Notifications"
+            >
+              <Bell size={18} />
+              {unreadNotifications > 0 && (
+                <span className="absolute top-1 right-1 w-4 h-4 bg-rose-500 rounded-full text-[9px] font-black text-white flex items-center justify-center animate-pulse">
+                  {unreadNotifications}
+                </span>
+              )}
+            </button>
+
             <button
               onClick={onLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-red-50 dark:bg-slate-800 dark:hover:bg-red-950/20 text-slate-600 hover:text-red-655 dark:text-slate-350 dark:hover:text-red-400 rounded-xl text-xs font-bold transition cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-red-50 dark:bg-slate-800 dark:hover:bg-red-950/20 text-slate-600 hover:text-red-650 dark:text-slate-350 dark:hover:text-red-400 rounded-xl text-xs font-bold transition cursor-pointer"
             >
               Sign Out
             </button>
@@ -526,6 +560,10 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
         </header>
 
         <div className="flex-1 p-6 lg:p-10 space-y-8">
+          <Breadcrumbs
+            portalName="Counselor Portal"
+            activeTabLabel={tabLabels[activeTab] || activeTab}
+          />
           {/* TAB 0: DASHBOARD OVERVIEW */}
           {activeTab === 'dashboard' &&
             (() => {
@@ -764,28 +802,13 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                   documentation logs.
                 </p>
               </div>
-
               {/* Filter controls */}
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-4 rounded-2xl shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
-                <div className="relative w-full md:max-w-xs">
-                  <Search
-                    size={15}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
-                  <input
-                    type="text"
-                    value={studentSearch}
-                    onChange={(e) => setStudentSearch(e.target.value)}
-                    placeholder="Search by Name or Reg Number"
-                    className="w-full pl-9 pr-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-950 text-xs font-bold focus:outline-none"
-                  />
-                </div>
-
                 <div className="flex gap-3 w-full md:w-auto">
                   <select
                     value={studentDeptFilter}
                     onChange={(e) => setStudentDeptFilter(e.target.value)}
-                    className="flex-1 md:w-44 px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-950 text-xs font-bold focus:outline-none text-slate-800 dark:text-slate-200"
+                    className="flex-1 md:w-44 px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-950 text-xs font-bold focus:outline-none text-slate-800 dark:text-slate-200 cursor-pointer"
                   >
                     <option value="">All Departments</option>
                     <option value="Computer Science">Computer Science</option>
@@ -799,7 +822,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                   <select
                     value={studentStatusFilter}
                     onChange={(e) => setStudentStatusFilter(e.target.value)}
-                    className="flex-1 md:w-40 px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-950 text-xs font-bold focus:outline-none text-slate-800 dark:text-slate-200"
+                    className="flex-1 md:w-40 px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-950 text-xs font-bold focus:outline-none text-slate-800 dark:text-slate-200 cursor-pointer"
                   >
                     <option value="">All Statuses</option>
                     <option value="approved">Approved</option>
@@ -809,178 +832,87 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                 </div>
               </div>
 
-              {/* Data Table */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-2xl shadow-sm overflow-hidden">
-                {/* Desktop view table */}
-                <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                        <th className="py-4 px-6">Student details</th>
-                        <th className="py-4 px-6">Department</th>
-                        <th className="py-4 px-6">Semester</th>
-                        <th className="py-4 px-6">Last Session</th>
-                        <th className="py-4 px-6">Latest Status</th>
-                        <th className="py-4 px-6 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200">
-                      {(() => {
-                        const filtered = allStudents.filter((s) => {
-                          const matchesQuery =
-                            s.student_name.toLowerCase().includes(studentSearch.toLowerCase()) ||
-                            s.registration_number
-                              .toLowerCase()
-                              .includes(studentSearch.toLowerCase());
-                          const matchesDept =
-                            !studentDeptFilter || s.student_dept === studentDeptFilter;
-                          const matchesStatus =
-                            !studentStatusFilter || s.status === studentStatusFilter;
-                          return matchesQuery && matchesDept && matchesStatus;
-                        });
-
-                        if (filtered.length === 0) {
-                          return (
-                            <tr>
-                              <td colSpan={6} className="text-center py-12 text-slate-400">
-                                No assigned students found matching filters.
-                              </td>
-                            </tr>
-                          );
-                        }
-
-                        return filtered.map((s, idx) => (
-                          <tr
-                            key={idx}
-                            className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition"
-                          >
-                            <td className="py-4 px-6">
-                              <p className="font-bold text-slate-800 dark:text-white">
-                                {s.student_name}
-                              </p>
-                              <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                                {s.registration_number.toUpperCase()}
-                              </p>
-                            </td>
-                            <td className="py-4 px-6">{s.student_dept || 'General'}</td>
-                            <td className="py-4 px-6 font-medium text-slate-500">
-                              {s.student_semester || 'N/A'}
-                            </td>
-                            <td className="py-4 px-6 font-mono text-slate-500">
-                              {s.last_appointment_date
-                                ? new Date(s.last_appointment_date).toLocaleDateString()
-                                : 'N/A'}
-                            </td>
-                            <td className="py-4 px-6">
-                              <span
-                                className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
-                                  s.status === 'completed'
-                                    ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20'
-                                    : s.status === 'approved'
-                                      ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/20'
-                                      : 'bg-amber-50 text-amber-600 dark:bg-amber-950/20'
-                                }`}
-                              >
-                                {s.status}
-                              </span>
-                            </td>
-                            <td className="py-4 px-6 text-right">
-                              <button
-                                onClick={() => handleOpenStudentProfile(s)}
-                                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-xl transition cursor-pointer"
-                              >
-                                View Clinical File
-                              </button>
-                            </td>
-                          </tr>
-                        ));
-                      })()}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Mobile view card list */}
-                <div className="block md:hidden divide-y divide-slate-100 dark:divide-slate-800">
-                  {(() => {
-                    const filtered = allStudents.filter((s) => {
-                      const matchesQuery =
-                        s.student_name.toLowerCase().includes(studentSearch.toLowerCase()) ||
-                        s.registration_number.toLowerCase().includes(studentSearch.toLowerCase());
-                      const matchesDept =
-                        !studentDeptFilter || s.student_dept === studentDeptFilter;
-                      const matchesStatus =
-                        !studentStatusFilter || s.status === studentStatusFilter;
-                      return matchesQuery && matchesDept && matchesStatus;
-                    });
-
-                    if (filtered.length === 0) {
-                      return (
-                        <div className="py-12 text-center text-slate-400 text-xs">
-                          No assigned students found.
-                        </div>
-                      );
-                    }
-
-                    return filtered.map((s, idx) => (
-                      <div key={idx} className="p-4 space-y-3">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-bold text-slate-800 dark:text-white text-sm">
-                              {s.student_name}
-                            </p>
-                            <p className="text-[10px] text-slate-400 font-mono">
-                              {s.registration_number.toUpperCase()}
-                            </p>
-                          </div>
-                          <span
-                            className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
-                              s.status === 'completed'
-                                ? 'bg-emerald-50 text-emerald-600'
-                                : s.status === 'approved'
-                                  ? 'bg-blue-50 text-blue-600'
-                                  : 'bg-amber-50 text-amber-600'
-                            }`}
-                          >
-                            {s.status}
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-500">
-                          <div>
-                            <span className="font-bold block text-[9px] uppercase text-slate-400">
-                              Department
-                            </span>
-                            <span>{s.student_dept || 'General'}</span>
-                          </div>
-                          <div>
-                            <span className="font-bold block text-[9px] uppercase text-slate-400">
-                              Semester
-                            </span>
-                            <span>{s.student_semester || 'N/A'}</span>
-                          </div>
-                          <div className="col-span-2">
-                            <span className="font-bold block text-[9px] uppercase text-slate-400">
-                              Last Session
-                            </span>
-                            <span>
-                              {s.last_appointment_date
-                                ? new Date(s.last_appointment_date).toLocaleDateString()
-                                : 'N/A'}
-                            </span>
-                          </div>
-                        </div>
-
-                        <button
-                          onClick={() => handleOpenStudentProfile(s)}
-                          className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition cursor-pointer"
-                        >
-                          View Clinical File
-                        </button>
+              {/* Data Table via EnterpriseTable */}
+              {(() => {
+                const studentColumns = [
+                  {
+                    key: 'student_name',
+                    header: 'Student Details',
+                    render: (s: any) => (
+                      <div>
+                        <p className="font-bold text-slate-800 dark:text-white">{s.student_name}</p>
+                        <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                          {s.registration_number.toUpperCase()}
+                        </p>
                       </div>
-                    ));
-                  })()}
-                </div>
-              </div>
+                    ),
+                  },
+                  {
+                    key: 'student_dept',
+                    header: 'Department',
+                    render: (s: any) => s.student_dept || 'General',
+                  },
+                  {
+                    key: 'student_semester',
+                    header: 'Semester',
+                    render: (s: any) => s.student_semester || 'N/A',
+                  },
+                  {
+                    key: 'last_appointment_date',
+                    header: 'Last Session',
+                    render: (s: any) =>
+                      s.last_appointment_date
+                        ? new Date(s.last_appointment_date).toLocaleDateString()
+                        : 'N/A',
+                  },
+                  {
+                    key: 'status',
+                    header: 'Latest Status',
+                    render: (s: any) => (
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                          s.status === 'completed'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-300'
+                            : s.status === 'approved'
+                              ? 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/20 dark:text-blue-300'
+                              : 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/20 dark:text-amber-300'
+                        }`}
+                      >
+                        {s.status}
+                      </span>
+                    ),
+                  },
+                  {
+                    key: 'actions',
+                    header: 'Actions',
+                    sortable: false,
+                    render: (s: any) => (
+                      <button
+                        onClick={() => handleOpenStudentProfile(s)}
+                        className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-xl transition cursor-pointer"
+                      >
+                        View Clinical File
+                      </button>
+                    ),
+                  },
+                ];
+
+                const filteredStudents = allStudents.filter((s) => {
+                  const matchesDept = !studentDeptFilter || s.student_dept === studentDeptFilter;
+                  const matchesStatus = !studentStatusFilter || s.status === studentStatusFilter;
+                  return matchesDept && matchesStatus;
+                });
+
+                return (
+                  <EnterpriseTable
+                    data={filteredStudents}
+                    columns={studentColumns}
+                    rowKey={(s: any) => s.student_id}
+                    placeholder="No assigned students found matching filters."
+                    searchPlaceholder="Search by Name or Reg Number..."
+                  />
+                );
+              })()}
             </div>
           )}
 
@@ -3320,6 +3252,13 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
           </div>
         </div>
       )}
+
+      {/* Slide-over Notification Center panel */}
+      <NotificationCenter
+        isOpen={notifCenterOpen}
+        onClose={() => setNotifCenterOpen(false)}
+        onUpdateCount={setUnreadNotifications}
+      />
     </div>
   );
 }

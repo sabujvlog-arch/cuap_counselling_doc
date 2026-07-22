@@ -382,37 +382,134 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-[#0B0F19] text-slate-800 dark:text-slate-200 transition-colors duration-200">
-      {/* Navbar/Header */}
-      <header className="w-full border-b border-slate-100 dark:border-slate-850 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md px-6 py-4 flex items-center justify-between sticky top-0 z-30">
-        <div className="flex items-center gap-3">
+    <div className="min-h-screen flex flex-col lg:flex-row bg-slate-50 dark:bg-[#0B0F19] text-slate-800 dark:text-slate-200 transition-colors duration-200">
+      {/* ── Left Pane: Branding & Rotating Features (Desktop only) ── */}
+      <div className="hidden lg:flex lg:w-[42%] bg-gradient-to-br from-blue-700 via-blue-800 to-indigo-950 p-12 text-white flex-col justify-between relative overflow-hidden shrink-0">
+        {/* Background decorative glowing shapes */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl" />
+
+        {/* University logo block */}
+        <div className="flex items-center gap-4 relative z-10">
           <Image
             src="/logo.png"
-            alt="CUAP Logo"
-            width={34}
-            height={34}
+            alt="CUAP Emblem"
+            width={56}
+            height={56}
             priority
-            className="rounded-full"
+            className="object-contain bg-white/10 p-1 rounded-full backdrop-blur-md"
           />
-          <h1 className="text-sm md:text-base font-extrabold text-slate-800 dark:text-white tracking-tight">
-            Wellness Counseling Centre Management System
-          </h1>
+          <div>
+            <p className="text-[10px] font-black text-blue-200 uppercase tracking-widest leading-none mb-0.5">
+              ಕೇಂದ್ರ ವಿಶ್ವವಿದ್ಯಾಲಯ · ಆಂಧ್ರ ಪ್ರದೇಶ
+            </p>
+            <p className="text-sm font-extrabold text-white leading-tight">
+              Central University of Andhra Pradesh
+            </p>
+            <p className="text-[9.5px] text-blue-200/70">
+              Established by an Act of Parliament in 2009.
+            </p>
+          </div>
         </div>
 
-        {/* Pill-style Theme Toggle */}
-        <ThemeToggle />
-      </header>
+        {/* Dynamic / Testimonial & System features area */}
+        <div className="my-auto space-y-8 relative z-10 max-w-md">
+          <div>
+            <span className="px-3 py-1 text-[10px] font-bold tracking-widest uppercase rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30">
+              Counselling E-Portal
+            </span>
+            <h2 className="text-3xl font-black mt-4 leading-tight">
+              Wellness Counseling Centre Management System
+            </h2>
+            <p className="text-sm text-blue-100/80 mt-2 font-medium">
+              Empowering the student community with confidential EMR support, online counseling
+              appointments, and AI-enabled diagnostics.
+            </p>
+          </div>
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col items-center justify-center py-8">
-        {!selectedPortal ? (
-          <PortalSelector onSelect={setSelectedPortal} />
-        ) : (
-          <LoginForm portalId={selectedPortal} onBack={() => setSelectedPortal(null)} />
-        )}
-      </main>
+          <div className="space-y-4">
+            <div className="flex gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
+              <div className="p-2.5 rounded-xl bg-blue-500/20 text-blue-300 shrink-0 h-10 w-10 flex items-center justify-center">
+                <Shield size={18} />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm text-white">Confidential Clinical EMR</h4>
+                <p className="text-xs text-blue-100/75 mt-0.5">
+                  Secure SOAP notes, MSE evaluations, and history logs fully encrypted at rest.
+                </p>
+              </div>
+            </div>
 
-      {/* Chatbot (floating) */}
+            <div className="flex gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
+              <div className="p-2.5 rounded-xl bg-blue-500/20 text-blue-300 shrink-0 h-10 w-10 flex items-center justify-center">
+                <Lock size={18} />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm text-white">Role-Based Access Control</h4>
+                <p className="text-xs text-blue-100/75 mt-0.5">
+                  Dedicated gates for Students, Staff, and Administrators to safeguard clinical
+                  boundaries.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
+              <div className="p-2.5 rounded-xl bg-blue-500/20 text-blue-300 shrink-0 h-10 w-10 flex items-center justify-center">
+                <Mail size={18} />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm text-white">UniMind AI Support</h4>
+                <p className="text-xs text-blue-100/75 mt-0.5">
+                  AI-assisted appointment reservations, and real-time clinical suggestions.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer info */}
+        <div className="text-[11px] text-blue-200/50 relative z-10 flex justify-between">
+          <span>{APP.copyright}</span>
+          <span>Version {APP.version}</span>
+        </div>
+      </div>
+
+      {/* ── Right Pane: Form selectors (All devices) ── */}
+      <div className="flex-1 flex flex-col justify-between min-h-screen">
+        {/* Header for mobile view / Top Bar for desktop */}
+        <header className="w-full px-6 py-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-850/60 bg-white/40 dark:bg-slate-900/40 backdrop-blur-md">
+          <div className="flex items-center gap-3">
+            <Image
+              src="/logo.png"
+              alt="CUAP Logo"
+              width={34}
+              height={34}
+              priority
+              className="rounded-full lg:hidden"
+            />
+            <h1 className="text-xs md:text-sm font-extrabold text-slate-800 dark:text-white tracking-tight">
+              WCCMS Portal Gateway
+            </h1>
+          </div>
+          <ThemeToggle />
+        </header>
+
+        {/* Form Container */}
+        <main className="flex-1 flex items-center justify-center p-6 md:p-12">
+          {!selectedPortal ? (
+            <PortalSelector onSelect={setSelectedPortal} />
+          ) : (
+            <LoginForm portalId={selectedPortal} onBack={() => setSelectedPortal(null)} />
+          )}
+        </main>
+
+        {/* Footer for mobile/tablet */}
+        <footer className="lg:hidden text-center py-4 border-t border-slate-100 dark:border-slate-850 px-6 text-[10px] text-slate-400">
+          {APP.copyright}
+        </footer>
+      </div>
+
+      {/* Floating ChatbotWidget */}
       <div className="relative z-20">
         <ChatbotWidget />
       </div>

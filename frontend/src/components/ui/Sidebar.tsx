@@ -1,7 +1,5 @@
-'use client';
-
-import React from 'react';
-import { ChevronLeft, Pin, PinOff, LogOut, LucideIcon } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { ChevronLeft, Pin, PinOff, LogOut, LucideIcon, Search } from 'lucide-react';
 import SidebarItem from './SidebarItem';
 
 interface NavigationItem {
@@ -53,6 +51,49 @@ export default function Sidebar({
   handleMouseMove,
   isTabletOrMobile,
 }: SidebarProps) {
+  // Link Search Filter state
+  const [navSearch, setNavSearch] = useState('');
+
+  const filteredItems = useMemo(() => {
+    return navItems.filter((item) => item.label.toLowerCase().includes(navSearch.toLowerCase()));
+  }, [navItems, navSearch]);
+
+  // Group items by category
+  const groupedItems = useMemo(() => {
+    const groups: Record<string, NavigationItem[]> = {
+      'Core Operations': [],
+      'Clinical & Services': [],
+      'AI & Communications': [],
+      'System Control': [],
+    };
+
+    filteredItems.forEach((item) => {
+      const id = item.id.toLowerCase();
+      if (['appointments', 'analytics', 'users'].includes(id)) {
+        groups['Core Operations'].push(item);
+      } else if (
+        [
+          'prescriptions',
+          'documents',
+          'assessment',
+          'students',
+          'emr',
+          'history',
+          'reports',
+          'schedule',
+        ].includes(id)
+      ) {
+        groups['Clinical & Services'].push(item);
+      } else if (['chat', 'unimind', 'feedback', 'announcements'].includes(id)) {
+        groups['AI & Communications'].push(item);
+      } else {
+        groups['System Control'].push(item);
+      }
+    });
+
+    return Object.entries(groups).filter(([_, items]) => items.length > 0);
+  }, [filteredItems]);
+
   return (
     <>
       {/* Mobile Drawer Overlay Backdrop */}
@@ -76,7 +117,7 @@ export default function Sidebar({
         {/* ── 1. Edge Collapse Chevron Toggle (Desktop only) ── */}
         <button
           onClick={toggleCollapse}
-          className="absolute top-1/2 -right-3 -translate-y-1/2 w-6 h-6 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-850 dark:hover:text-slate-200 flex items-center justify-center shadow-sm cursor-pointer z-50 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 hidden lg:flex"
+          className="absolute top-1/2 -right-3 -translate-y-1/2 w-6 h-6 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-55 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-850 dark:hover:text-slate-200 flex items-center justify-center shadow-sm cursor-pointer z-50 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 hidden lg:flex"
           title={sidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
           aria-label={sidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
         >
@@ -89,7 +130,7 @@ export default function Sidebar({
         {/* ── 2. Header Area (Logo & Pinned Lock Button) ── */}
         <div>
           <div
-            className={`flex items-center mb-8 justify-between ${sidebarCollapsed ? 'lg:flex-col lg:gap-4' : 'gap-3'}`}
+            className={`flex items-center mb-6 justify-between ${sidebarCollapsed ? 'lg:flex-col lg:gap-4' : 'gap-3'}`}
           >
             <div
               className={`flex items-center ${sidebarCollapsed ? 'lg:flex-col lg:gap-2' : 'gap-3'}`}
@@ -116,7 +157,7 @@ export default function Sidebar({
                 className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
                   sidebarPinned
                     ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-slate-800 dark:border-slate-700 dark:text-blue-400'
-                    : 'border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                    : 'border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-650 dark:hover:text-slate-200'
                 }`}
                 title={
                   sidebarPinned
@@ -130,24 +171,50 @@ export default function Sidebar({
             </div>
           </div>
 
-          {/* ── 3. Navigation Links ── */}
-          <nav className="space-y-1">
-            {navItems.map((item) => (
-              <SidebarItem
-                key={item.id}
-                id={item.id}
-                label={item.label}
-                icon={item.icon}
-                active={activeTab === item.id}
-                collapsed={sidebarCollapsed}
-                onClick={() => {
-                  setActiveTab(item.id);
-                  if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-                    toggleCollapse();
-                  }
-                }}
-                badge={item.badge}
+          {/* Quick Search */}
+          {!sidebarCollapsed && (
+            <div className="relative mb-5 px-1">
+              <Search
+                size={12}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-550"
               />
+              <input
+                type="text"
+                value={navSearch}
+                onChange={(e) => setNavSearch(e.target.value)}
+                placeholder="Search navigation..."
+                className="w-full pl-7 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-[10px] font-bold outline-none focus:ring-1 focus:ring-blue-500/20 text-slate-750 dark:text-slate-350 transition-all placeholder:text-slate-400"
+              />
+            </div>
+          )}
+
+          {/* ── 3. Grouped Navigation Links ── */}
+          <nav className="space-y-4">
+            {groupedItems.map(([groupName, items]) => (
+              <div key={groupName} className="space-y-1">
+                {!sidebarCollapsed && (
+                  <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-600 tracking-widest px-3 pt-2 pb-1 select-none">
+                    {groupName}
+                  </p>
+                )}
+                {items.map((item) => (
+                  <SidebarItem
+                    key={item.id}
+                    id={item.id}
+                    label={item.label}
+                    icon={item.icon}
+                    active={activeTab === item.id}
+                    collapsed={sidebarCollapsed}
+                    onClick={() => {
+                      setActiveTab(item.id);
+                      if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                        toggleCollapse();
+                      }
+                    }}
+                    badge={item.badge}
+                  />
+                ))}
+              </div>
             ))}
           </nav>
         </div>

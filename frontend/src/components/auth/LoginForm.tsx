@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Lock, User as UserIcon, Eye, EyeOff, KeyRound, ArrowLeft } from 'lucide-react';
 import { PORTALS } from '@/constants/app';
@@ -29,8 +29,20 @@ export default function LoginForm({ portalId, onBack }: LoginFormProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Load saved username
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('cuap_remembered_username_' + portalId);
+      if (saved) {
+        setUsername(saved);
+        setRememberMe(true);
+      }
+    }
+  }, [portalId]);
 
   // Step 2 — 2FA
   const [requires2FA, setRequires2FA] = useState(false);
@@ -53,6 +65,13 @@ export default function LoginForm({ portalId, onBack }: LoginFormProps) {
       } else if (!result.success) {
         setError(result.error ?? 'Invalid username or password.');
       } else {
+        // Save or clear username
+        if (rememberMe) {
+          localStorage.setItem('cuap_remembered_username_' + portalId, username);
+        } else {
+          localStorage.removeItem('cuap_remembered_username_' + portalId);
+        }
+
         // Redirect on successful login
         if (portalId === 'student') {
           router.push('/student/dashboard');
@@ -74,6 +93,13 @@ export default function LoginForm({ portalId, onBack }: LoginFormProps) {
     try {
       await api.auth.verify2FA(otpUser, otpCode);
       await refreshSession(); // refreshSession is already destructured at top level ✓
+
+      // Save username if rememberMe was checked
+      if (rememberMe) {
+        localStorage.setItem('cuap_remembered_username_' + portalId, username);
+      } else {
+        localStorage.removeItem('cuap_remembered_username_' + portalId);
+      }
 
       // Redirect on successful 2FA
       if (portalId === 'student') {
@@ -200,17 +226,31 @@ export default function LoginForm({ portalId, onBack }: LoginFormProps) {
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
-                <div className="flex justify-between items-center mt-[16px] px-0.5 text-[15px] font-semibold">
-                  <span style={{ color: 'var(--text-muted)' }}>{portal.passwordHint}</span>
+                <div className="flex justify-between items-center mt-[16px] px-0.5 text-[14px] font-bold">
+                  <label
+                    className="flex items-center gap-2 cursor-pointer select-none"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="rounded border-slate-300 dark:border-slate-800 text-blue-600 focus:ring-blue-500/20"
+                    />
+                    Remember Me
+                  </label>
                   <button
                     type="button"
                     id="forgot-password-btn"
                     onClick={() => setShowForgot(true)}
-                    className="cursor-pointer transition text-[16px]"
+                    className="cursor-pointer transition text-[14px]"
                     style={{ color: 'var(--primary)' }}
                   >
                     Forgot Password?
                   </button>
+                </div>
+                <div className="text-[11px] font-semibold text-slate-400 mt-2 px-0.5">
+                  {portal.passwordHint}
                 </div>
               </div>
 

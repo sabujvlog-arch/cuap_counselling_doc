@@ -107,6 +107,15 @@ export const login = async (req: Request, res: Response) => {
       (username || '').toLowerCase().trim(),
     ]);
     if (userRes.rows.length === 0) {
+      await query(
+        'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
+        [
+          null,
+          'LOGIN_FAILURE',
+          `Failed login attempt: Username "${username}" does not exist. User-Agent: ${req.headers['user-agent'] || 'unknown'}`,
+          req.ip,
+        ],
+      );
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
@@ -125,6 +134,15 @@ export const login = async (req: Request, res: Response) => {
     }
 
     if (!passwordMatch) {
+      await query(
+        'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
+        [
+          user.id,
+          'LOGIN_FAILURE',
+          `Failed login attempt: Incorrect password for user "${user.username}". User-Agent: ${req.headers['user-agent'] || 'unknown'}`,
+          req.ip,
+        ],
+      );
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
@@ -137,7 +155,12 @@ export const login = async (req: Request, res: Response) => {
 
     await query(
       'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
-      [user.id, 'LOGIN', `User ${user.username} logged in successfully (2FA disabled)`, req.ip],
+      [
+        user.id,
+        'LOGIN',
+        `User ${user.username} logged in successfully. User-Agent: ${req.headers['user-agent'] || 'unknown'}`,
+        req.ip,
+      ],
     );
 
     return res.json({
@@ -674,5 +697,42 @@ export const resetPassword = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Reset link has expired. Please request a new one.' });
     }
     return res.status(400).json({ error: 'Invalid or corrupted reset link.' });
+  }
+};
+
+export const getNotifications = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const result = await query(
+      'SELECT id, type, message, is_read, created_at FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50',
+      [req.user.id],
+    );
+    return res.json(result.rows);
+  } catch (err: any) {
+    console.error('getNotifications error:', err);
+    return res.status(500).json({ error: 'Failed to retrieve notifications' });
+  }
+};
+
+export const markNotificationsRead = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const { id } = req.body;
+    if (id) {
+      await query('UPDATE notifications SET is_read = 1 WHERE user_id = $1 AND id = $2', [
+        req.user.id,
+        id,
+      ]);
+    } else {
+      await query('UPDATE notifications SET is_read = 1 WHERE user_id = $1', [req.user.id]);
+    }
+    return res.json({ success: true });
+  } catch (err: any) {
+    console.error('markNotificationsRead error:', err);
+    return res.status(500).json({ error: 'Failed to update notifications status' });
   }
 };
