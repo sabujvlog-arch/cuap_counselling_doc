@@ -308,7 +308,8 @@ export const api = {
         /\/api$/,
         '',
       );
-      return `${base}/api/clinical/mse/${id}/print`;
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
+      return `${base}/api/clinical/mse/${id}/print${token ? `?token=${token}` : ''}`;
     },
 
     // Case History
@@ -323,7 +324,8 @@ export const api = {
         /\/api$/,
         '',
       );
-      return `${base}/api/clinical/case-history/${id}/print`;
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
+      return `${base}/api/clinical/case-history/${id}/print${token ? `?token=${token}` : ''}`;
     },
 
     // Prescriptions
@@ -338,7 +340,8 @@ export const api = {
         /\/api$/,
         '',
       );
-      return `${base}/api/clinical/prescriptions/${id}/print`;
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
+      return `${base}/api/clinical/prescriptions/${id}/print${token ? `?token=${token}` : ''}`;
     },
 
     // Investigations & Compiled Report Actions

@@ -243,7 +243,12 @@ router.post(
   saveMSELog,
 );
 router.get('/clinical/mse/student/:studentId', authenticateToken, getMSELogs);
-router.get('/clinical/mse/:id/print', getMSEPrintLayout);
+router.get(
+  '/clinical/mse/:id/print',
+  authenticateToken,
+  requireRoles(['provider', 'dept-head', 'admin', 'super-admin']),
+  getMSEPrintLayout,
+);
 
 router.post(
   '/clinical/case-history',
@@ -252,7 +257,12 @@ router.post(
   saveCaseHistory,
 );
 router.get('/clinical/case-history/student/:studentId', authenticateToken, getCaseHistories);
-router.get('/clinical/case-history/:id/print', getCaseHistoryPrintLayout);
+router.get(
+  '/clinical/case-history/:id/print',
+  authenticateToken,
+  requireRoles(['provider', 'dept-head', 'admin', 'super-admin']),
+  getCaseHistoryPrintLayout,
+);
 
 router.post(
   '/clinical/prescriptions',
@@ -261,8 +271,13 @@ router.post(
   createPrescription,
 );
 router.get('/clinical/prescriptions/:id', authenticateToken, getPrescription);
-// Public print route, prints individual prescriptions
-router.get('/clinical/prescriptions/:id/print', getPrescriptionPrintLayout);
+// Secure print route, prints individual prescriptions for staff and authorized students
+router.get(
+  '/clinical/prescriptions/:id/print',
+  authenticateToken,
+  requireRoles(['provider', 'dept-head', 'admin', 'super-admin', 'student']),
+  getPrescriptionPrintLayout,
+);
 
 // Investigations/Tests and Compiled Report Routes
 router.post(
@@ -284,7 +299,12 @@ router.post(
   submitTestResults,
 );
 router.get('/clinical/tests/student/:studentId', authenticateToken, getStudentTests);
-router.get('/clinical/sessions/:id/compiled-report', getCompiledClientReport);
+router.get(
+  '/clinical/sessions/:id/compiled-report',
+  authenticateToken,
+  requireRoles(['provider', 'dept-head', 'admin', 'super-admin']),
+  getCompiledClientReport,
+);
 router.post(
   '/clinical/sessions/:id/cosign',
   authenticateToken,
@@ -418,4 +438,4 @@ router.delete(
 );
 
 export default router;
-// Trigger nodemon reload final
+// Trigger nodemon reload final rbac
