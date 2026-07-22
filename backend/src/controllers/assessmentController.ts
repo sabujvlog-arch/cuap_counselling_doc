@@ -1,6 +1,49 @@
 import { Response } from 'express';
 import { query } from '../config/db';
 import { AuthRequest } from '../middleware/auth';
+import PDFDocument from 'pdfkit';
+
+const callGeminiAPI = async (prompt: string, systemInstruction: string = ''): Promise<string> => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error('Gemini API key is not configured in .env file.');
+  }
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
+
+  const body: any = {
+    contents: [
+      {
+        parts: [{ text: prompt }],
+      },
+    ],
+  };
+
+  if (systemInstruction) {
+    body.systemInstruction = {
+      parts: [{ text: systemInstruction }],
+    };
+  }
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Gemini API returned error status:', response.status, errorText);
+    throw new Error(`Gemini API call failed: ${errorText}`);
+  }
+
+  const data = (await response.json()) as any;
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) {
+    throw new Error('Empty response from Gemini API.');
+  }
+  return text.trim();
+};
 
 // Automatic Scoring Algorithms for Standard Clinical Questionnaires
 const scoreAssessment = (type: string, answers: Record<string, number>) => {
@@ -285,5 +328,172 @@ export const getAssessmentDetails = async (req: AuthRequest, res: Response) => {
   } catch (err) {
     console.error('Get assessment details error:', err);
     return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const downloadAssessmentPDF = async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    // 1. Fetch assessment details
+    const assessRes = await query(
+      `SELECT a.*, s.name as student_name, s.registration_number, s.age, s.gender, s.department as student_dept, s.semester as student_semester
+       FROM assessments a
+       JOIN students s ON a.student_id = s.id
+       WHERE a.id = $1`,
+      [id],
+    );
+
+    if (assessRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Assessment not found' });
+    }
+
+    const assessment = assessRes.rows[0];
+
+    // Access check: Students can only download their own
+    if (req.user.role === 'student') {
+      const studentRes = await query('SELECT id FROM students WHERE user_id = $1', [req.user.id]);
+      if (studentRes.rows.length === 0 || studentRes.rows[0].id !== assessment.student_id) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+    }
+
+    // 2. Fetch wellness recommendations from Gemini API
+    const type = assessment.type;
+    let score = 0;
+    let interpretation = '';
+
+    try {
+      const parsed =
+        typeof assessment.scores === 'string' ? JSON.parse(assessment.scores) : assessment.scores;
+      score = parsed.totalScore || parsed.score || 0;
+    } catch (_) {
+      score = 0;
+    }
+
+    interpretation =
+      assessment.report?.split('Result: ')?.[1]?.split('\n')?.[0] ||
+      assessment.report ||
+      'Completed';
+
+    const systemInstruction =
+      'You are a warm, supportive wellness coach at the Central University of Andhra Pradesh.';
+    const geminiPrompt = `
+      Create a custom self-care wellness recommendation guide for a student who scored ${score} on their ${type} screening (Result: ${interpretation}).
+      Include 3 specific coping exercises (e.g. mindfulness or breathing) and 2 sleep or study lifestyle habits. Format cleanly with bullet points, keep it short, practical, and highly empathetic.
+    `;
+
+    let geminiReply = '';
+    try {
+      geminiReply = await callGeminiAPI(geminiPrompt, systemInstruction);
+    } catch (e) {
+      geminiReply = `1. Practice deep box breathing: Inhale for 4 seconds, hold for 4 seconds, exhale for 4 seconds, hold for 4 seconds. Repeat 4 times.\n2. Dedicate 10 minutes to quiet reflection or mindfulness daily.\n3. Keep a consistent sleep schedule and turn off all digital devices 30 minutes before bed.\n4. Stay active by walking around the CUAP campus for 30 minutes each day.\n5. If your symptoms persist or feel overwhelming, please schedule a session with our counseling centre specialists.`;
+    }
+
+    // 3. Generate PDF document
+    const doc = new PDFDocument({ margin: 50 });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="wellness_path_${assessment.registration_number.toLowerCase()}.pdf"`,
+    );
+
+    doc.pipe(res);
+
+    // Title / Banner
+    doc
+      .fillColor('#1e3a8a')
+      .fontSize(22)
+      .font('Helvetica-Bold')
+      .text('CENTRAL UNIVERSITY OF ANDHRA PRADESH', { align: 'center' });
+    doc
+      .fontSize(14)
+      .fillColor('#475569')
+      .text('Student Wellness Counseling Centre', { align: 'center' });
+    doc.moveDown(1.5);
+
+    doc.strokeColor('#e2e8f0').lineWidth(1).moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+    doc.moveDown(1.5);
+
+    // Subtitle
+    doc
+      .fillColor('#1e293b')
+      .fontSize(16)
+      .font('Helvetica-Bold')
+      .text('Personalized Wellness Path & Screening Report', { align: 'left' });
+    doc.moveDown(1);
+
+    // Student Info
+    doc.fontSize(10).font('Helvetica-Bold').fillColor('#475569').text('STUDENT PROFILE DETAILS');
+    doc.moveDown(0.5);
+    doc.font('Helvetica').fillColor('#334155');
+
+    const yPos = doc.y;
+    doc.text(`Name: ${assessment.student_name}`, 50, yPos);
+    doc.text(`Reg No: ${assessment.registration_number.toUpperCase()}`, 300, yPos);
+    doc.text(`Gender/Age: ${assessment.gender} / ${assessment.age}`, 50, yPos + 20);
+    doc.text(
+      `Dept/Sem: ${assessment.student_dept} (${assessment.student_semester})`,
+      300,
+      yPos + 20,
+    );
+    doc.moveDown(3);
+
+    // Divider
+    doc.strokeColor('#f1f5f9').moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+    doc.moveDown(1.5);
+
+    // Assessment Results
+    doc.font('Helvetica-Bold').fillColor('#475569').text('SCREENING RESULT');
+    doc.moveDown(0.5);
+    doc.fontSize(11).fillColor('#1e293b');
+    doc.text(`Assessment Type: ${type}`);
+    doc.text(
+      `Date Completed: ${new Date(assessment.created_at || assessment.assessment_date).toLocaleDateString()}`,
+    );
+
+    doc.moveDown(0.5);
+    doc
+      .fontSize(14)
+      .fillColor('#2563eb')
+      .text(`Severity Level: ${interpretation} (Score: ${score})`);
+    doc.moveDown(1.5);
+
+    // Divider
+    doc.strokeColor('#f1f5f9').moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+    doc.moveDown(1.5);
+
+    // Self-Care Guide
+    doc
+      .fontSize(12)
+      .font('Helvetica-Bold')
+      .fillColor('#10b981')
+      .text('PERSONALIZED COPING STRATEGIES & WELLNESS PATH');
+    doc.moveDown(0.5);
+    doc.fontSize(10).font('Helvetica').fillColor('#334155').text(geminiReply, {
+      width: 500,
+      align: 'justify',
+      lineGap: 3,
+    });
+
+    doc.moveDown(3);
+    doc
+      .font('Helvetica-Oblique')
+      .fillColor('#64748b')
+      .fontSize(8)
+      .text(
+        'Disclaimer: This screening report is for informational purposes only and does not constitute medical advice or a psychiatric diagnosis. If you are experiencing distress, please reach out to the CUAP Wellness Centre counselors.',
+        { width: 500, align: 'center' },
+      );
+
+    doc.end();
+  } catch (err) {
+    console.error('Download Assessment PDF error:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 };

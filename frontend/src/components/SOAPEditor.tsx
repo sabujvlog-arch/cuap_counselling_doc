@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '@/lib/api';
+import DiffViewer from './ui/DiffViewer';
 import {
   Sparkles,
   ShieldAlert,
@@ -126,6 +127,35 @@ export default function SOAPEditor({
   const [isDictating, setIsDictating] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // SOAP Audit Log States
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [sessionHistoryList, setSessionHistoryList] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [selectedVersionIdx, setSelectedVersionIdx] = useState<number | null>(null);
+
+  const openHistoryModal = async () => {
+    if (!sessionId) {
+      alert('Please save this session draft to generate version history.');
+      return;
+    }
+    setShowHistoryModal(true);
+    setHistoryLoading(true);
+    try {
+      const data = await api.get(`/clinical/sessions/${sessionId}/versions`);
+      setSessionHistoryList(data || []);
+      if (data && data.length > 0) {
+        setSelectedVersionIdx(0);
+      } else {
+        setSelectedVersionIdx(null);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Failed to load version history.');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   // Session Draft (private workspace)
   const [showDraftPanel, setShowDraftPanel] = useState(false);
@@ -2261,13 +2291,31 @@ export default function SOAPEditor({
             visible={true}
             rightContent={statusChip(fieldStatus(subjective, objective, assessment, plan))}
           >
-            <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+            <div
+              style={{
+                display: 'flex',
+                gap: 10,
+                marginBottom: 16,
+                flexWrap: 'wrap',
+                alignItems: 'center',
+              }}
+            >
               <button
+                type="button"
                 className="emr-btn emr-btn-ghost emr-btn-sm"
                 onClick={() => startDictation('subjective', setSubjective, subjective)}
               >
                 {isDictating === 'subjective' ? <MicOff size={13} /> : <Mic size={13} />} Dictate
               </button>
+              {sessionId && (
+                <button
+                  type="button"
+                  className="emr-btn emr-btn-ghost emr-btn-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/20"
+                  onClick={openHistoryModal}
+                >
+                  <History size={13} className="mr-1" /> View Note Version History
+                </button>
+              )}
             </div>
             <div className="emr-grid-2">
               <FormField
@@ -2710,6 +2758,163 @@ export default function SOAPEditor({
               </button>
               <button className="emr-btn emr-btn-success" onClick={grantAccess}>
                 <Check size={14} /> Grant Access to Student
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Visual SOAP Note Audit Logs Modal */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-end">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-4xl h-full shadow-2xl flex flex-col animate-slide-in-right">
+            <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <div>
+                <h3 className="font-extrabold text-lg text-slate-800 dark:text-white flex items-center gap-2">
+                  <History size={20} className="text-blue-600" />
+                  Visual SOAP Note Audit Logs
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Compare SOAP Note edits and clinical audit trail versions.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHistoryModal(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-hidden flex p-6 gap-6">
+              {historyLoading ? (
+                <div className="flex-1 flex items-center justify-center py-10">
+                  <span className="text-xs text-slate-500 font-semibold animate-pulse">
+                    Loading version history...
+                  </span>
+                </div>
+              ) : sessionHistoryList.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-center py-10 space-y-2">
+                  <span className="text-3xl">🪵</span>
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                    No revisions found.
+                  </p>
+                  <p className="text-xs text-slate-500 max-w-xs">
+                    Make changes to this session and click Save to generate edit history version
+                    logs.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Left: Timeline selector */}
+                  <div className="w-1/4 border-r border-slate-200 dark:border-slate-800 pr-4 space-y-2 overflow-y-auto h-full text-left">
+                    <span className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">
+                      Versions Timeline
+                    </span>
+                    <div className="space-y-2">
+                      {sessionHistoryList.map((ver, idx) => {
+                        const isActive = selectedVersionIdx === idx;
+                        return (
+                          <button
+                            key={ver.id}
+                            type="button"
+                            onClick={() => setSelectedVersionIdx(idx)}
+                            className={`w-full text-left p-3 rounded-xl transition cursor-pointer border block ${
+                              isActive
+                                ? 'bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-900/60'
+                                : 'bg-white hover:bg-slate-50 border-slate-100 dark:bg-slate-900 dark:hover:bg-slate-850 dark:border-slate-800/80'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                  isActive
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-slate-100 text-slate-600 dark:bg-slate-850 dark:text-slate-400'
+                                }`}
+                              >
+                                v{ver.version}
+                              </span>
+                              <span className="text-[10px] text-slate-500">
+                                {new Date(ver.created_at).toLocaleTimeString([], {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            </div>
+                            <div className="mt-2 text-[11px] font-bold text-slate-700 dark:text-slate-350 truncate">
+                              By {ver.editor_name || 'System'}
+                            </div>
+                            <div className="text-[9px] text-slate-400 mt-0.5">
+                              {new Date(ver.created_at).toLocaleDateString()}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Right: Diff Viewer */}
+                  <div className="w-3/4 pl-4 space-y-6 overflow-y-auto h-full pr-2">
+                    {selectedVersionIdx !== null &&
+                      sessionHistoryList[selectedVersionIdx] &&
+                      (() => {
+                        const ver = sessionHistoryList[selectedVersionIdx];
+                        return (
+                          <>
+                            <div className="p-4 bg-blue-50/50 dark:bg-blue-950/10 rounded-2xl border border-blue-100/50 dark:border-blue-900/20 mb-2 text-left">
+                              <span className="text-[10px] text-slate-500 font-bold uppercase block mb-1">
+                                Comparing Active Draft with:
+                              </span>
+                              <div className="text-xs text-slate-700 dark:text-slate-300 font-bold">
+                                Version {ver.version} (Saved by {ver.editor_name || 'Clinician'} on{' '}
+                                {new Date(ver.created_at).toLocaleString()})
+                              </div>
+                            </div>
+
+                            <div className="space-y-3">
+                              <span className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-left">
+                                Subjective Note Diff
+                              </span>
+                              <DiffViewer oldText={ver.subjective} newText={subjective} />
+                            </div>
+
+                            <div className="space-y-3">
+                              <span className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-left">
+                                Objective Note Diff
+                              </span>
+                              <DiffViewer oldText={ver.objective} newText={objective} />
+                            </div>
+
+                            <div className="space-y-3">
+                              <span className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-left">
+                                Assessment Note Diff
+                              </span>
+                              <DiffViewer oldText={ver.assessment} newText={assessment} />
+                            </div>
+
+                            <div className="space-y-3">
+                              <span className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-left">
+                                Plan Note Diff
+                              </span>
+                              <DiffViewer oldText={ver.plan} newText={plan} />
+                            </div>
+                          </>
+                        );
+                      })()}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/85 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowHistoryModal(false)}
+                className="btn-secondary py-2 px-5 text-xs font-semibold rounded-xl"
+              >
+                Close Audit Logs
               </button>
             </div>
           </div>

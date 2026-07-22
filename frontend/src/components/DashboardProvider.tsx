@@ -2780,7 +2780,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                 className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
                 onClick={() => setShowBookOnBehalf(false)}
               />
-              <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-fade-in-up">
+              <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-fade-in-up">
                 <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-blue-50 dark:bg-blue-900/20">
                   <h3 className="font-bold text-blue-800 dark:text-blue-300 flex items-center gap-2">
                     <Plus size={16} /> Book on Behalf
@@ -2793,41 +2793,124 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                   </button>
                 </div>
                 <div className="p-5 space-y-4 text-sm text-slate-600 dark:text-slate-300">
-                  <p>As a counselor, you can schedule an appointment for a student directly.</p>
-                  <select
-                    className="w-full p-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700"
-                    onChange={(e) =>
-                      setBookingFormData({ ...bookingFormData, student_id: e.target.value })
-                    }
-                  >
-                    <option value="">-- Select Student --</option>
-                    {allStudents.map((s) => (
-                      <option key={s.student_id} value={s.student_id}>
-                        {s.student_name} ({s.registration_number})
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="date"
-                    className="w-full p-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700"
-                    onChange={(e) =>
-                      setBookingFormData({ ...bookingFormData, slot_date: e.target.value })
-                    }
-                  />
-                  <input
-                    type="time"
-                    className="w-full p-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700"
-                    onChange={(e) =>
-                      setBookingFormData({ ...bookingFormData, slot_time: e.target.value })
-                    }
-                  />
-                  <textarea
-                    placeholder="Reason / Chief Complaint"
-                    className="w-full p-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 h-20"
-                    onChange={(e) =>
-                      setBookingFormData({ ...bookingFormData, chief_complaint: e.target.value })
-                    }
-                  />
+                  <p className="text-xs text-slate-500">
+                    Schedule an appointment for a student by selecting an existing student or typing
+                    their details manually.
+                  </p>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                      Quick Select Student (Optional)
+                    </label>
+                    <select
+                      className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
+                      value={bookingFormData.student_id || ''}
+                      onChange={(e) => {
+                        const sid = e.target.value;
+                        const s = allStudents.find((st) => String(st.student_id) === sid);
+                        if (s) {
+                          setBookingFormData({
+                            ...bookingFormData,
+                            student_id: s.student_id,
+                            student_name: s.student_name,
+                            registration_number: s.registration_number,
+                          });
+                        } else {
+                          setBookingFormData({ ...bookingFormData, student_id: '' });
+                        }
+                      }}
+                    >
+                      <option value="">-- Select Existing Student --</option>
+                      {allStudents.map((s) => (
+                        <option key={s.student_id} value={s.student_id}>
+                          {s.student_name} ({s.registration_number})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                        Student Name *
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. SAKE NARESH"
+                        required
+                        value={bookingFormData.student_name || ''}
+                        className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
+                        onChange={(e) =>
+                          setBookingFormData({ ...bookingFormData, student_name: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                        Registration No / Roll No *
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 23MTL04"
+                        required
+                        value={bookingFormData.registration_number || ''}
+                        className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
+                        onChange={(e) =>
+                          setBookingFormData({
+                            ...bookingFormData,
+                            registration_number: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                        Appointment Date *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={bookingFormData.slot_date || ''}
+                        className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
+                        onChange={(e) =>
+                          setBookingFormData({ ...bookingFormData, slot_date: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                        Time Slot *
+                      </label>
+                      <input
+                        type="time"
+                        required
+                        value={bookingFormData.slot_time || ''}
+                        className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
+                        onChange={(e) =>
+                          setBookingFormData({ ...bookingFormData, slot_time: e.target.value })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                      Reason / Chief Complaint
+                    </label>
+                    <textarea
+                      placeholder="Enter chief complaint or reason..."
+                      value={bookingFormData.chief_complaint || ''}
+                      className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 h-20 text-sm font-medium"
+                      onChange={(e) =>
+                        setBookingFormData({
+                          ...bookingFormData,
+                          chief_complaint: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
                 </div>
                 <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2 bg-slate-50 dark:bg-slate-950">
                   <button
@@ -2838,16 +2921,28 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                   </button>
                   <button
                     onClick={async () => {
+                      if (
+                        !bookingFormData.student_name &&
+                        !bookingFormData.registration_number &&
+                        !bookingFormData.student_id
+                      ) {
+                        showToast(
+                          'Please select a student or enter Student Name & Registration No',
+                          'error',
+                        );
+                        return;
+                      }
                       try {
                         await api.appointments.bookOnBehalf({
                           ...bookingFormData,
-                          provider_id: providerProfile.id,
+                          provider_id: providerProfile?.id,
                         });
                         showToast('Booked successfully!', 'success');
                         setShowBookOnBehalf(false);
+                        setBookingFormData({});
                         fetchAppointments();
-                      } catch (e) {
-                        showToast('Booking failed', 'error');
+                      } catch (e: any) {
+                        showToast(e.message || 'Booking failed', 'error');
                       }
                     }}
                     className="px-4 py-2 font-bold text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-sm"
@@ -2866,7 +2961,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                 className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
                 onClick={() => setShowSpotReg(false)}
               />
-              <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-fade-in-up">
+              <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-fade-in-up">
                 <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20">
                   <h3 className="font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
                     <User size={16} /> Spot Registration (Walk-in)
@@ -2879,35 +2974,109 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                   </button>
                 </div>
                 <div className="p-5 space-y-4 text-sm text-slate-600 dark:text-slate-300">
-                  <select
-                    className="w-full p-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700"
-                    onChange={(e) =>
-                      setBookingFormData({ ...bookingFormData, student_id: e.target.value })
-                    }
-                  >
-                    <option value="">-- Select Student --</option>
-                    {allStudents.map((s) => (
-                      <option key={s.student_id} value={s.student_id}>
-                        {s.student_name} ({s.registration_number})
-                      </option>
-                    ))}
-                  </select>
-                  <textarea
-                    placeholder="Reason for Visit"
-                    className="w-full p-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 h-20"
-                    onChange={(e) =>
-                      setBookingFormData({ ...bookingFormData, reason_for_visit: e.target.value })
-                    }
-                  />
-                  <select
-                    className="w-full p-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700"
-                    onChange={(e) =>
-                      setBookingFormData({ ...bookingFormData, priority: e.target.value })
-                    }
-                  >
-                    <option value="normal">Normal Priority</option>
-                    <option value="high">High Priority</option>
-                  </select>
+                  <p className="text-xs text-slate-500">
+                    Register a walk-in student directly into the counselling portal.
+                  </p>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                      Quick Select Student (Optional)
+                    </label>
+                    <select
+                      className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
+                      value={bookingFormData.student_id || ''}
+                      onChange={(e) => {
+                        const sid = e.target.value;
+                        const s = allStudents.find((st) => String(st.student_id) === sid);
+                        if (s) {
+                          setBookingFormData({
+                            ...bookingFormData,
+                            student_id: s.student_id,
+                            student_name: s.student_name,
+                            registration_number: s.registration_number,
+                          });
+                        } else {
+                          setBookingFormData({ ...bookingFormData, student_id: '' });
+                        }
+                      }}
+                    >
+                      <option value="">-- Select Existing Student --</option>
+                      {allStudents.map((s) => (
+                        <option key={s.student_id} value={s.student_id}>
+                          {s.student_name} ({s.registration_number})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                        Student Name *
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. SAKE NARESH"
+                        required
+                        value={bookingFormData.student_name || ''}
+                        className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
+                        onChange={(e) =>
+                          setBookingFormData({ ...bookingFormData, student_name: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                        Registration No / Roll No *
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 23MTL04"
+                        required
+                        value={bookingFormData.registration_number || ''}
+                        className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
+                        onChange={(e) =>
+                          setBookingFormData({
+                            ...bookingFormData,
+                            registration_number: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                      Reason for Visit
+                    </label>
+                    <textarea
+                      placeholder="Reason for visit / walk-in purpose..."
+                      value={bookingFormData.reason_for_visit || ''}
+                      className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 h-20 text-sm font-medium"
+                      onChange={(e) =>
+                        setBookingFormData({
+                          ...bookingFormData,
+                          reason_for_visit: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                      Priority Level
+                    </label>
+                    <select
+                      className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
+                      value={bookingFormData.priority || 'normal'}
+                      onChange={(e) =>
+                        setBookingFormData({ ...bookingFormData, priority: e.target.value })
+                      }
+                    >
+                      <option value="normal">Normal Priority</option>
+                      <option value="high">High Priority</option>
+                      <option value="immediate">Immediate Priority</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2 bg-slate-50 dark:bg-slate-950">
                   <button
@@ -2918,16 +3087,28 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                   </button>
                   <button
                     onClick={async () => {
+                      if (
+                        !bookingFormData.student_name &&
+                        !bookingFormData.registration_number &&
+                        !bookingFormData.student_id
+                      ) {
+                        showToast(
+                          'Please select a student or enter Student Name & Registration No',
+                          'error',
+                        );
+                        return;
+                      }
                       try {
                         await api.appointments.registerSpot({
                           ...bookingFormData,
-                          provider_id: providerProfile.id,
+                          provider_id: providerProfile?.id,
                         });
                         showToast('Spot registered successfully!', 'success');
                         setShowSpotReg(false);
+                        setBookingFormData({});
                         fetchAppointments();
-                      } catch (e) {
-                        showToast('Registration failed', 'error');
+                      } catch (e: any) {
+                        showToast(e.message || 'Registration failed', 'error');
                       }
                     }}
                     className="px-4 py-2 font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-sm"
@@ -2946,7 +3127,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                 className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
                 onClick={() => setShowEmergency(false)}
               />
-              <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-fade-in-up">
+              <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-fade-in-up">
                 <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-rose-50 dark:bg-rose-900/20">
                   <h3 className="font-bold text-rose-800 dark:text-rose-300 flex items-center gap-2">
                     <AlertTriangle size={16} /> Emergency Case
@@ -2959,38 +3140,111 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                   </button>
                 </div>
                 <div className="p-5 space-y-4 text-sm text-slate-600 dark:text-slate-300">
-                  <p className="text-rose-600 text-xs font-bold bg-rose-50 p-2 rounded-xl">
+                  <p className="text-rose-600 text-xs font-bold bg-rose-50 dark:bg-rose-950/40 p-2.5 rounded-xl border border-rose-200 dark:border-rose-900">
                     Warning: Use this only for severe crises requiring immediate logging and
                     follow-up.
                   </p>
-                  <select
-                    className="w-full p-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700"
-                    onChange={(e) =>
-                      setBookingFormData({ ...bookingFormData, student_id: e.target.value })
-                    }
-                  >
-                    <option value="">-- Select Student --</option>
-                    {allStudents.map((s) => (
-                      <option key={s.student_id} value={s.student_id}>
-                        {s.student_name} ({s.registration_number})
-                      </option>
-                    ))}
-                  </select>
-                  <textarea
-                    placeholder="Crisis Notes"
-                    className="w-full p-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 h-24"
-                    onChange={(e) =>
-                      setBookingFormData({ ...bookingFormData, crisis_notes: e.target.value })
-                    }
-                  />
-                  <input
-                    type="text"
-                    placeholder="Emergency Contact"
-                    className="w-full p-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700"
-                    onChange={(e) =>
-                      setBookingFormData({ ...bookingFormData, emergency_contact: e.target.value })
-                    }
-                  />
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                      Quick Select Student (Optional)
+                    </label>
+                    <select
+                      className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
+                      value={bookingFormData.student_id || ''}
+                      onChange={(e) => {
+                        const sid = e.target.value;
+                        const s = allStudents.find((st) => String(st.student_id) === sid);
+                        if (s) {
+                          setBookingFormData({
+                            ...bookingFormData,
+                            student_id: s.student_id,
+                            student_name: s.student_name,
+                            registration_number: s.registration_number,
+                          });
+                        } else {
+                          setBookingFormData({ ...bookingFormData, student_id: '' });
+                        }
+                      }}
+                    >
+                      <option value="">-- Select Existing Student --</option>
+                      {allStudents.map((s) => (
+                        <option key={s.student_id} value={s.student_id}>
+                          {s.student_name} ({s.registration_number})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                        Student Name *
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. SAKE NARESH"
+                        required
+                        value={bookingFormData.student_name || ''}
+                        className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
+                        onChange={(e) =>
+                          setBookingFormData({ ...bookingFormData, student_name: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                        Registration No / Roll No *
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 23MTL04"
+                        required
+                        value={bookingFormData.registration_number || ''}
+                        className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
+                        onChange={(e) =>
+                          setBookingFormData({
+                            ...bookingFormData,
+                            registration_number: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                      Crisis Notes
+                    </label>
+                    <textarea
+                      placeholder="Details of crisis / immediate symptoms..."
+                      value={bookingFormData.crisis_notes || ''}
+                      className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 h-24 text-sm font-medium"
+                      onChange={(e) =>
+                        setBookingFormData({
+                          ...bookingFormData,
+                          crisis_notes: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                      Emergency Contact Details / Phone
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Emergency contact person or phone number..."
+                      value={bookingFormData.emergency_contact || ''}
+                      className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
+                      onChange={(e) =>
+                        setBookingFormData({
+                          ...bookingFormData,
+                          emergency_contact: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
                 </div>
                 <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2 bg-slate-50 dark:bg-slate-950">
                   <button
@@ -3001,17 +3255,29 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                   </button>
                   <button
                     onClick={async () => {
+                      if (
+                        !bookingFormData.student_name &&
+                        !bookingFormData.registration_number &&
+                        !bookingFormData.student_id
+                      ) {
+                        showToast(
+                          'Please select a student or enter Student Name & Registration No',
+                          'error',
+                        );
+                        return;
+                      }
                       try {
                         await api.appointments.registerEmergency({
                           ...bookingFormData,
-                          provider_id: providerProfile.id,
+                          provider_id: providerProfile?.id,
                           priority: 'critical',
                         });
                         showToast('Emergency registered successfully!', 'success');
                         setShowEmergency(false);
+                        setBookingFormData({});
                         fetchAppointments();
-                      } catch (e) {
-                        showToast('Registration failed', 'error');
+                      } catch (e: any) {
+                        showToast(e.message || 'Registration failed', 'error');
                       }
                     }}
                     className="px-4 py-2 font-bold text-xs bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-sm"

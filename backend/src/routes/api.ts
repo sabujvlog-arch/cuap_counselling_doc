@@ -87,6 +87,7 @@ import {
   submitAssessment,
   getAssessments,
   getAssessmentDetails,
+  downloadAssessmentPDF,
 } from '../controllers/assessmentController';
 
 import {
@@ -356,6 +357,7 @@ router.post('/student/toggle-assessments', authenticateToken, toggleAssessments)
 router.post('/assessments', authenticateToken, submitAssessment);
 router.get('/assessments', authenticateToken, getAssessments);
 router.get('/assessments/:id', authenticateToken, getAssessmentDetails);
+router.get('/assessments/:id/pdf', authenticateToken, downloadAssessmentPDF);
 
 // ==========================================
 // Admin Reports & System Settings Routes

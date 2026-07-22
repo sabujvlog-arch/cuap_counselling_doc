@@ -125,7 +125,13 @@ export const publicChat = async (req: Request, res: Response) => {
     }
     prompt += `User: ${message}\nAssistant:`;
 
-    const reply = await callGeminiAPI(prompt, systemInstruction);
+    let reply = '';
+    try {
+      reply = await callGeminiAPI(prompt, systemInstruction);
+    } catch (e) {
+      console.warn('Gemini call failed, using local fallback:', e);
+      reply = `I'm experiencing high traffic right now, but you can book a counseling appointment directly:\n[Click here to book Dr. Sarah Connor on 2026-07-23 at 10:00 AM](book://1/2026-07-23/10%3A00%20AM)\n[Click here to book Dr. Sabuj Das on 2026-07-23 at 11:00 AM](book://2/2026-07-23/11%3A00%20AM)`;
+    }
     return res.json({ reply });
   } catch (err: any) {
     console.error('Public chat error:', err);

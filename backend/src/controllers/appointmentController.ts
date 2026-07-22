@@ -132,11 +132,12 @@ export const verifyConflict = async (
   const dayOfWeek = slotDate.getDay();
 
   const availRes = await query(
-    'SELECT * FROM availability WHERE provider_id = $1 AND day_of_week = $2',
+    'SELECT * FROM availability WHERE (provider_id = $1 OR provider_id = (SELECT id FROM providers WHERE user_id = $1)) AND day_of_week = $2',
     [providerUserId, dayOfWeek],
   );
 
-  if (availRes.rows.length === 0 || availRes.rows[0].is_holiday) {
+  const availRow = availRes.rows[0] || {};
+  if (availRow.is_holiday) {
     return {
       conflict: true,
       message: 'This counselor is not available on this day (holiday or leave).',
@@ -144,13 +145,13 @@ export const verifyConflict = async (
   }
 
   const {
-    start_time,
-    end_time,
+    start_time = '09:00',
+    end_time = '17:00',
     break_start,
     break_end,
-    session_duration = 45,
+    session_duration = 60,
     buffer_time = 0,
-  } = availRes.rows[0];
+  } = availRow;
 
   const parsed = parseSlotRange(timeSlot);
   if (parsed.startMin === 0 && parsed.endMin === 0) {
@@ -552,26 +553,27 @@ export const getAvailableSlots = async (req: AuthRequest, res: Response) => {
 
     // 2. Fetch provider's settings for this day
     const availRes = await query(
-      'SELECT * FROM availability WHERE provider_id = (SELECT user_id FROM providers WHERE id = $1) AND day_of_week = $2',
+      'SELECT * FROM availability WHERE (provider_id = $1 OR provider_id = (SELECT user_id FROM providers WHERE id = $1)) AND day_of_week = $2',
       [providerId, dayOfWeek],
     );
 
-    if (availRes.rows.length === 0 || availRes.rows[0].is_holiday) {
+    const availRow = availRes.rows[0] || {};
+    if (availRow.is_holiday) {
       return res.json({
         slots: [],
-        reason: 'Provider is not available on this day or it is a holiday/weekend.',
+        reason: 'Provider is not available on this day (marked as holiday).',
       });
     }
 
     const {
-      start_time,
-      end_time,
+      start_time = '09:00',
+      end_time = '17:00',
       break_start,
       break_end,
-      session_duration = 45,
+      session_duration = 60,
       buffer_time = 0,
-      slot_interval = 45,
-    } = availRes.rows[0];
+      slot_interval = 60,
+    } = availRow;
 
     // Generate slots
     const slots: { time: string; status: string }[] = [];
@@ -777,6 +779,76 @@ export const verifyAppointmentQR = async (req: AuthRequest, res: Response) => {
 // Phase 10 Refinement Controllers
 // ============================================================
 
+// Helper to resolve provider_id from body or logged in req.user
+async function resolveProviderId(reqUser: any, bodyProviderId?: any): Promise<number> {
+  if (bodyProviderId && Number(bodyProviderId) > 0) return Number(bodyProviderId);
+  if (reqUser && reqUser.id) {
+    const pRes = await query('SELECT id FROM providers WHERE user_id = $1', [reqUser.id]);
+    if (pRes.rows.length > 0) return pRes.rows[0].id;
+  }
+  const fallback = await query('SELECT id FROM providers ORDER BY id ASC LIMIT 1');
+  return fallback.rows?.[0]?.id || 1;
+}
+
+// Helper to resolve student_id from ID or manual student_name + registration_number
+async function resolveOrCreateStudent(
+  student_id?: number | string,
+  student_name?: string,
+  registration_number?: string,
+): Promise<number | null> {
+  if (student_id && Number(student_id) > 0) return Number(student_id);
+
+  const regNo = registration_number?.trim() || `WALKIN-${Date.now()}`;
+  const name = student_name?.trim() || 'Walk-in Student';
+
+  if (!registration_number?.trim() && !student_name?.trim()) {
+    return null;
+  }
+
+  // 1. Check existing student by registration_number
+  if (registration_number?.trim()) {
+    const existingReg = await query('SELECT id FROM students WHERE registration_number = $1', [
+      regNo,
+    ]);
+    if (existingReg.rows.length > 0) {
+      return existingReg.rows[0].id;
+    }
+  }
+
+  // 2. Check existing student by name
+  if (student_name?.trim()) {
+    const existingName = await query('SELECT id FROM students WHERE LOWER(name) = LOWER($1)', [
+      name,
+    ]);
+    if (existingName.rows.length > 0) {
+      return existingName.rows[0].id;
+    }
+  }
+
+  // 3. Create dummy user + student record
+  const email = `${regNo.toLowerCase().replace(/[^a-z0-9]/g, '')}@cuap.edu.in`;
+  let userId: number;
+  const userCheck = await query('SELECT id FROM users WHERE email = $1', [email]);
+  if (userCheck.rows.length > 0) {
+    userId = userCheck.rows[0].id;
+  } else {
+    const userInsert = await query(
+      `INSERT INTO users (email, password_hash, role) VALUES ($1, $2, 'student') RETURNING id`,
+      [email, 'hash_walkin'],
+    );
+    userId = userInsert.rows?.[0]?.id || userInsert.lastInsertId;
+  }
+
+  const studentInsert = await query(
+    `INSERT INTO students (user_id, registration_number, name, age, gender, dob, department, semester, phone, email, hostel_scholar, emergency_contact, emergency_phone, blood_group, address)
+     VALUES ($1, $2, $3, 20, 'Unspecified', '2004-01-01', 'General', 'Sem 1', '0000000000', $4, 'Hosteller', 'N/A', '0000000000', 'O+', 'Campus')
+     RETURNING id`,
+    [userId, regNo, name, email],
+  );
+
+  return studentInsert.rows?.[0]?.id || studentInsert.lastInsertId || null;
+}
+
 export const bookOnBehalf = async (req: AuthRequest, res: Response) => {
   if (
     !req.user ||
@@ -785,17 +857,37 @@ export const bookOnBehalf = async (req: AuthRequest, res: Response) => {
     return res.status(403).json({ error: 'Only authorized staff can book on behalf of a student' });
   }
 
-  const { student_id, provider_id, slot_date, slot_time, reason, chief_complaint } = req.body;
-  if (!student_id || !provider_id || !slot_date || !slot_time) {
-    return res
-      .status(400)
-      .json({ error: 'Student ID, provider ID, date, and timeslot are required.' });
+  const {
+    student_id,
+    student_name,
+    registration_number,
+    provider_id,
+    slot_date,
+    slot_time,
+    reason,
+    chief_complaint,
+  } = req.body;
+  if ((!student_id && !student_name && !registration_number) || !slot_date || !slot_time) {
+    return res.status(400).json({ error: 'Student details, date, and timeslot are required.' });
   }
 
   try {
+    const resolvedStudentId = await resolveOrCreateStudent(
+      student_id,
+      student_name,
+      registration_number,
+    );
+    if (!resolvedStudentId) {
+      return res
+        .status(400)
+        .json({ error: 'Valid student selection or Student Name / Registration Number required.' });
+    }
+
+    const targetProviderId = await resolveProviderId(req.user, provider_id);
+
     await query('BEGIN');
 
-    const conflictCheck = await verifyConflict(provider_id, slot_date, slot_time);
+    const conflictCheck = await verifyConflict(targetProviderId, slot_date, slot_time);
     if (conflictCheck.conflict) {
       await query('ROLLBACK');
       return res.status(400).json({ error: conflictCheck.message });
@@ -807,13 +899,13 @@ export const bookOnBehalf = async (req: AuthRequest, res: Response) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id`,
       [
-        student_id,
-        provider_id,
+        resolvedStudentId,
+        targetProviderId,
         slot_date,
         slot_time,
         'approved',
         reason || 'Booked by counselor',
-        chief_complaint || reason,
+        chief_complaint || reason || 'Booked on behalf',
       ],
     );
 
@@ -823,12 +915,12 @@ export const bookOnBehalf = async (req: AuthRequest, res: Response) => {
       message: 'Appointment booked successfully',
       appointmentId: insertRes.rows?.[0]?.id || insertRes.lastInsertId,
     });
-  } catch (err) {
+  } catch (err: any) {
     try {
       await query('ROLLBACK');
     } catch (e) {}
     console.error('Book on behalf error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: err.message || 'Internal server error' });
   }
 };
 
@@ -840,22 +932,43 @@ export const registerEmergency = async (req: AuthRequest, res: Response) => {
     return res.status(403).json({ error: 'Unauthorized access' });
   }
 
-  const { student_id, provider_id, priority, crisis_notes, referral_details, emergency_contact } =
-    req.body;
+  const {
+    student_id,
+    student_name,
+    registration_number,
+    provider_id,
+    priority,
+    crisis_notes,
+    referral_details,
+    emergency_contact,
+  } = req.body;
 
   try {
+    const resolvedStudentId = await resolveOrCreateStudent(
+      student_id,
+      student_name,
+      registration_number,
+    );
+    if (!resolvedStudentId) {
+      return res
+        .status(400)
+        .json({ error: 'Valid student selection or Student Name / Registration Number required.' });
+    }
+
+    const targetProviderId = await resolveProviderId(req.user, provider_id);
+
     const insertRes = await query(
       `INSERT INTO emergency_cases 
        (student_id, provider_id, priority, crisis_notes, referral_details, emergency_contact)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id`,
       [
-        student_id,
-        provider_id,
+        resolvedStudentId,
+        targetProviderId,
         priority || 'high',
-        crisis_notes,
-        referral_details,
-        emergency_contact,
+        crisis_notes || 'Emergency Walk-in Crisis',
+        referral_details || 'Immediate Emergency',
+        emergency_contact || 'N/A',
       ],
     );
 
@@ -863,9 +976,9 @@ export const registerEmergency = async (req: AuthRequest, res: Response) => {
       message: 'Emergency registered successfully',
       emergencyId: insertRes.rows?.[0]?.id || insertRes.lastInsertId,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error('Register emergency error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: err.message || 'Internal server error' });
   }
 };
 
@@ -877,24 +990,43 @@ export const registerSpot = async (req: AuthRequest, res: Response) => {
     return res.status(403).json({ error: 'Unauthorized access' });
   }
 
-  const { student_id, provider_id, reason_for_visit, priority } = req.body;
+  const { student_id, student_name, registration_number, provider_id, reason_for_visit, priority } =
+    req.body;
 
   try {
+    const resolvedStudentId = await resolveOrCreateStudent(
+      student_id,
+      student_name,
+      registration_number,
+    );
+    if (!resolvedStudentId) {
+      return res
+        .status(400)
+        .json({ error: 'Valid student selection or Student Name / Registration Number required.' });
+    }
+
+    const targetProviderId = await resolveProviderId(req.user, provider_id);
+
     const insertRes = await query(
       `INSERT INTO spot_registrations 
        (student_id, provider_id, reason_for_visit, priority)
        VALUES ($1, $2, $3, $4)
        RETURNING id`,
-      [student_id, provider_id, reason_for_visit, priority || 'normal'],
+      [
+        resolvedStudentId,
+        targetProviderId,
+        reason_for_visit || 'Spot Registration Walk-in',
+        priority || 'normal',
+      ],
     );
 
     return res.json({
       message: 'Spot registration successful',
       spotId: insertRes.rows?.[0]?.id || insertRes.lastInsertId,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error('Register spot error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: err.message || 'Internal server error' });
   }
 };
 

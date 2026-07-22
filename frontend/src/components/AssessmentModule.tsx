@@ -39,7 +39,11 @@ export default function AssessmentModule({ studentId, onSuccess }: AssessmentPro
   const [activeTab, setActiveTab] = useState<'PHQ-9' | 'GAD-7'>('PHQ-9');
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ score: number; interpretation: string } | null>(null);
+  const [result, setResult] = useState<{
+    id: number;
+    score: number;
+    interpretation: string;
+  } | null>(null);
 
   const questions = activeTab === 'PHQ-9' ? PHQ9_QUESTIONS : GAD7_QUESTIONS;
 
@@ -72,6 +76,7 @@ export default function AssessmentModule({ studentId, onSuccess }: AssessmentPro
         answers,
       });
       setResult({
+        id: res.id,
         score: res.score,
         interpretation: res.interpretation,
       });
@@ -81,6 +86,38 @@ export default function AssessmentModule({ studentId, onSuccess }: AssessmentPro
       alert(err.message || 'Failed to submit assessment');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDownloadPDF = async (id: number) => {
+    try {
+      const token = api.getToken();
+      const headers = new Headers();
+      if (token) {
+        headers.set('Authorization', `Bearer ${token}`);
+      }
+
+      const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+      const response = await fetch(`http://${hostname}:5000/api/assessments/${id}/pdf`, {
+        headers,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to download PDF');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `wellness_path_${id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error(err);
+      alert('Could not download your wellness report. Please try again.');
     }
   };
 
@@ -130,12 +167,20 @@ export default function AssessmentModule({ studentId, onSuccess }: AssessmentPro
             This screening questionnaire is an initial clinical evaluation indicator. For a complete
             diagnosis and guidance plan, please consult with our counseling centre specialists.
           </p>
-          <button
-            onClick={resetForm}
-            className="mt-6 px-5 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition shadow-sm text-sm"
-          >
-            Take Another Assessment
-          </button>
+          <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={resetForm}
+              className="px-5 py-2 bg-slate-200 hover:bg-slate-350 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl font-semibold transition shadow-sm text-sm cursor-pointer"
+            >
+              Take Another Assessment
+            </button>
+            <button
+              onClick={() => handleDownloadPDF(result.id)}
+              className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold transition shadow-sm text-sm flex items-center justify-center gap-2 cursor-pointer"
+            >
+              📥 Download Wellness Path (PDF)
+            </button>
+          </div>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
