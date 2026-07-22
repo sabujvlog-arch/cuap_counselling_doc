@@ -112,21 +112,41 @@ import {
 
 import { aiAssist } from '../controllers/aiController';
 import { publicChat, studentChat } from '../controllers/publicChatController';
+import { createRateLimiter } from '../middleware/rateLimiter';
+
+// Rate Limiter Configurations
+const authRateLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5,
+  message: 'Too many login attempts from this IP, please try again after 15 minutes.',
+});
+
+const chatbotRateLimiter = createRateLimiter({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10,
+  message: 'Too many chat requests from this IP, please wait a minute.',
+});
+
+const quizRateLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,
+  message: 'Too many assessment submissions. Maximum 5 submissions per hour are allowed.',
+});
 
 const router = Router();
 
 // ==========================================
 // Authentication Routes
 // ==========================================
-router.post('/auth/login', login);
+router.post('/auth/login', authRateLimiter, login);
 router.post('/auth/verify-2fa', verify2FA);
-router.post('/public/chat', publicChat);
+router.post('/public/chat', chatbotRateLimiter, publicChat);
 router.post('/student/chat', authenticateToken, requireRoles(['student']), studentChat);
 router.get('/auth/me', authenticateToken, getMe);
 router.get('/auth/permissions', authenticateToken, getPermissions);
 router.post('/auth/change-password', authenticateToken, changePassword);
-router.post('/auth/forgot-password', forgotPassword);
-router.post('/auth/reset-password', resetPassword);
+router.post('/auth/forgot-password', authRateLimiter, forgotPassword);
+router.post('/auth/reset-password', authRateLimiter, resetPassword);
 
 // Provider and Student registrations (Admin & Front-desk)
 router.post(
@@ -354,7 +374,7 @@ router.post('/student/toggle-assessments', authenticateToken, toggleAssessments)
 // ==========================================
 // Assessments Module Routes
 // ==========================================
-router.post('/assessments', authenticateToken, submitAssessment);
+router.post('/assessments', authenticateToken, quizRateLimiter, submitAssessment);
 router.get('/assessments', authenticateToken, getAssessments);
 router.get('/assessments/:id', authenticateToken, getAssessmentDetails);
 router.get('/assessments/:id/pdf', authenticateToken, downloadAssessmentPDF);
@@ -398,3 +418,4 @@ router.delete(
 );
 
 export default router;
+// Trigger nodemon reload final
