@@ -1,7 +1,7 @@
 import express from 'express'; // Activated theme toggle server update
 import cors from 'cors';
 import path from 'path';
-import { initDb } from './config/db';
+import { initDb, query } from './config/db';
 import apiRouter from './routes/api';
 
 const app = express();
@@ -92,6 +92,67 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'wccms-backend-api' });
 });
 
+// Automated 24-hour background cleanup scheduler
+const startAutoCleanupJob = () => {
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+  const runCleanup = async () => {
+    console.log('[AUTO-CLEANUP] Running database version history and log pruning...');
+    try {
+      const isPG = process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql';
+
+      let cleanNotifQuery =
+        "DELETE FROM notifications WHERE created_at < datetime('now', '-30 days')";
+      let cleanLogsQuery = "DELETE FROM audit_logs WHERE created_at < datetime('now', '-90 days')";
+      let cleanHistoryQuery =
+        "DELETE FROM session_history WHERE created_at < datetime('now', '-90 days')";
+
+      if (isPG) {
+        cleanNotifQuery = "DELETE FROM notifications WHERE created_at < NOW() - INTERVAL '30 days'";
+        cleanLogsQuery = "DELETE FROM audit_logs WHERE created_at < NOW() - INTERVAL '90 days'";
+        cleanHistoryQuery =
+          "DELETE FROM session_history WHERE created_at < NOW() - INTERVAL '90 days'";
+      }
+
+      await query('BEGIN');
+      const cleanNotif = await query(cleanNotifQuery);
+      const cleanLogs = await query(cleanLogsQuery);
+      const cleanHistory = await query(cleanHistoryQuery);
+      await query('COMMIT');
+
+      // Safeguard for count properties on result payloads depending on pg vs sqlite drivers
+      const notifPruned = cleanNotif
+        ? cleanNotif.rowCount !== undefined
+          ? cleanNotif.rowCount
+          : (cleanNotif as any).changes || 0
+        : 0;
+      const logsPruned = cleanLogs
+        ? cleanLogs.rowCount !== undefined
+          ? cleanLogs.rowCount
+          : (cleanLogs as any).changes || 0
+        : 0;
+      const historyPruned = cleanHistory
+        ? cleanHistory.rowCount !== undefined
+          ? cleanHistory.rowCount
+          : (cleanHistory as any).changes || 0
+        : 0;
+
+      console.log(
+        `[AUTO-CLEANUP] Success: notifications pruned: ${notifPruned}, audit logs pruned: ${logsPruned}, session history pruned: ${historyPruned}`,
+      );
+    } catch (err) {
+      try {
+        await query('ROLLBACK');
+      } catch (_) {}
+      console.error('[AUTO-CLEANUP] Error during database pruning:', err);
+    }
+  };
+
+  // Run initial cleanup after 10 seconds, then repeat daily
+  setTimeout(runCleanup, 10000);
+  setInterval(runCleanup, ONE_DAY_MS);
+};
+
 // Bootstrap application
 const startServer = async () => {
   try {
@@ -102,6 +163,9 @@ const startServer = async () => {
       console.log(` WCCMS Express Backend running on port ${PORT} `);
       console.log(` Health check: http://localhost:${PORT}/health   `);
       console.log(`================================================`);
+
+      // Initialize automated database cleanup task
+      startAutoCleanupJob();
     });
   } catch (err) {
     console.error('Failed to start server:', err);
@@ -110,5 +174,3 @@ const startServer = async () => {
 };
 
 startServer();
-
-// Trigger nodemon reboot final.

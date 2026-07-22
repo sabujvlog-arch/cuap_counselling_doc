@@ -645,18 +645,23 @@ export const sanitizeDatabase = async (req: AuthRequest, res: Response) => {
     let cleanNotifQuery =
       "DELETE FROM notifications WHERE created_at < datetime('now', '-30 days')";
     let cleanLogsQuery = "DELETE FROM audit_logs WHERE created_at < datetime('now', '-90 days')";
+    let cleanHistoryQuery =
+      "DELETE FROM session_history WHERE created_at < datetime('now', '-90 days')";
     let cleanSessionsQuery =
       "UPDATE sessions SET diagnosis = 'Sanitized (Archived Case)' WHERE session_status = 'completed' AND created_at < datetime('now', '-180 days')";
 
     if (isPG) {
       cleanNotifQuery = "DELETE FROM notifications WHERE created_at < NOW() - INTERVAL '30 days'";
       cleanLogsQuery = "DELETE FROM audit_logs WHERE created_at < NOW() - INTERVAL '90 days'";
+      cleanHistoryQuery =
+        "DELETE FROM session_history WHERE created_at < NOW() - INTERVAL '90 days'";
       cleanSessionsQuery =
         "UPDATE sessions SET diagnosis = 'Sanitized (Archived Case)' WHERE session_status = 'completed' AND created_at < NOW() - INTERVAL '180 days'";
     }
 
     const cleanNotif = await query(cleanNotifQuery);
     const cleanLogs = await query(cleanLogsQuery);
+    const cleanHistory = await query(cleanHistoryQuery);
     const cleanSessions = await query(cleanSessionsQuery);
 
     await query('COMMIT');
@@ -666,7 +671,7 @@ export const sanitizeDatabase = async (req: AuthRequest, res: Response) => {
       [
         req.user.id,
         'SANITIZE_DATABASE',
-        `Database sanitization executed. Notifications/Logs cleared.`,
+        `Database sanitization executed. Notifications/Logs/History cleared.`,
         req.ip,
       ],
     );
@@ -676,6 +681,7 @@ export const sanitizeDatabase = async (req: AuthRequest, res: Response) => {
       details: {
         notificationsCleared: cleanNotif?.rowCount || 0,
         auditLogsCleared: cleanLogs?.rowCount || 0,
+        sessionHistoryCleared: cleanHistory?.rowCount || 0,
         sessionsSanitized: cleanSessions?.rowCount || 0,
       },
     });
