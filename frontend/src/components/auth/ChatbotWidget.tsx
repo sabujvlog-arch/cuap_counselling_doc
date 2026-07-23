@@ -175,7 +175,7 @@ export default function ChatbotWidget() {
       {/* Chat window */}
       {open && (
         <div
-          className="fixed bottom-24 right-6 w-96 max-w-[calc(100vw-2rem)] h-[480px] rounded-3xl flex flex-col z-50 overflow-hidden animate-slide-in-right relative"
+          className="fixed bottom-24 right-6 w-96 max-w-[calc(100vw-2rem)] h-[480px] rounded-3xl flex flex-col z-50 overflow-hidden animate-slide-in-right"
           style={{
             background: 'var(--card)',
             border: '1px solid var(--border)',
