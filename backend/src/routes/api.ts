@@ -32,6 +32,10 @@ import {
   registerEmergency,
   registerSpot,
   scheduleFollowUp,
+  getEmergencyCases,
+  getSpotRegistrations,
+  updateEmergencyCase,
+  updateSpotRegistrationStatus,
 } from '../controllers/appointmentController';
 
 import {
@@ -203,7 +207,11 @@ router.get('/providers', authenticateToken, getProviders);
 router.post('/appointments', authenticateToken, bookAppointment);
 router.post('/appointments/book-on-behalf', authenticateToken, bookOnBehalf);
 router.post('/appointments/emergency', authenticateToken, registerEmergency);
+router.get('/appointments/emergency', authenticateToken, getEmergencyCases);
+router.put('/appointments/emergency/:id', authenticateToken, updateEmergencyCase);
 router.post('/appointments/spot', authenticateToken, registerSpot);
+router.get('/appointments/spot', authenticateToken, getSpotRegistrations);
+router.put('/appointments/spot/:id', authenticateToken, updateSpotRegistrationStatus);
 router.post('/appointments/follow-up', authenticateToken, scheduleFollowUp);
 router.get('/appointments', authenticateToken, getAppointments);
 router.patch('/appointments/:id/status', authenticateToken, updateAppointmentStatus);

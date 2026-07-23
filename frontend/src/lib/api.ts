@@ -264,6 +264,20 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(payload),
       }),
+    getEmergencyCases: (providerId?: number) =>
+      request('/appointments/emergency' + (providerId ? `?provider_id=${providerId}` : '')),
+    getSpotRegistrations: (providerId?: number) =>
+      request('/appointments/spot' + (providerId ? `?provider_id=${providerId}` : '')),
+    updateEmergencyCase: (id: number, payload: any) =>
+      request(`/appointments/emergency/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      }),
+    updateSpotRegistration: (id: number, payload: any) =>
+      request(`/appointments/spot/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      }),
   },
 
   // Providers list (for student booking)

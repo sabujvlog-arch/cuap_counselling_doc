@@ -1069,3 +1069,117 @@ export const scheduleFollowUp = async (req: AuthRequest, res: Response) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+export const getEmergencyCases = async (req: AuthRequest, res: Response) => {
+  if (
+    !req.user ||
+    (req.user.role !== 'provider' && req.user.role !== 'admin' && req.user.role !== 'super-admin')
+  ) {
+    return res.status(403).json({ error: 'Unauthorized access' });
+  }
+
+  try {
+    const targetProviderId = await resolveProviderId(req.user, req.query.provider_id as string);
+    const result = await query(
+      `SELECT ec.*, s.student_name, s.registration_number, u.username as student_username
+       FROM emergency_cases ec
+       JOIN students s ON ec.student_id = s.id
+       JOIN users u ON s.user_id = u.id
+       WHERE ec.provider_id = $1
+       ORDER BY ec.created_at DESC`,
+      [targetProviderId],
+    );
+    const rows = result.rows || result;
+    return res.json(rows);
+  } catch (err: any) {
+    console.error('Get emergency cases error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+};
+
+export const getSpotRegistrations = async (req: AuthRequest, res: Response) => {
+  if (
+    !req.user ||
+    (req.user.role !== 'provider' && req.user.role !== 'admin' && req.user.role !== 'super-admin')
+  ) {
+    return res.status(403).json({ error: 'Unauthorized access' });
+  }
+
+  try {
+    const targetProviderId = await resolveProviderId(req.user, req.query.provider_id as string);
+    const result = await query(
+      `SELECT sr.*, s.student_name, s.registration_number, u.username as student_username
+       FROM spot_registrations sr
+       JOIN students s ON sr.student_id = s.id
+       JOIN users u ON s.user_id = u.id
+       WHERE sr.provider_id = $1
+       ORDER BY sr.created_at DESC`,
+      [targetProviderId],
+    );
+    const rows = result.rows || result;
+    return res.json(rows);
+  } catch (err: any) {
+    console.error('Get spot registrations error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+};
+
+export const updateEmergencyCase = async (req: AuthRequest, res: Response) => {
+  if (
+    !req.user ||
+    (req.user.role !== 'provider' && req.user.role !== 'admin' && req.user.role !== 'super-admin')
+  ) {
+    return res.status(403).json({ error: 'Unauthorized access' });
+  }
+
+  const { id } = req.params;
+  const { crisis_notes, referral_details, status } = req.body;
+
+  try {
+    const params = [crisis_notes, referral_details, status, id];
+    if (status === 'resolved') {
+      await query(
+        `UPDATE emergency_cases 
+         SET crisis_notes = $1, referral_details = $2, status = $3, resolved_at = CURRENT_TIMESTAMP
+         WHERE id = $4`,
+        params,
+      );
+    } else {
+      await query(
+        `UPDATE emergency_cases 
+         SET crisis_notes = $1, referral_details = $2, status = $3
+         WHERE id = $4`,
+        params,
+      );
+    }
+    return res.json({ message: 'Emergency case updated successfully' });
+  } catch (err: any) {
+    console.error('Update emergency case error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+};
+
+export const updateSpotRegistrationStatus = async (req: AuthRequest, res: Response) => {
+  if (
+    !req.user ||
+    (req.user.role !== 'provider' && req.user.role !== 'admin' && req.user.role !== 'super-admin')
+  ) {
+    return res.status(403).json({ error: 'Unauthorized access' });
+  }
+
+  const { id } = req.params;
+  const { status, session_id } = req.body;
+
+  try {
+    await query(
+      `UPDATE spot_registrations 
+       SET status = $1, session_id = $2
+       WHERE id = $3`,
+      [status, session_id || null, id],
+    );
+    return res.json({ message: 'Spot registration updated successfully' });
+  } catch (err: any) {
+    console.error('Update spot registration error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+};

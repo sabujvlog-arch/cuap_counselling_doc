@@ -69,6 +69,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
     | 'repository'
     | 'generated-reports'
     | 'notifications'
+    | 'emergency-desk'
   >('dashboard');
   const [appointments, setAppointments] = useState<any[]>([]);
   const [activeApp, setActiveApp] = useState<any>(null); // Active appointment for writing SOAP notes
@@ -87,6 +88,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
     repository: 'EMR Repository',
     'generated-reports': 'Generated Reports',
     notifications: 'Announcements',
+    'emergency-desk': 'Emergency & Walk-in Desk',
   };
 
   const isMobile = useMediaQuery('(max-width: 1023px)');
@@ -175,6 +177,41 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
   const [breakEnd, setBreakEnd] = useState('14:00');
   const [workingDays, setWorkingDays] = useState<number[]>([1, 2, 3, 4, 5]); // 1-5 Mon-Fri
   const [settingsLoading, setSettingsLoading] = useState(false);
+
+  // Emergency & Spot Desk states
+  const [emergencyCases, setEmergencyCases] = useState<any[]>([]);
+  const [spotRegistrations, setSpotRegistrations] = useState<any[]>([]);
+  const [loadingDesk, setLoadingDesk] = useState(false);
+  const [activeEmergencyCase, setActiveEmergencyCase] = useState<any>(null);
+  const [deskSubTab, setDeskSubTab] = useState<'emergency' | 'spot'>('emergency');
+  const [safetyFormData, setSafetyFormData] = useState({
+    risk_level: 'high',
+    actions_taken: '',
+    safety_plan: '',
+    emergency_contact: '',
+    safety_contract_signed: false,
+    referral_details: '',
+  });
+
+  const fetchDeskData = async () => {
+    setLoadingDesk(true);
+    try {
+      const ecData = await api.appointments.getEmergencyCases();
+      const srData = await api.appointments.getSpotRegistrations();
+      setEmergencyCases(ecData || []);
+      setSpotRegistrations(srData || []);
+    } catch (err) {
+      console.error('Error fetching emergency/spot desk data:', err);
+    } finally {
+      setLoadingDesk(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'emergency-desk') {
+      fetchDeskData();
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     fetchAppointments();
@@ -489,6 +526,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
           { id: 'dashboard', label: 'Workspace Dashboard', icon: Activity },
           { id: 'students', label: 'Assigned Students', icon: Users },
           { id: 'schedule', label: "Today's Schedule", icon: Clock },
+          { id: 'emergency-desk', label: 'Emergency & Walk-ins', icon: AlertTriangle },
           { id: 'counselling-emr', label: 'Session Notes', icon: Brain },
           { id: 'repository', label: 'EMR Repository', icon: Database },
           { id: 'generated-reports', label: 'Generated Reports', icon: FileText },
@@ -2182,6 +2220,329 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
             </div>
           )}
 
+          {/* TAB: EMERGENCY & WALK-IN DESK */}
+          {activeTab === 'emergency-desk' && (
+            <div className="space-y-8 animate-fade-in-up">
+              <div>
+                <h2 className="text-2xl font-black tracking-tight">Emergency & Walk-in Desk</h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  Manage walk-in spot registrations and log severe crisis case clinical safety
+                  protocols.
+                </p>
+              </div>
+
+              {/* Sub tabs selector */}
+              <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800 pb-px">
+                <button
+                  onClick={() => setDeskSubTab('emergency')}
+                  className={`px-4 py-2 text-xs font-bold transition-all border-b-2 -mb-px cursor-pointer ${
+                    deskSubTab === 'emergency'
+                      ? 'border-rose-600 text-rose-600 dark:text-rose-400'
+                      : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                >
+                  🚨 Emergency Cases ({emergencyCases.filter((c) => c.status === 'active').length}{' '}
+                  Active)
+                </button>
+                <button
+                  onClick={() => setDeskSubTab('spot')}
+                  className={`px-4 py-2 text-xs font-bold transition-all border-b-2 -mb-px cursor-pointer ${
+                    deskSubTab === 'spot'
+                      ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
+                      : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                >
+                  ⏱️ Spot Walk-in Queue (
+                  {spotRegistrations.filter((r) => r.status === 'waiting').length} Waiting)
+                </button>
+              </div>
+
+              {loadingDesk ? (
+                <div className="text-center py-12 text-slate-500 text-sm font-semibold">
+                  Loading desk records...
+                </div>
+              ) : deskSubTab === 'emergency' ? (
+                /* ── EMERGENCY CASES DESK ── */
+                <div className="space-y-6">
+                  {/* Active Emergencies */}
+                  <div className="space-y-4">
+                    <h3 className="text-xs font-black uppercase text-slate-500 tracking-wider">
+                      Active Emergency Incidents
+                    </h3>
+                    {emergencyCases.filter((c) => c.status === 'active').length === 0 ? (
+                      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-8 rounded-2xl text-center text-slate-400 text-xs font-semibold">
+                        No active emergency cases logged.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {emergencyCases
+                          .filter((c) => c.status === 'active')
+                          .map((ec) => (
+                            <div
+                              key={ec.id}
+                              className="bg-white dark:bg-slate-900 border border-l-4 border-rose-600 dark:border-rose-500 border-slate-200 dark:border-slate-850 p-5 rounded-2xl shadow-sm space-y-4 relative overflow-hidden"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <h4 className="font-extrabold text-slate-800 dark:text-slate-100 text-sm">
+                                    {ec.student_name}
+                                  </h4>
+                                  <span className="text-[10px] text-slate-400 font-mono">
+                                    {ec.registration_number.toUpperCase()}
+                                  </span>
+                                </div>
+                                <span className="px-2 py-0.5 bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 border border-rose-250/20 rounded-full text-[9px] font-bold uppercase tracking-wider">
+                                  {ec.priority} Priority
+                                </span>
+                              </div>
+                              <div className="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-100 dark:border-slate-850">
+                                <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">
+                                  Initial Crisis Log
+                                </span>
+                                <p className="text-xs text-slate-600 dark:text-slate-350 leading-relaxed font-medium">
+                                  {ec.crisis_notes}
+                                </p>
+                              </div>
+                              <div className="text-[10px] text-slate-500 space-y-1">
+                                <div>
+                                  📞 Contact:{' '}
+                                  <span className="font-semibold text-slate-655 dark:text-slate-300">
+                                    {ec.emergency_contact}
+                                  </span>
+                                </div>
+                                <div>
+                                  Logged:{' '}
+                                  <span className="font-mono">
+                                    {new Date(ec.created_at).toLocaleString('en-IN')}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="pt-2 flex gap-2">
+                                <button
+                                  onClick={() => {
+                                    setActiveEmergencyCase(ec);
+                                    setSafetyFormData({
+                                      risk_level: 'high',
+                                      actions_taken: '',
+                                      safety_plan: '',
+                                      emergency_contact: ec.emergency_contact || '',
+                                      safety_contract_signed: false,
+                                      referral_details: '',
+                                    });
+                                  }}
+                                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+                                >
+                                  <ShieldAlert size={14} /> Resolve & Log Protocol
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Resolved Incidents History */}
+                  <div className="space-y-4 pt-4">
+                    <h3 className="text-xs font-black uppercase text-slate-500 tracking-wider">
+                      Resolved Crisis History
+                    </h3>
+                    {emergencyCases.filter((c) => c.status === 'resolved').length === 0 ? (
+                      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl text-center text-slate-400 text-xs">
+                        No resolved emergency records found.
+                      </div>
+                    ) : (
+                      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-855 rounded-2xl overflow-hidden shadow-sm">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs border-collapse">
+                            <thead>
+                              <tr className="bg-slate-50 dark:bg-slate-950 text-slate-500 font-bold border-b border-slate-100 dark:border-slate-850">
+                                <th className="p-4">Student</th>
+                                <th className="p-4">Log Date</th>
+                                <th className="p-4">Resolved Date</th>
+                                <th className="p-4">Initial Crisis Log</th>
+                                <th className="p-4">Clinical Protocol Note</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-850 font-medium">
+                              {emergencyCases
+                                .filter((c) => c.status === 'resolved')
+                                .map((ec) => (
+                                  <tr
+                                    key={ec.id}
+                                    className="hover:bg-slate-50/50 dark:hover:bg-slate-955/20 text-slate-750 dark:text-slate-300"
+                                  >
+                                    <td className="p-4">
+                                      <div className="font-extrabold text-slate-800 dark:text-slate-100">
+                                        {ec.student_name}
+                                      </div>
+                                      <div className="text-[10px] text-slate-400 font-mono">
+                                        {ec.registration_number.toUpperCase()}
+                                      </div>
+                                    </td>
+                                    <td className="p-4 font-mono text-slate-550">
+                                      {new Date(ec.created_at).toLocaleString('en-IN')}
+                                    </td>
+                                    <td className="p-4 font-mono text-emerald-600 dark:text-emerald-400">
+                                      {ec.resolved_at
+                                        ? new Date(ec.resolved_at).toLocaleString('en-IN')
+                                        : 'N/A'}
+                                    </td>
+                                    <td className="p-4 max-w-xs truncate text-slate-500">
+                                      {ec.crisis_notes}
+                                    </td>
+                                    <td className="p-4 max-w-sm whitespace-pre-wrap leading-relaxed text-[11px]">
+                                      {ec.referral_details}
+                                    </td>
+                                  </tr>
+                                ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* ── SPOT WALK-IN QUEUE ── */
+                <div className="space-y-6">
+                  <div className="space-y-4">
+                    <h3 className="text-xs font-black uppercase text-slate-500 tracking-wider">
+                      Students in Waiting Queue
+                    </h3>
+                    {spotRegistrations.filter((r) => r.status === 'waiting').length === 0 ? (
+                      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-8 rounded-2xl text-center text-slate-400 text-xs font-semibold">
+                        No walk-in students waiting in the queue.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {spotRegistrations
+                          .filter((r) => r.status === 'waiting')
+                          .map((sr) => (
+                            <div
+                              key={sr.id}
+                              className="bg-white dark:bg-slate-900 border border-l-4 border-emerald-600 dark:border-emerald-500 border-slate-200 dark:border-slate-850 p-5 rounded-2xl shadow-sm space-y-4 relative overflow-hidden"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <h4 className="font-extrabold text-slate-800 dark:text-slate-100 text-sm">
+                                    {sr.student_name}
+                                  </h4>
+                                  <span className="text-[10px] text-slate-400 font-mono">
+                                    {sr.registration_number.toUpperCase()}
+                                  </span>
+                                </div>
+                                <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border border-emerald-250/20 rounded-full text-[9px] font-bold uppercase tracking-wider">
+                                  {sr.priority} Priority
+                                </span>
+                              </div>
+                              <div className="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-100 dark:border-slate-850">
+                                <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">
+                                  Reason for Walk-in
+                                </span>
+                                <p className="text-xs text-slate-600 dark:text-slate-350 leading-relaxed font-medium">
+                                  {sr.reason_for_visit}
+                                </p>
+                              </div>
+                              <div className="text-[10px] text-slate-500 font-mono">
+                                Registered: {new Date(sr.created_at).toLocaleString('en-IN')}
+                              </div>
+                              <div className="pt-2 flex gap-2">
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await api.appointments.updateSpotRegistration(sr.id, {
+                                        status: 'completed',
+                                      });
+                                      setActiveApp({
+                                        id: null,
+                                        student_id: sr.student_id,
+                                        student_name: sr.student_name,
+                                        registration_number: sr.registration_number,
+                                        chief_complaint: sr.reason_for_visit,
+                                      });
+                                      showToast(
+                                        'Converted spot walk-in to Session EMR.',
+                                        'success',
+                                      );
+                                      setActiveTab('counselling-emr');
+                                    } catch (e: any) {
+                                      showToast(e.message || 'Failed to start session', 'error');
+                                    }
+                                  }}
+                                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+                                >
+                                  <FileText size={14} /> Start Session & Take Notes
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Spot Registration History */}
+                  <div className="space-y-4 pt-4">
+                    <h3 className="text-xs font-black uppercase text-slate-500 tracking-wider">
+                      Completed Walk-in History
+                    </h3>
+                    {spotRegistrations.filter((r) => r.status === 'completed').length === 0 ? (
+                      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl text-center text-slate-400 text-xs">
+                        No completed spot sessions found.
+                      </div>
+                    ) : (
+                      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-855 rounded-2xl overflow-hidden shadow-sm">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs border-collapse">
+                            <thead>
+                              <tr className="bg-slate-50 dark:bg-slate-950 text-slate-500 font-bold border-b border-slate-100 dark:border-slate-850">
+                                <th className="p-4">Student</th>
+                                <th className="p-4">Registration Date</th>
+                                <th className="p-4">Reason for Visit</th>
+                                <th className="p-4">Priority</th>
+                                <th className="p-4">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-850 font-medium">
+                              {spotRegistrations
+                                .filter((r) => r.status === 'completed')
+                                .map((sr) => (
+                                  <tr
+                                    key={sr.id}
+                                    className="hover:bg-slate-50/50 dark:hover:bg-slate-955/20 text-slate-750 dark:text-slate-300"
+                                  >
+                                    <td className="p-4">
+                                      <div className="font-extrabold text-slate-800 dark:text-slate-100">
+                                        {sr.student_name}
+                                      </div>
+                                      <div className="text-[10px] text-slate-400 font-mono">
+                                        {sr.registration_number.toUpperCase()}
+                                      </div>
+                                    </td>
+                                    <td className="p-4 font-mono text-slate-550">
+                                      {new Date(sr.created_at).toLocaleString('en-IN')}
+                                    </td>
+                                    <td className="p-4 text-slate-500">{sr.reason_for_visit}</td>
+                                    <td className="p-4 capitalize">
+                                      <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-350 rounded text-[9px] font-bold">
+                                        {sr.priority}
+                                      </span>
+                                    </td>
+                                    <td className="p-4 text-emerald-600 dark:text-emerald-400 font-bold">
+                                      ✓ Session Completed
+                                    </td>
+                                  </tr>
+                                ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* STUDENT CLINICAL PROFILE DETAIL MODAL */}
           {selectedStudentForProfile && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -3215,6 +3576,192 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                     className="px-4 py-2 font-bold text-xs bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-sm"
                   >
                     Log Emergency
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* EMERGENCY PROTOCOL RESOLUTION MODAL */}
+          {activeEmergencyCase && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div
+                className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+                onClick={() => setActiveEmergencyCase(null)}
+              />
+              <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-fade-in-up flex flex-col max-h-[90vh]">
+                <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-rose-50 dark:bg-rose-900/20 shrink-0">
+                  <h3 className="font-bold text-rose-800 dark:text-rose-300 flex items-center gap-2">
+                    <ShieldAlert size={16} /> Crisis Safety Protocol & Resolution
+                  </h3>
+                  <button
+                    onClick={() => setActiveEmergencyCase(null)}
+                    className="text-slate-400 hover:text-slate-655 cursor-pointer"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                <div className="p-5 space-y-4 text-xs text-slate-600 dark:text-slate-300 overflow-y-auto flex-1">
+                  <div className="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-100 dark:border-slate-855">
+                    <div className="font-black text-slate-700 dark:text-slate-205 text-xs">
+                      Crisis Intake Log:
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1 italic leading-relaxed">
+                      "{activeEmergencyCase.crisis_notes}"
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                        Triage Clinical Risk Level *
+                      </label>
+                      <select
+                        className="w-full p-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-xs font-medium"
+                        value={safetyFormData.risk_level}
+                        onChange={(e) =>
+                          setSafetyFormData({ ...safetyFormData, risk_level: e.target.value })
+                        }
+                      >
+                        <option value="critical">Critical Risk (Severe Immediate Danger)</option>
+                        <option value="high">High Risk (Intense Ideation/Distress)</option>
+                        <option value="moderate">Moderate Risk (Ideation without plan)</option>
+                        <option value="low">Low Risk (Fleeting distress)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                        Emergency Contact / Parent Details
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full p-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-xs font-medium"
+                        value={safetyFormData.emergency_contact}
+                        onChange={(e) =>
+                          setSafetyFormData({
+                            ...safetyFormData,
+                            emergency_contact: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                      Clinical De-escalation Actions Taken *
+                    </label>
+                    <textarea
+                      required
+                      placeholder="e.g. Grounding exercises, sensory regulation, active suicide risk assessment completed..."
+                      value={safetyFormData.actions_taken}
+                      className="w-full p-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 h-20 text-xs font-medium"
+                      onChange={(e) =>
+                        setSafetyFormData({ ...safetyFormData, actions_taken: e.target.value })
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                      Immediate Student Coping & Safety Plan *
+                    </label>
+                    <textarea
+                      required
+                      placeholder="List specific coping behaviors, triggers, safe support network contacts..."
+                      value={safetyFormData.safety_plan}
+                      className="w-full p-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 h-20 text-xs font-medium"
+                      onChange={(e) =>
+                        setSafetyFormData({ ...safetyFormData, safety_plan: e.target.value })
+                      }
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2 py-1 select-none">
+                    <input
+                      id="safety-contract-checkbox"
+                      type="checkbox"
+                      checked={safetyFormData.safety_contract_signed}
+                      onChange={(e) =>
+                        setSafetyFormData({
+                          ...safetyFormData,
+                          safety_contract_signed: e.target.checked,
+                        })
+                      }
+                      className="rounded border-slate-350 text-rose-600 focus:ring-rose-500/20"
+                    />
+                    <label
+                      htmlFor="safety-contract-checkbox"
+                      className="text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer"
+                    >
+                      Student verbally agreed and/or signed a Safety & Coping Contract
+                    </label>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                      Resolution, Handoff & Referrals
+                    </label>
+                    <textarea
+                      placeholder="Psychiatrist referral, guardian notification handoff, etc..."
+                      value={safetyFormData.referral_details}
+                      className="w-full p-2 border rounded-xl dark:bg-slate-800 dark:border-slate-700 h-16 text-xs font-medium"
+                      onChange={(e) =>
+                        setSafetyFormData({ ...safetyFormData, referral_details: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2 bg-slate-50 dark:bg-slate-950 shrink-0">
+                  <button
+                    onClick={() => setActiveEmergencyCase(null)}
+                    className="px-4 py-2 font-bold text-xs bg-slate-200 rounded-xl hover:bg-slate-300 text-slate-700 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (
+                        !safetyFormData.actions_taken.trim() ||
+                        !safetyFormData.safety_plan.trim()
+                      ) {
+                        showToast(
+                          'De-escalation Actions and Safety Plan are required clinical fields.',
+                          'error',
+                        );
+                        return;
+                      }
+                      try {
+                        const formattedProtocolNotes = `--- CLINICAL CRISIS PROTOCOL NOTE ---
+RISK LEVEL: [${safetyFormData.risk_level.toUpperCase()}]
+DE-ESCALATION ACTIONS:
+${safetyFormData.actions_taken}
+
+SAFETY PLAN & COPING STRATEGIES:
+${safetyFormData.safety_plan}
+
+SAFETY CONTRACT SIGNED: ${safetyFormData.safety_contract_signed ? 'Yes' : 'No'}
+EMERGENCY CONTACTS: ${safetyFormData.emergency_contact}
+HANDOFF & REFERRALS: ${safetyFormData.referral_details || 'N/A'}`;
+
+                        await api.appointments.updateEmergencyCase(activeEmergencyCase.id, {
+                          crisis_notes: activeEmergencyCase.crisis_notes,
+                          referral_details: formattedProtocolNotes,
+                          status: 'resolved',
+                        });
+                        showToast(
+                          'Emergency case resolved and safety protocol logged successfully.',
+                          'success',
+                        );
+                        setActiveEmergencyCase(null);
+                        fetchDeskData();
+                      } catch (e: any) {
+                        showToast(e.message || 'Failed to resolve emergency', 'error');
+                      }
+                    }}
+                    className="px-4 py-2 font-bold text-xs bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-sm cursor-pointer"
+                  >
+                    Lock & Resolve Case
                   </button>
                 </div>
               </div>
