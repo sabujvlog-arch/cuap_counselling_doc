@@ -182,6 +182,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
   const [breakEnd, setBreakEnd] = useState('14:00');
   const [workingDays, setWorkingDays] = useState<number[]>([1, 2, 3, 4, 5]); // 1-5 Mon-Fri
   const [settingsLoading, setSettingsLoading] = useState(false);
+  const [workloadTimeframe, setWorkloadTimeframe] = useState<'today' | 'week'>('today');
 
   // Emergency & Spot Desk states
   const [emergencyCases, setEmergencyCases] = useState<any[]>([]);
@@ -772,31 +773,138 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Weekly workload chart */}
+                    {/* Weekly workload chart & Case Note Progress Ring */}
                     <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl shadow-sm space-y-4">
-                      <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                        <TrendingUp size={16} className="text-blue-500" /> Weekly Session Metrics
-                      </h3>
-                      <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={sortedChartData}>
-                            <CartesianGrid
-                              strokeDasharray="3 3"
-                              vertical={false}
-                              stroke="var(--border)"
-                            />
-                            <XAxis
-                              dataKey="name"
-                              stroke="var(--text-secondary)"
-                              fontSize={11}
-                              tickLine={false}
-                            />
-                            <YAxis stroke="var(--text-secondary)" fontSize={11} tickLine={false} />
-                            <ChartTooltip />
-                            <Bar dataKey="Completed" fill="#10b981" radius={[4, 4, 0, 0]} />
-                            <Bar dataKey="Scheduled" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                          </BarChart>
-                        </ResponsiveContainer>
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                          <TrendingUp size={16} className="text-blue-500" /> Clinical Workload &
+                          Completion
+                        </h3>
+                        {/* Timeframe selector toggle */}
+                        <div className="flex bg-slate-100 dark:bg-slate-950 p-0.5 rounded-lg border border-slate-200 dark:border-slate-800">
+                          <button
+                            onClick={() => setWorkloadTimeframe('today')}
+                            className={`px-2 py-0.5 text-[10px] font-extrabold rounded-md transition cursor-pointer ${
+                              workloadTimeframe === 'today'
+                                ? 'bg-white dark:bg-slate-900 text-slate-850 dark:text-white shadow-sm'
+                                : 'text-slate-400 hover:text-slate-650 dark:hover:text-slate-200'
+                            }`}
+                          >
+                            Today
+                          </button>
+                          <button
+                            onClick={() => setWorkloadTimeframe('week')}
+                            className={`px-2 py-0.5 text-[10px] font-extrabold rounded-md transition cursor-pointer ${
+                              workloadTimeframe === 'week'
+                                ? 'bg-white dark:bg-slate-900 text-slate-850 dark:text-white shadow-sm'
+                                : 'text-slate-400 hover:text-slate-655 dark:hover:text-slate-200'
+                            }`}
+                          >
+                            7 Days
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {/* Left: Bar Chart */}
+                        <div className="md:col-span-2 h-64">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={sortedChartData}>
+                              <CartesianGrid
+                                strokeDasharray="3 3"
+                                vertical={false}
+                                stroke="var(--border)"
+                              />
+                              <XAxis
+                                dataKey="name"
+                                stroke="var(--text-secondary)"
+                                fontSize={11}
+                                tickLine={false}
+                              />
+                              <YAxis
+                                stroke="var(--text-secondary)"
+                                fontSize={11}
+                                tickLine={false}
+                              />
+                              <ChartTooltip />
+                              <Bar dataKey="Completed" fill="#10b981" radius={[4, 4, 0, 0]} />
+                              <Bar dataKey="Scheduled" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+
+                        {/* Right: SVG Completion Ring */}
+                        <div className="flex flex-col justify-between items-center p-4 bg-slate-50/50 dark:bg-slate-950/20 border border-slate-100 dark:border-slate-850 rounded-xl text-center">
+                          {(() => {
+                            const apptsToCalculate =
+                              workloadTimeframe === 'today'
+                                ? todayAppts
+                                : appointments.filter((a) => {
+                                    const d = new Date(a.slot_date);
+                                    const now = new Date();
+                                    const diff = (now.getTime() - d.getTime()) / (1000 * 3600 * 24);
+                                    return diff >= 0 && diff <= 7;
+                                  });
+                            const completedCount = apptsToCalculate.filter(
+                              (a) => a.status === 'completed',
+                            ).length;
+                            const totalCount = apptsToCalculate.length;
+                            const percentage =
+                              totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+                            const strokeRadius = 35;
+                            const strokeCircumference = 2 * Math.PI * strokeRadius;
+                            const strokeDashoffset =
+                              strokeCircumference - (percentage / 100) * strokeCircumference;
+
+                            return (
+                              <>
+                                <span className="text-[10px] font-black uppercase text-slate-450 tracking-wider">
+                                  SOAP Completion
+                                </span>
+
+                                <div className="relative flex items-center justify-center my-3 select-none">
+                                  <svg className="w-24 h-24 transform -rotate-90">
+                                    <circle
+                                      cx="48"
+                                      cy="48"
+                                      r={strokeRadius}
+                                      stroke="var(--border)"
+                                      strokeWidth="8"
+                                      fill="transparent"
+                                      className="text-slate-100 dark:text-slate-800"
+                                      style={{ stroke: 'var(--border)' }}
+                                    />
+                                    <circle
+                                      cx="48"
+                                      cy="48"
+                                      r={strokeRadius}
+                                      stroke="#10b981"
+                                      strokeWidth="8"
+                                      fill="transparent"
+                                      strokeDasharray={strokeCircumference}
+                                      strokeDashoffset={strokeDashoffset}
+                                      className="transition-all duration-700 ease-out"
+                                    />
+                                  </svg>
+                                  <div className="absolute flex flex-col items-center justify-center">
+                                    <span className="text-sm font-extrabold text-slate-850 dark:text-white">
+                                      {percentage}%
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-0.5">
+                                  <span className="text-[11px] font-bold text-slate-700 dark:text-white block">
+                                    {completedCount} of {totalCount} Done
+                                  </span>
+                                  <span className="text-[9px] text-slate-400 block leading-tight">
+                                    {totalCount - completedCount} notes remaining
+                                  </span>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
                       </div>
                     </div>
 
@@ -890,16 +998,30 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                     <option value="Science & Physics">Science & Physics</option>
                   </select>
 
-                  <select
-                    value={studentStatusFilter}
-                    onChange={(e) => setStudentStatusFilter(e.target.value)}
-                    className="flex-1 md:w-40 px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-950 text-xs font-bold focus:outline-none text-slate-800 dark:text-slate-200 cursor-pointer"
-                  >
-                    <option value="">All Statuses</option>
-                    <option value="approved">Approved</option>
-                    <option value="completed">Completed</option>
-                    <option value="pending">Pending Approval</option>
-                  </select>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { value: '', label: 'All Cases' },
+                      { value: 'approved', label: 'Active Case' },
+                      { value: 'pending', label: 'Pending Approval' },
+                      { value: 'completed', label: 'Completed Case' },
+                    ].map((chip) => {
+                      const isActive = studentStatusFilter === chip.value;
+                      return (
+                        <button
+                          type="button"
+                          key={chip.value}
+                          onClick={() => setStudentStatusFilter(chip.value)}
+                          className={`px-3.5 py-1.5 rounded-xl border text-[11px] font-bold transition select-none cursor-pointer ${
+                            isActive
+                              ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                              : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-955 text-slate-550 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                          }`}
+                        >
+                          {chip.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 

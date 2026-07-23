@@ -164,6 +164,63 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [signatureName, setSignatureName] = useState('');
 
+  // Daily Mood check-in states
+  const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const [moodTip, setMoodTip] = useState<string>('');
+
+  // Breathing Box states
+  const [isBreathing, setIsBreathing] = useState(false);
+  const [breathingPhase, setBreathingPhase] = useState<'Breathe In' | 'Hold' | 'Breathe Out'>(
+    'Breathe In',
+  );
+  const [breathingTimer, setBreathingTimer] = useState(4);
+
+  const moodTips: Record<string, string> = {
+    Joyful:
+      'Wonderful! Share your positive energy with someone today. Try journaling what made you happy.',
+    Peaceful:
+      'Maintaining a calm mind is a great baseline. Take a few deep breaths to anchor this feeling.',
+    Okay: 'A neutral mood is perfectly fine. Take some time to stretch and hydrate today.',
+    Stressed:
+      'Academic or daily strain is tough. Take a 5-minute break and use the Breathing Exercise below.',
+    Anxious:
+      'Anxiety can feel heavy. Focus on your immediate surroundings: name 5 things you can see, 4 you can touch.',
+    Sad: 'It is okay to not be okay. Consider listening to gentle music or talking to a counselor.',
+  };
+
+  const handleMoodSelect = (mood: string) => {
+    setSelectedMood(mood);
+    setMoodTip(moodTips[mood] || 'You are doing great!');
+    showToast(`Logged your mood: ${mood}`, 'success');
+  };
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isBreathing) {
+      interval = setInterval(() => {
+        setBreathingTimer((prev) => {
+          if (prev === 1) {
+            setBreathingPhase((currentPhase) => {
+              if (currentPhase === 'Breathe In') {
+                return 'Hold';
+              } else if (currentPhase === 'Hold') {
+                return 'Breathe Out';
+              } else {
+                return 'Breathe In';
+              }
+            });
+            return 4;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      setBreathingTimer(4);
+      setBreathingPhase('Breathe In');
+    }
+    return () => clearInterval(interval);
+  }, [isBreathing]);
+
   // Document upload states
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -750,6 +807,146 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                     Emergency direct numbers
                   </p>
                 </button>
+              </div>
+
+              {/* Daily Mood Check-In & Breathing Exercise Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* 1. Mood Check-in dial */}
+                <div className="lg:col-span-7 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl shadow-sm space-y-4">
+                  <div>
+                    <h3 className="text-sm font-extrabold text-slate-800 dark:text-white flex items-center gap-2">
+                      <Sparkles size={16} className="text-blue-500" /> Daily Mood Check-in
+                    </h3>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      How are you feeling today? Tap a mood to get clinical self-care suggestions.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2.5 pt-1">
+                    {[
+                      {
+                        label: 'Joyful',
+                        emoji: '😊',
+                        color:
+                          'bg-emerald-50 text-emerald-650 dark:bg-emerald-950/20 dark:text-emerald-450 border-emerald-100 dark:border-emerald-900/30',
+                      },
+                      {
+                        label: 'Peaceful',
+                        emoji: '🙂',
+                        color:
+                          'bg-blue-50 text-blue-650 dark:bg-blue-950/20 dark:text-blue-450 border-blue-100 dark:border-blue-900/30',
+                      },
+                      {
+                        label: 'Okay',
+                        emoji: '😐',
+                        color:
+                          'bg-slate-50 text-slate-600 dark:bg-slate-950/20 dark:text-slate-450 border-slate-200 dark:border-slate-800',
+                      },
+                      {
+                        label: 'Stressed',
+                        emoji: '😰',
+                        color:
+                          'bg-amber-50 text-amber-650 dark:bg-amber-950/20 dark:text-amber-450 border-amber-100 dark:border-amber-900/30',
+                      },
+                      {
+                        label: 'Anxious',
+                        emoji: '🥺',
+                        color:
+                          'bg-indigo-50 text-indigo-655 dark:bg-indigo-950/20 dark:text-indigo-450 border-indigo-100 dark:border-indigo-900/30',
+                      },
+                      {
+                        label: 'Sad',
+                        emoji: '😢',
+                        color:
+                          'bg-rose-50 text-rose-650 dark:bg-rose-950/20 dark:text-rose-450 border-rose-100 dark:border-rose-900/30',
+                      },
+                    ].map((m) => {
+                      const isSelected = selectedMood === m.label;
+                      return (
+                        <button
+                          key={m.label}
+                          onClick={() => handleMoodSelect(m.label)}
+                          className={`flex items-center gap-2 px-3.5 py-2 border rounded-xl font-semibold text-xs select-none transition transform hover:-translate-y-0.5 active:scale-95 cursor-pointer ${
+                            isSelected
+                              ? 'ring-2 ring-blue-500 bg-blue-600 text-white border-transparent'
+                              : `${m.color} hover:shadow-sm`
+                          }`}
+                        >
+                          <span className="text-base">{m.emoji}</span>
+                          <span>{m.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {selectedMood && (
+                    <div className="bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 p-4 rounded-xl space-y-2 animate-fade-in-up">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase text-blue-650 dark:text-blue-400 tracking-wider">
+                          Wellness Suggestion for: {selectedMood}
+                        </span>
+                        <button
+                          onClick={() => setSelectedMood(null)}
+                          className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer font-bold"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                      <p className="text-xs text-slate-655 dark:text-slate-350 leading-relaxed font-medium">
+                        {moodTip}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Timed Guided Breathing exercise widget */}
+                <div className="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl shadow-sm flex flex-col justify-between items-center text-center relative overflow-hidden">
+                  <div className="w-full text-left self-start">
+                    <h3 className="text-sm font-extrabold text-slate-850 dark:text-white flex items-center gap-2">
+                      <Heart size={16} className="text-rose-500 fill-rose-500 animate-pulse" />{' '}
+                      De-stress Center
+                    </h3>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      4-7-8 Deep Guided Breathing Box.
+                    </p>
+                  </div>
+
+                  {/* Visual expanding/shrinking bubble */}
+                  <div className="my-6 relative flex items-center justify-center h-28 w-28">
+                    <div
+                      className={`absolute rounded-full bg-rose-500/10 dark:bg-rose-450/10 transition-all duration-1000 ease-in-out border border-rose-500/20 ${
+                        isBreathing && breathingPhase === 'Breathe In'
+                          ? 'h-28 w-28 scale-110 shadow-lg shadow-rose-500/5'
+                          : isBreathing && breathingPhase === 'Hold'
+                            ? 'h-28 w-28 scale-100 ring-4 ring-rose-400/20'
+                            : 'h-20 w-20 scale-90'
+                      }`}
+                    />
+                    <div className="z-10 flex flex-col items-center justify-center">
+                      <span className="text-xs font-black tracking-wide text-rose-650 dark:text-rose-400 uppercase select-none">
+                        {isBreathing ? breathingPhase : 'Relax'}
+                      </span>
+                      {isBreathing && (
+                        <span className="text-[10px] font-mono text-slate-400 mt-1 font-bold">
+                          {breathingTimer}s
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="w-full">
+                    <button
+                      onClick={() => setIsBreathing(!isBreathing)}
+                      className={`w-full py-2 px-4 rounded-xl text-xs font-extrabold transition shadow-sm cursor-pointer ${
+                        isBreathing
+                          ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                          : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-white'
+                      }`}
+                    >
+                      {isBreathing ? 'Stop Session' : 'Start Breathing Guide'}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}
