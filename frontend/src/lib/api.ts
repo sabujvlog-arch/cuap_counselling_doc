@@ -511,6 +511,16 @@ export const api = {
       request(`/admin/students/${id}`, {
         method: 'DELETE',
       }),
+    listProviders: () => request('/admin/providers'),
+    updateProvider: (id: number, payload: any) =>
+      request(`/admin/providers/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      }),
+    deleteProvider: (id: number) =>
+      request(`/admin/providers/${id}`, {
+        method: 'DELETE',
+      }),
   },
 
   // Notifications Operations

@@ -153,6 +153,17 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
     bloodGroup: 'O+',
     address: '',
   });
+  const [editingProvider, setEditingProvider] = useState<any | null>(null);
+  const [providerEditForm, setProviderEditForm] = useState({
+    name: '',
+    employeeId: '',
+    department: 'Student Welfare',
+    qualification: '',
+    specialization: '',
+    phone: '',
+    email: '',
+    password: '',
+  });
   const [announcementMsg, setAnnouncementMsg] = useState('');
 
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -266,8 +277,8 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
 
   const fetchProviders = async () => {
     try {
-      const res = await api.messages.contacts();
-      setProviders(res.filter((u: any) => u.role === 'provider'));
+      const res = await api.admin.listProviders();
+      setProviders(res);
     } catch (err) {
       console.error(err);
     }
@@ -322,6 +333,51 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
       fetchAudits();
     } catch (err: any) {
       showToast(err.message || 'Failed to create provider', 'error');
+    }
+  };
+
+  const handleEditProviderClick = (p: any) => {
+    setEditingProvider(p);
+    setProviderEditForm({
+      name: p.name || p.display_name || '',
+      employeeId: p.employee_id || '',
+      department: p.department || 'Student Welfare',
+      qualification: p.qualification || '',
+      specialization: p.specialization || p.details || '',
+      phone: p.phone || '',
+      email: p.email || '',
+      password: '',
+    });
+  };
+
+  const handleUpdateProvider = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProvider) return;
+    try {
+      await api.admin.updateProvider(editingProvider.id, providerEditForm);
+      showToast('Counselor profile updated successfully!', 'success');
+      setEditingProvider(null);
+      fetchProviders();
+      fetchAudits();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update counselor profile', 'error');
+    }
+  };
+
+  const handleDeleteProvider = async (providerId: number, name: string) => {
+    if (
+      confirm(
+        `Are you sure you want to permanently delete the counselor account for "${name}"? This will also remove their schedule, bookings, and messaging history.`,
+      )
+    ) {
+      try {
+        await api.admin.deleteProvider(providerId);
+        showToast('Counselor account successfully deleted.', 'success');
+        fetchProviders();
+        fetchAudits();
+      } catch (err: any) {
+        showToast(err.message || 'Failed to delete counselor', 'error');
+      }
     }
   };
 
@@ -1613,7 +1669,7 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                             </div>
                             <div className="flex gap-1.5 shrink-0">
                               <button
-                                onClick={() => alert('Edit Counselor functionality coming soon')}
+                                onClick={() => handleEditProviderClick(p)}
                                 className="p-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg text-slate-600 transition"
                                 title="Edit Profile"
                               >
@@ -1627,7 +1683,7 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                                 <ShieldAlert size={14} />
                               </button>
                               <button
-                                onClick={() => alert('Remove Counselor functionality coming soon')}
+                                onClick={() => handleDeleteProvider(p.id, p.name || p.display_name)}
                                 className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-900/30 dark:hover:bg-rose-900/50 rounded-lg text-rose-600 transition"
                                 title="Remove Counselor"
                               >
@@ -2181,6 +2237,167 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                     <button
                       type="button"
                       onClick={() => setEditingStudent(null)}
+                      className="flex-1 py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition shadow-sm cursor-pointer"
+                    >
+                      Save Changes
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Edit Counselor Modal */}
+          {editingProvider && (
+            <div className="fixed inset-0 bg-black/60 backdrop-filter blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-2xl p-6 w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-2xl animate-fade-in-up text-left">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-5">
+                  <h3 className="font-black text-lg text-slate-800 dark:text-white">
+                    Edit Counselor Profile
+                  </h3>
+                  <button
+                    onClick={() => setEditingProvider(null)}
+                    className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition cursor-pointer"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleUpdateProvider} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">
+                        Full Name
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={providerEditForm.name}
+                        onChange={(e) =>
+                          setProviderEditForm({ ...providerEditForm, name: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">
+                        Employee ID
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={providerEditForm.employeeId}
+                        onChange={(e) =>
+                          setProviderEditForm({ ...providerEditForm, employeeId: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">
+                        Department
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={providerEditForm.department}
+                        onChange={(e) =>
+                          setProviderEditForm({ ...providerEditForm, department: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">
+                        Qualification
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={providerEditForm.qualification}
+                        onChange={(e) =>
+                          setProviderEditForm({
+                            ...providerEditForm,
+                            qualification: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">
+                      Specialization
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={providerEditForm.specialization}
+                      onChange={(e) =>
+                        setProviderEditForm({ ...providerEditForm, specialization: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">
+                        Mobile Number
+                      </label>
+                      <input
+                        type="tel"
+                        value={providerEditForm.phone}
+                        onChange={(e) =>
+                          setProviderEditForm({ ...providerEditForm, phone: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">
+                        Email Address
+                      </label>
+                      <input
+                        type="email"
+                        value={providerEditForm.email}
+                        onChange={(e) =>
+                          setProviderEditForm({ ...providerEditForm, email: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">
+                      Reset Password (leave blank to keep current)
+                    </label>
+                    <input
+                      type="password"
+                      value={providerEditForm.password}
+                      onChange={(e) =>
+                        setProviderEditForm({ ...providerEditForm, password: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                      placeholder="••••••••"
+                    />
+                  </div>
+
+                  <div className="flex gap-3 shrink-0 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditingProvider(null)}
                       className="flex-1 py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
                     >
                       Cancel

@@ -461,6 +461,151 @@ export const createProvider = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const getAdminProviders = async (req: AuthRequest, res: Response) => {
+  if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'super-admin')) {
+    return res.status(403).json({ error: 'Authorized admin permissions required' });
+  }
+  try {
+    const result = await query(
+      `SELECT p.id, p.user_id, p.name, p.name as display_name, p.employee_id, p.department, p.qualification, 
+              p.specialization, p.photo_url, p.signature_url, p.phone, p.email,
+              u.username
+       FROM providers p
+       JOIN users u ON p.user_id = u.id
+       ORDER BY p.name ASC`,
+    );
+    return res.json(result.rows);
+  } catch (err) {
+    console.error('Get admin providers error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const updateProvider = async (req: AuthRequest, res: Response) => {
+  if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'super-admin')) {
+    return res.status(403).json({ error: 'Authorized admin permissions required' });
+  }
+  const { id } = req.params;
+  const {
+    name,
+    employeeId,
+    department,
+    qualification,
+    specialization,
+    phone,
+    email,
+    photoUrl,
+    signatureUrl,
+    password,
+  } = req.body;
+
+  try {
+    const provRes = await query('SELECT user_id FROM providers WHERE id = $1', [id]);
+    if (provRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Provider not found' });
+    }
+    const userId = provRes.rows[0].user_id;
+
+    if (employeeId) {
+      const checkEmp = await query('SELECT id FROM providers WHERE employee_id = $1 AND id != $2', [
+        employeeId,
+        id,
+      ]);
+      if (checkEmp.rows.length > 0) {
+        return res.status(400).json({ error: 'Employee ID already exists' });
+      }
+    }
+
+    await query(
+      `UPDATE providers 
+       SET name = COALESCE($1, name),
+           employee_id = COALESCE($2, employee_id),
+           department = COALESCE($3, department),
+           qualification = COALESCE($4, qualification),
+           specialization = COALESCE($5, specialization),
+           phone = COALESCE($6, phone),
+           email = COALESCE($7, email),
+           photo_url = COALESCE($8, photo_url),
+           signature_url = COALESCE($9, signature_url)
+       WHERE id = $10`,
+      [
+        name,
+        employeeId,
+        department,
+        qualification,
+        specialization,
+        phone,
+        email,
+        photoUrl,
+        signatureUrl,
+        id,
+      ],
+    );
+
+    await query(
+      `UPDATE users 
+       SET email = COALESCE($1, email),
+           phone = COALESCE($2, phone)
+       WHERE id = $3`,
+      [email, phone, userId],
+    );
+
+    if (password && password.trim() !== '') {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      await query('UPDATE users SET password_hash = $1 WHERE id = $2', [hashedPassword, userId]);
+    }
+
+    await query(
+      'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
+      [
+        req.user?.id || null,
+        'UPDATE_PROVIDER',
+        `Admin updated provider ${name || id} (${employeeId || ''})`,
+        req.ip,
+      ],
+    );
+
+    return res.json({ message: 'Provider updated successfully' });
+  } catch (err) {
+    console.error('Update provider error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const deleteProvider = async (req: AuthRequest, res: Response) => {
+  if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'super-admin')) {
+    return res.status(403).json({ error: 'Authorized admin permissions required' });
+  }
+  const { id } = req.params;
+
+  try {
+    const provRes = await query('SELECT user_id, name, employee_id FROM providers WHERE id = $1', [
+      id,
+    ]);
+    if (provRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Provider not found' });
+    }
+    const { user_id, name, employee_id } = provRes.rows[0];
+
+    await query('DELETE FROM users WHERE id = $1', [user_id]);
+
+    await query(
+      'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
+      [
+        req.user?.id || null,
+        'DELETE_PROVIDER',
+        `Admin deleted provider ${name} (${employee_id})`,
+        req.ip,
+      ],
+    );
+
+    return res.json({ message: 'Provider deleted successfully' });
+  } catch (err) {
+    console.error('Delete provider error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 export const createStudent = async (req: AuthRequest, res: Response) => {
   const {
     registrationNumber,

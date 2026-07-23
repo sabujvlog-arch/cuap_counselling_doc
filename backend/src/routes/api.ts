@@ -12,6 +12,9 @@ import {
   getPermissions,
   changePassword,
   createProvider,
+  getAdminProviders,
+  updateProvider,
+  deleteProvider,
   createStudent,
   forgotPassword,
   resetPassword,
@@ -170,6 +173,24 @@ router.post(
   authenticateToken,
   requireRoles(['admin', 'super-admin']),
   createProvider,
+);
+router.get(
+  '/admin/providers',
+  authenticateToken,
+  requireRoles(['admin', 'super-admin']),
+  getAdminProviders,
+);
+router.put(
+  '/admin/providers/:id',
+  authenticateToken,
+  requireRoles(['admin', 'super-admin']),
+  updateProvider,
+);
+router.delete(
+  '/admin/providers/:id',
+  authenticateToken,
+  requireRoles(['admin', 'super-admin']),
+  deleteProvider,
 );
 router.post(
   '/admin/students',
