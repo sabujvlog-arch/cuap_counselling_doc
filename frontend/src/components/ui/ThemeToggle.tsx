@@ -13,44 +13,21 @@ interface ThemeToggleProps {
  * Beautifully shifts active state background segment between light/dark mode.
  */
 export default function ThemeToggle({ className = '' }: ThemeToggleProps) {
-  const { mode, setTheme, isDark } = useTheme();
+  const { setTheme, isDark } = useTheme();
 
   return (
-    <div
-      className={`relative inline-flex h-9 w-[136px] items-center rounded-full bg-slate-100 dark:bg-slate-950 p-0.5 border border-slate-200 dark:border-slate-800 transition-colors duration-300 ease-in-out shrink-0 select-none ${className}`}
+    <button
+      type="button"
+      onClick={() => setTheme(isDark ? 'light' : 'dark')}
+      className={`flex items-center justify-center h-9 w-9 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors duration-200 cursor-pointer shrink-0 ${className}`}
+      title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+      aria-label={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
     >
-      {/* Sliding Highlight Pill Backdrop */}
-      <span
-        className={`absolute top-0.5 bottom-0.5 left-0.5 w-[64px] rounded-full bg-white dark:bg-slate-800 shadow-sm transition-transform duration-300 ease-in-out pointer-events-none ${
-          isDark ? 'translate-x-[64px]' : 'translate-x-0'
-        }`}
-      />
-
-      {/* Light option segment */}
-      <button
-        type="button"
-        onClick={() => setTheme('light')}
-        className={`relative z-10 flex h-full flex-1 items-center justify-center gap-1.5 rounded-full text-[11px] font-bold transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20 cursor-pointer ${
-          !isDark ? 'text-slate-800 dark:text-white' : 'text-slate-400 hover:text-slate-350'
-        }`}
-        aria-label="Switch to Light mode"
-      >
-        <Sun size={14} className="shrink-0 text-amber-500" />
-        <span>Light</span>
-      </button>
-
-      {/* Dark option segment */}
-      <button
-        type="button"
-        onClick={() => setTheme('dark')}
-        className={`relative z-10 flex h-full flex-1 items-center justify-center gap-1.5 rounded-full text-[11px] font-bold transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20 cursor-pointer ${
-          isDark ? 'text-slate-800 dark:text-white' : 'text-slate-500 hover:text-slate-450'
-        }`}
-        aria-label="Switch to Dark mode"
-      >
-        <Moon size={14} className="shrink-0 text-indigo-400 dark:text-indigo-300" />
-        <span>Dark</span>
-      </button>
-    </div>
+      {isDark ? (
+        <Sun size={18} className="text-amber-500" />
+      ) : (
+        <Moon size={18} className="text-indigo-500" />
+      )}
+    </button>
   );
 }
