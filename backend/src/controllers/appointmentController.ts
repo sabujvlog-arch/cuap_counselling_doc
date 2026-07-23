@@ -1081,7 +1081,7 @@ export const getEmergencyCases = async (req: AuthRequest, res: Response) => {
   try {
     const targetProviderId = await resolveProviderId(req.user, req.query.provider_id as string);
     const result = await query(
-      `SELECT ec.*, s.student_name, s.registration_number, u.username as student_username
+      `SELECT ec.*, s.name as student_name, s.registration_number, u.username as student_username
        FROM emergency_cases ec
        JOIN students s ON ec.student_id = s.id
        JOIN users u ON s.user_id = u.id
@@ -1108,7 +1108,7 @@ export const getSpotRegistrations = async (req: AuthRequest, res: Response) => {
   try {
     const targetProviderId = await resolveProviderId(req.user, req.query.provider_id as string);
     const result = await query(
-      `SELECT sr.*, s.student_name, s.registration_number, u.username as student_username
+      `SELECT sr.*, s.name as student_name, s.registration_number, u.username as student_username
        FROM spot_registrations sr
        JOIN students s ON sr.student_id = s.id
        JOIN users u ON s.user_id = u.id
