@@ -475,7 +475,7 @@ export default function Home() {
       </div>
 
       {/* ── Right Pane: Form selectors (All devices) ── */}
-      <div className="flex-1 flex flex-col justify-between min-h-screen">
+      <div className="flex-1 flex flex-col justify-between min-h-screen overflow-y-auto max-h-screen">
         {/* Header for mobile view / Top Bar for desktop */}
         <header className="w-full px-6 py-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-850/60 bg-white/40 dark:bg-slate-900/40 backdrop-blur-md">
           <div className="flex items-center gap-3">
@@ -495,7 +495,7 @@ export default function Home() {
         </header>
 
         {/* Form Container */}
-        <main className="flex-1 flex items-center justify-center p-6 md:p-12">
+        <main className="flex-1 flex items-center justify-center p-4 sm:p-8 md:p-12">
           {!selectedPortal ? (
             <PortalSelector onSelect={setSelectedPortal} />
           ) : (

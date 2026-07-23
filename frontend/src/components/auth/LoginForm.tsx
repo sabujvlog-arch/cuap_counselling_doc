@@ -119,11 +119,11 @@ export default function LoginForm({ portalId, onBack }: LoginFormProps) {
   const Icon = portal.icon;
 
   return (
-    <div className="w-full max-w-[380px] animate-fade-in-up">
+    <div className="w-full max-w-[360px] animate-fade-in-up">
       {/* Back button */}
       <button
         onClick={onBack}
-        className="flex items-center gap-2 text-[16px] font-bold mb-6 transition cursor-pointer"
+        className="flex items-center gap-2 text-[14px] font-bold mb-4 transition cursor-pointer"
         style={{ color: 'var(--text-secondary)' }}
         onMouseEnter={(e) => {
           (e.currentTarget as HTMLElement).style.color = 'var(--text)';
@@ -132,11 +132,11 @@ export default function LoginForm({ portalId, onBack }: LoginFormProps) {
           (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)';
         }}
       >
-        <ArrowLeft size={16} /> Back to Portal Selection
+        <ArrowLeft size={14} /> Back to Portal Selection
       </button>
 
       <div
-        className="rounded-3xl overflow-hidden"
+        className="rounded-2xl overflow-hidden"
         style={{
           background: 'var(--card)',
           border: '1px solid var(--border)',
@@ -144,18 +144,18 @@ export default function LoginForm({ portalId, onBack }: LoginFormProps) {
         }}
       >
         {/* Portal header strip */}
-        <div className="relative px-6 pt-6 pb-8" style={{ background: portal.gradientCss }}>
+        <div className="relative px-6 pt-5 pb-6" style={{ background: portal.gradientCss }}>
           <div
-            className="absolute bottom-0 left-0 right-0 h-6 rounded-t-[28px]"
+            className="absolute bottom-0 left-0 right-0 h-4 rounded-t-[20px]"
             style={{ background: 'var(--card)' }}
           />
-          <div className="flex items-center gap-4 mb-3">
-            <div className="w-16 h-16 rounded-[14px] bg-white/20 flex items-center justify-center">
-              <Icon size={28} className="text-white" />
+          <div className="flex items-center gap-4 mb-2">
+            <div className="w-12 h-12 rounded-[12px] bg-white/20 flex items-center justify-center">
+              <Icon size={22} className="text-white" />
             </div>
             <div>
-              <h2 className="text-[28px] font-bold text-white leading-tight">{portal.title}</h2>
-              <p className="text-white/70 text-[13px] font-semibold uppercase tracking-wider">
+              <h2 className="text-[22px] font-bold text-white leading-tight">{portal.title}</h2>
+              <p className="text-white/70 text-[11px] font-semibold uppercase tracking-wider">
                 {portal.subtitle}
               </p>
             </div>
@@ -163,23 +163,23 @@ export default function LoginForm({ portalId, onBack }: LoginFormProps) {
         </div>
 
         {/* Form body */}
-        <div className="px-6 pb-6 -mt-4">
+        <div className="px-6 pb-5 -mt-2">
           <ErrorAlert message={error} onClose={() => setError('')} className="mb-4" />
 
           {!requires2FA ? (
             /* ── Step 1: Credentials ── */
-            <form onSubmit={handleLogin} className="space-y-[20px]">
+            <form onSubmit={handleLogin} className="space-y-[14px]">
               <div>
                 <label
-                  className="block text-[14px] font-bold uppercase tracking-wider mb-2"
+                  className="block text-[12px] font-bold uppercase tracking-wider mb-1.5"
                   style={{ color: 'var(--text)' }}
                 >
                   {portal.loginLabel}
                 </label>
-                <div className="relative h-[48px]">
+                <div className="relative h-[42px]">
                   <UserIcon
-                    className="absolute left-4 top-1/2 -translate-y-1/2"
-                    size={20}
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2"
+                    size={16}
                     style={{ color: 'var(--text-muted)' }}
                   />
                   <input
@@ -189,22 +189,22 @@ export default function LoginForm({ portalId, onBack }: LoginFormProps) {
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder={portal.placeholder}
-                    className="input w-full h-full pl-12 pr-4 text-[18px] placeholder:text-[16px] font-medium rounded-[14px]"
+                    className="input w-full h-full pl-10 pr-4 text-[15px] placeholder:text-[13px] font-semibold rounded-[12px]"
                   />
                 </div>
               </div>
 
               <div>
                 <label
-                  className="block text-[14px] font-bold uppercase tracking-wider mb-2"
+                  className="block text-[12px] font-bold uppercase tracking-wider mb-1.5"
                   style={{ color: 'var(--text)' }}
                 >
                   Password
                 </label>
-                <div className="relative h-[48px]">
+                <div className="relative h-[42px]">
                   <Lock
-                    className="absolute left-4 top-1/2 -translate-y-1/2"
-                    size={20}
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2"
+                    size={16}
                     style={{ color: 'var(--text-muted)' }}
                   />
                   <input
@@ -214,19 +214,19 @@ export default function LoginForm({ portalId, onBack }: LoginFormProps) {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="input w-full h-full pl-12 pr-12 text-[18px] placeholder:text-[16px] font-medium rounded-[14px]"
+                    className="input w-full h-full pl-10 pr-10 text-[15px] placeholder:text-[13px] font-semibold rounded-[12px]"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 transition cursor-pointer"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 transition cursor-pointer"
                     style={{ color: 'var(--text-muted)' }}
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
-                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
-                <div className="flex justify-between items-center mt-[16px] px-0.5 text-[14px] font-bold">
+                <div className="flex justify-between items-center mt-[12px] px-0.5 text-[12px] font-bold">
                   <label
                     className="flex items-center gap-2 cursor-pointer select-none"
                     style={{ color: 'var(--text-secondary)' }}
@@ -243,13 +243,13 @@ export default function LoginForm({ portalId, onBack }: LoginFormProps) {
                     type="button"
                     id="forgot-password-btn"
                     onClick={() => setShowForgot(true)}
-                    className="cursor-pointer transition text-[14px]"
+                    className="cursor-pointer transition text-[12px]"
                     style={{ color: 'var(--primary)' }}
                   >
                     Forgot Password?
                   </button>
                 </div>
-                <div className="text-[11px] font-semibold text-slate-400 mt-2 px-0.5">
+                <div className="text-[10px] font-semibold text-slate-400 mt-2 px-0.5">
                   {portal.passwordHint}
                 </div>
               </div>
@@ -258,16 +258,16 @@ export default function LoginForm({ portalId, onBack }: LoginFormProps) {
                 id="login-submit-btn"
                 type="submit"
                 disabled={loading}
-                className="btn-primary w-full h-[48px] text-[16px] font-bold mt-[20px] rounded-[14px] flex items-center justify-center"
+                className="btn-primary w-full h-[42px] text-[14px] font-bold mt-[16px] rounded-[12px] flex items-center justify-center animate-pulse"
               >
                 {loading ? 'Signing In…' : `Enter ${portal.title} →`}
               </button>
             </form>
           ) : (
             /* ── Step 2: 2FA OTP ── */
-            <form onSubmit={handle2FA} className="space-y-[20px]">
+            <form onSubmit={handle2FA} className="space-y-[14px]">
               <div
-                className="p-3 rounded-[14px] text-[15px] leading-relaxed font-semibold"
+                className="p-3 rounded-[12px] text-[13px] leading-relaxed font-semibold"
                 style={{
                   background: 'var(--info-bg)',
                   border: '1px solid var(--info-border)',
@@ -279,15 +279,15 @@ export default function LoginForm({ portalId, onBack }: LoginFormProps) {
               </div>
               <div>
                 <label
-                  className="block text-[14px] font-bold uppercase text-center tracking-wider mb-2"
+                  className="block text-[12px] font-bold uppercase text-center tracking-wider mb-1.5"
                   style={{ color: 'var(--text)' }}
                 >
                   6-Digit OTP Code
                 </label>
-                <div className="relative h-[48px]">
+                <div className="relative h-[42px]">
                   <KeyRound
-                    className="absolute left-4 top-1/2 -translate-y-1/2"
-                    size={20}
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2"
+                    size={16}
                     style={{ color: 'var(--text-muted)' }}
                   />
                   <input
@@ -298,11 +298,11 @@ export default function LoginForm({ portalId, onBack }: LoginFormProps) {
                     value={otpCode}
                     onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
                     placeholder="000000"
-                    className="input w-full h-full text-center pl-12 pr-4 text-[18px] placeholder:text-[16px] font-bold font-mono tracking-widest rounded-[14px]"
+                    className="input w-full h-full text-center pl-10 pr-4 text-[16px] placeholder:text-[14px] font-bold font-mono tracking-widest rounded-[12px]"
                   />
                 </div>
               </div>
-              <div className="flex gap-4 mt-[20px]">
+              <div className="flex gap-4 mt-[16px]">
                 <button
                   type="button"
                   onClick={() => {
@@ -310,7 +310,7 @@ export default function LoginForm({ portalId, onBack }: LoginFormProps) {
                     setError('');
                     setOtpCode('');
                   }}
-                  className="btn-secondary w-1/3 h-[48px] text-[16px] font-bold rounded-[14px] flex items-center justify-center"
+                  className="btn-secondary w-1/3 h-[42px] text-[14px] font-bold rounded-[12px] flex items-center justify-center"
                 >
                   Back
                 </button>
@@ -318,7 +318,7 @@ export default function LoginForm({ portalId, onBack }: LoginFormProps) {
                   id="otp-submit-btn"
                   type="submit"
                   disabled={loading || otpCode.length < 6}
-                  className="btn-primary flex-1 h-[48px] text-[16px] font-bold rounded-[14px] flex items-center justify-center"
+                  className="btn-primary flex-1 h-[42px] text-[14px] font-bold rounded-[12px] flex items-center justify-center animate-pulse"
                 >
                   {loading ? 'Verifying…' : 'Unlock Session'}
                 </button>
