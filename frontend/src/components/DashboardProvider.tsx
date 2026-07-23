@@ -50,6 +50,7 @@ import Sidebar from './ui/Sidebar';
 import Breadcrumbs from './ui/Breadcrumbs';
 import NotificationCenter from './ui/NotificationCenter';
 import EnterpriseTable from './ui/EnterpriseTable';
+import { printSessionReport, printPrescriptionReport, printCrisisReport } from '@/utils/print';
 
 interface ProviderProps {
   onLogout: () => void;
@@ -115,6 +116,10 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
   const [scheduleFilter, setScheduleFilter] = useState<
     'all' | 'pending' | 'approved' | 'completed' | 'cancelled'
   >('all');
+  const [scheduleViewMode, setScheduleViewMode] = useState<'list' | 'grid'>('grid');
+  const [scheduleSelectedDate, setScheduleSelectedDate] = useState(
+    new Date().toISOString().split('T')[0],
+  );
 
   // Prescription builder state
   const [presStudentId, setPresStudentId] = useState('');
@@ -212,6 +217,34 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
       fetchDeskData();
     }
   }, [activeTab]);
+
+  // SOAP Note Version Auditing states
+  const [sessionVersions, setSessionVersions] = useState<any[]>([]);
+  const [selectedVersionId, setSelectedVersionId] = useState<number | null>(null);
+  const [loadingVersions, setLoadingVersions] = useState(false);
+
+  const fetchSessionVersions = async (sessionId: number) => {
+    setLoadingVersions(true);
+    try {
+      const data = await api.clinical.getSessionVersions(sessionId);
+      setSessionVersions(data || []);
+    } catch (err) {
+      console.error('Error fetching session versions:', err);
+      setSessionVersions([]);
+    } finally {
+      setLoadingVersions(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedRepoSession && selectedRepoSession.id) {
+      fetchSessionVersions(selectedRepoSession.id);
+      setSelectedVersionId(null);
+    } else {
+      setSessionVersions([]);
+      setSelectedVersionId(null);
+    }
+  }, [selectedRepoSession]);
 
   useEffect(() => {
     fetchAppointments();
@@ -964,152 +997,365 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                     View, approve, reject and reschedule patient bookings
                   </p>
                 </div>
-                {/* Status filter */}
-                <div className="flex gap-2 flex-wrap">
-                  {(['all', 'pending', 'approved', 'completed', 'cancelled'] as const).map((f) => (
+                <div className="flex flex-wrap gap-3 items-center">
+                  {/* View Mode Toggle */}
+                  <div className="flex gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shrink-0">
                     <button
-                      key={f}
-                      onClick={() => setScheduleFilter(f)}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition cursor-pointer ${
-                        scheduleFilter === f
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
+                      onClick={() => setScheduleViewMode('grid')}
+                      className={`px-3 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${
+                        scheduleViewMode === 'grid'
+                          ? 'bg-white dark:bg-slate-900 text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800'
+                          : 'text-slate-500 hover:text-slate-850 dark:hover:text-slate-200'
                       }`}
                     >
-                      {f.charAt(0).toUpperCase() + f.slice(1)}
+                      📅 Calendar Grid
                     </button>
-                  ))}
+                    <button
+                      onClick={() => setScheduleViewMode('list')}
+                      className={`px-3 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${
+                        scheduleViewMode === 'list'
+                          ? 'bg-white dark:bg-slate-900 text-slate-800 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800'
+                          : 'text-slate-500 hover:text-slate-850 dark:hover:text-slate-200'
+                      }`}
+                    >
+                      📋 List View
+                    </button>
+                  </div>
+
+                  {/* Status filter (only for list view) */}
+                  {scheduleViewMode === 'list' && (
+                    <div className="flex gap-1.5 flex-wrap">
+                      {(['all', 'pending', 'approved', 'completed', 'cancelled'] as const).map(
+                        (f) => (
+                          <button
+                            key={f}
+                            onClick={() => setScheduleFilter(f)}
+                            className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition cursor-pointer ${
+                              scheduleFilter === f
+                                ? 'bg-blue-600 text-white border-blue-600'
+                                : 'border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
+                            }`}
+                          >
+                            {f.charAt(0).toUpperCase() + f.slice(1)}
+                          </button>
+                        ),
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-2xl shadow-sm overflow-hidden">
-                {appointments.filter((a) => scheduleFilter === 'all' || a.status === scheduleFilter)
-                  .length === 0 ? (
-                  <div className="py-16 text-center text-slate-400">
-                    <CalendarIcon size={48} className="mx-auto text-slate-300 mb-3" />
-                    No {scheduleFilter === 'all' ? '' : scheduleFilter} appointments.
-                  </div>
-                ) : (
-                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {appointments
-                      .filter((a) => scheduleFilter === 'all' || a.status === scheduleFilter)
-                      .map((a, idx) => (
-                        <div
-                          key={idx}
-                          className="p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition"
-                        >
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-sm text-slate-900 dark:text-white">
-                                {a.student_name}
-                              </span>
-                              <span className="text-xs text-slate-400 font-mono">
-                                ({(a.registration_number || '').toUpperCase()})
-                              </span>
+              {scheduleViewMode === 'list' ? (
+                /* ── LIST VIEW ── */
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-2xl shadow-sm overflow-hidden">
+                  {appointments.filter(
+                    (a) => scheduleFilter === 'all' || a.status === scheduleFilter,
+                  ).length === 0 ? (
+                    <div className="py-16 text-center text-slate-400">
+                      <CalendarIcon size={48} className="mx-auto text-slate-300 mb-3" />
+                      No {scheduleFilter === 'all' ? '' : scheduleFilter} appointments.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {appointments
+                        .filter((a) => scheduleFilter === 'all' || a.status === scheduleFilter)
+                        .map((a, idx) => (
+                          <div
+                            key={idx}
+                            className="p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition"
+                          >
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-sm text-slate-900 dark:text-white">
+                                  {a.student_name}
+                                </span>
+                                <span className="text-xs text-slate-400 font-mono">
+                                  ({(a.registration_number || '').toUpperCase()})
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-500 mt-1">
+                                <strong>Date:</strong> {a.slot_date} &nbsp;|&nbsp;
+                                <strong>Time:</strong> {a.slot_time} &nbsp;|&nbsp;
+                                <strong>Dept:</strong> {a.student_dept || '—'}
+                              </p>
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                <strong>Reason:</strong> {a.reason}
+                              </p>
                             </div>
-                            <p className="text-xs text-slate-500 mt-1">
-                              <strong>Date:</strong> {a.slot_date} &nbsp;|&nbsp;
-                              <strong>Time:</strong> {a.slot_time} &nbsp;|&nbsp;
-                              <strong>Dept:</strong> {a.student_dept || '—'}
-                            </p>
-                            <p className="text-xs text-slate-500 mt-0.5">
-                              <strong>Reason:</strong> {a.reason}
-                            </p>
+
+                            <div className="flex flex-wrap gap-2 items-center shrink-0">
+                              <span
+                                className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
+                                  a.status === 'approved'
+                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300'
+                                    : a.status === 'completed'
+                                      ? 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-300'
+                                      : a.status === 'pending'
+                                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
+                                        : a.status === 'waiting'
+                                          ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300'
+                                          : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                                }`}
+                              >
+                                {a.status}
+                              </span>
+
+                              {a.status === 'pending' && (
+                                <button
+                                  disabled={actionLoading}
+                                  onClick={async () => {
+                                    setActionLoading(true);
+                                    try {
+                                      await api.appointments.updateStatus(a.id, {
+                                        status: 'approved',
+                                      });
+                                      fetchAppointments();
+                                    } finally {
+                                      setActionLoading(false);
+                                    }
+                                  }}
+                                  className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-xl transition cursor-pointer disabled:opacity-50"
+                                >
+                                  ✓ Approve
+                                </button>
+                              )}
+
+                              {(a.status === 'pending' || a.status === 'approved') && (
+                                <button
+                                  disabled={actionLoading}
+                                  onClick={async () => {
+                                    if (!confirm(`Cancel appointment for ${a.student_name}?`))
+                                      return;
+                                    setActionLoading(true);
+                                    try {
+                                      await api.appointments.updateStatus(a.id, {
+                                        status: 'cancelled',
+                                      });
+                                      fetchAppointments();
+                                    } finally {
+                                      setActionLoading(false);
+                                    }
+                                  }}
+                                  className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold rounded-xl border border-red-200 transition cursor-pointer disabled:opacity-50"
+                                >
+                                  ✕ Cancel
+                                </button>
+                              )}
+
+                              {(a.status === 'pending' || a.status === 'approved') && (
+                                <button
+                                  onClick={() => {
+                                    setRescheduleApp(a);
+                                    setRescheduleDate(a.slot_date);
+                                    setRescheduleTime(a.slot_time);
+                                  }}
+                                  className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl transition cursor-pointer"
+                                >
+                                  ↻ Reschedule
+                                </button>
+                              )}
+
+                              {a.status === 'approved' && (
+                                <button
+                                  onClick={() => {
+                                    setActiveApp(a);
+                                    setActiveTab('counselling-emr');
+                                  }}
+                                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition cursor-pointer"
+                                >
+                                  Open Notes
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* ── HOURLY GRID CALENDAR VIEW ── */
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-2xl shadow-sm p-6 space-y-6">
+                  <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-105 dark:border-slate-850">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-500 uppercase">
+                        Select Date:
+                      </span>
+                      <input
+                        type="date"
+                        value={scheduleSelectedDate}
+                        onChange={(e) => setScheduleSelectedDate(e.target.value)}
+                        className="px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none font-bold"
+                      />
+                    </div>
+                    <div className="flex gap-2.5 text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 bg-amber-500 rounded-full"></span> Pending
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full"></span> Approved
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 bg-blue-500 rounded-full"></span> Completed
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {[
+                      { time: '09:00', label: '09:00 AM' },
+                      { time: '10:00', label: '10:00 AM' },
+                      { time: '11:00', label: '11:00 AM' },
+                      { time: '12:00', label: '12:00 PM' },
+                      {
+                        time: '13:00',
+                        label: '01:00 PM',
+                        isBreak: true,
+                        labelBreak: '🍱 Lunch Break (Clinic Closed)',
+                      },
+                      { time: '14:00', label: '02:00 PM' },
+                      { time: '15:00', label: '03:00 PM' },
+                      { time: '16:00', label: '04:00 PM' },
+                    ].map((h) => {
+                      if (h.isBreak) {
+                        return (
+                          <div
+                            key={h.time}
+                            className="flex items-center gap-4 p-4 bg-slate-100/50 dark:bg-slate-950/40 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl select-none"
+                          >
+                            <div className="w-20 text-xs font-bold text-slate-400 font-mono text-right">
+                              {h.label}
+                            </div>
+                            <div className="flex-1 text-xs font-bold text-slate-400 italic">
+                              {h.labelBreak}
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      const dayApps = appointments.filter(
+                        (a) =>
+                          a.slot_date === scheduleSelectedDate &&
+                          a.slot_time
+                            .replace(/^0/, '')
+                            .startsWith(h.time.replace(/^0/, '').split(':')[0]),
+                      );
+
+                      return (
+                        <div key={h.time} className="flex gap-4 items-start">
+                          <div className="w-20 py-3 text-xs font-bold text-slate-400 dark:text-slate-550 font-mono text-right shrink-0">
+                            {h.label}
                           </div>
 
-                          <div className="flex flex-wrap gap-2 items-center shrink-0">
-                            {/* Status badge */}
-                            <span
-                              className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
-                                a.status === 'approved'
-                                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300'
-                                  : a.status === 'completed'
-                                    ? 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-300'
-                                    : a.status === 'pending'
-                                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
-                                      : a.status === 'waiting'
-                                        ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300'
-                                        : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                              }`}
-                            >
-                              {a.status}
-                            </span>
+                          <div className="flex-1 min-h-[50px] border border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-1 bg-slate-50/20 dark:bg-slate-900/10 flex flex-col gap-2">
+                            {dayApps.length === 0 ? (
+                              <div className="py-2.5 px-4 text-[10px] text-slate-400 dark:text-slate-600 font-semibold italic">
+                                Free Slot (No Bookings scheduled)
+                              </div>
+                            ) : (
+                              dayApps.map((a, aIdx) => {
+                                let statusColor =
+                                  'border-amber-500 bg-amber-50/30 text-amber-700 dark:bg-amber-950/10 dark:text-amber-400';
+                                if (a.status === 'approved') {
+                                  statusColor =
+                                    'border-emerald-500 bg-emerald-50/30 text-emerald-700 dark:bg-emerald-950/10 dark:text-emerald-400';
+                                } else if (a.status === 'completed') {
+                                  statusColor =
+                                    'border-blue-500 bg-blue-50/30 text-blue-700 dark:bg-blue-950/10 dark:text-blue-400';
+                                } else if (a.status === 'cancelled') {
+                                  statusColor =
+                                    'border-slate-350 bg-slate-50/30 text-slate-550 dark:bg-slate-950/10 dark:text-slate-500';
+                                }
 
-                            {/* Approve (only when pending) */}
-                            {a.status === 'pending' && (
-                              <button
-                                disabled={actionLoading}
-                                onClick={async () => {
-                                  setActionLoading(true);
-                                  try {
-                                    await api.appointments.updateStatus(a.id, {
-                                      status: 'approved',
-                                    });
-                                    fetchAppointments();
-                                  } finally {
-                                    setActionLoading(false);
-                                  }
-                                }}
-                                className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-xl transition cursor-pointer disabled:opacity-50"
-                              >
-                                ✓ Approve
-                              </button>
-                            )}
-
-                            {/* Reject (pending or approved) */}
-                            {(a.status === 'pending' || a.status === 'approved') && (
-                              <button
-                                disabled={actionLoading}
-                                onClick={async () => {
-                                  if (!confirm(`Cancel appointment for ${a.student_name}?`)) return;
-                                  setActionLoading(true);
-                                  try {
-                                    await api.appointments.updateStatus(a.id, {
-                                      status: 'cancelled',
-                                    });
-                                    fetchAppointments();
-                                  } finally {
-                                    setActionLoading(false);
-                                  }
-                                }}
-                                className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold rounded-xl border border-red-200 transition cursor-pointer disabled:opacity-50"
-                              >
-                                ✕ Cancel
-                              </button>
-                            )}
-
-                            {/* Reschedule (pending or approved) */}
-                            {(a.status === 'pending' || a.status === 'approved') && (
-                              <button
-                                onClick={() => {
-                                  setRescheduleApp(a);
-                                  setRescheduleDate(a.slot_date);
-                                  setRescheduleTime(a.slot_time);
-                                }}
-                                className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl transition cursor-pointer"
-                              >
-                                ↻ Reschedule
-                              </button>
-                            )}
-
-                            {/* Open SOAP editor (approved) */}
-                            {a.status === 'approved' && (
-                              <button
-                                onClick={() => {
-                                  setActiveApp(a);
-                                  setActiveTab('counselling-emr');
-                                }}
-                                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition cursor-pointer"
-                              >
-                                Open Notes
-                              </button>
+                                return (
+                                  <div
+                                    key={aIdx}
+                                    className={`p-3 border-l-4 rounded-lg flex flex-col sm:flex-row justify-between sm:items-center gap-3 transition shadow-sm ${statusColor}`}
+                                  >
+                                    <div>
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-extrabold text-xs">
+                                          {a.student_name}
+                                        </span>
+                                        <span className="text-[9px] font-mono opacity-80">
+                                          ({a.registration_number.toUpperCase()})
+                                        </span>
+                                      </div>
+                                      <div className="text-[10px] opacity-90 mt-0.5 font-medium">
+                                        ⏱️ {a.slot_time} &nbsp;|&nbsp; 📋 Reason: {a.reason}
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-2 shrink-0 select-none">
+                                      {a.status === 'pending' && (
+                                        <>
+                                          <button
+                                            disabled={actionLoading}
+                                            onClick={async () => {
+                                              setActionLoading(true);
+                                              try {
+                                                await api.appointments.updateStatus(a.id, {
+                                                  status: 'approved',
+                                                });
+                                                fetchAppointments();
+                                              } finally {
+                                                setActionLoading(false);
+                                              }
+                                            }}
+                                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold cursor-pointer disabled:opacity-50"
+                                          >
+                                            Approve
+                                          </button>
+                                          <button
+                                            disabled={actionLoading}
+                                            onClick={async () => {
+                                              if (
+                                                !confirm(
+                                                  `Cancel appointment for ${a.student_name}?`,
+                                                )
+                                              )
+                                                return;
+                                              setActionLoading(true);
+                                              try {
+                                                await api.appointments.updateStatus(a.id, {
+                                                  status: 'cancelled',
+                                                });
+                                                fetchAppointments();
+                                              } finally {
+                                                setActionLoading(false);
+                                              }
+                                            }}
+                                            className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-[10px] font-bold cursor-pointer disabled:opacity-50"
+                                          >
+                                            Reject
+                                          </button>
+                                        </>
+                                      )}
+                                      {a.status === 'approved' && (
+                                        <button
+                                          onClick={() => {
+                                            setActiveApp(a);
+                                            showToast(
+                                              'Active counseling EMR workspace initialized.',
+                                              'success',
+                                            );
+                                            setActiveTab('counselling-emr');
+                                          }}
+                                          className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                                        >
+                                          <FileText size={10} /> Open SOAP Note
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })
                             )}
                           </div>
                         </div>
-                      ))}
+                      );
+                    })}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Reschedule Modal */}
               {rescheduleApp && (
@@ -2065,114 +2311,218 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                 </div>
               </div>
 
-              {/* Details Modal */}
-              {selectedRepoSession && (
-                <div className="fixed inset-0 bg-black/60 backdrop-filter blur-sm z-50 flex items-center justify-center p-4">
-                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto flex flex-col shadow-2xl animate-fade-in-up">
-                    {/* Modal Header */}
-                    <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                      <div>
-                        <h3 className="font-black text-lg text-slate-800 dark:text-white">
-                          Clinical Assessment Details
-                        </h3>
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          Session Date:{' '}
-                          {new Date(selectedRepoSession.session_date).toLocaleDateString('en-IN', {
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric',
-                          })}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => setSelectedRepoSession(null)}
-                        className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-750 transition cursor-pointer"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
+              {selectedRepoSession &&
+                (() => {
+                  const displayedContent =
+                    selectedVersionId === null
+                      ? selectedRepoSession
+                      : sessionVersions.find((v) => v.id === selectedVersionId) ||
+                        selectedRepoSession;
 
-                    {/* Modal Body */}
-                    <div className="p-6 space-y-6 overflow-y-auto flex-1 text-slate-700 dark:text-slate-200">
-                      {/* Patient / Provider Profile Box */}
-                      <div className="grid grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-850">
-                        <div>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-                            Patient Information
-                          </p>
-                          <p className="text-sm font-black mt-1">
-                            {selectedRepoSession.student_name}
-                          </p>
-                          <p className="text-xs text-slate-500 font-mono mt-0.5">
-                            {selectedRepoSession.registration_number.toUpperCase()} ·{' '}
-                            {selectedRepoSession.student_dept}
-                          </p>
+                  return (
+                    <div className="fixed inset-0 bg-black/60 backdrop-filter blur-sm z-50 flex items-center justify-center p-4">
+                      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto flex flex-col shadow-2xl animate-fade-in-up">
+                        {/* Modal Header */}
+                        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                          <div>
+                            <h3 className="font-black text-lg text-slate-800 dark:text-white">
+                              Clinical Assessment Details
+                            </h3>
+                            <p className="text-xs text-slate-400 mt-0.5">
+                              Session Date:{' '}
+                              {new Date(selectedRepoSession.session_date).toLocaleDateString(
+                                'en-IN',
+                                {
+                                  day: 'numeric',
+                                  month: 'long',
+                                  year: 'numeric',
+                                },
+                              )}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => setSelectedRepoSession(null)}
+                            className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-750 transition cursor-pointer"
+                          >
+                            <X size={16} />
+                          </button>
                         </div>
-                        <div>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-                            Clinical Counselor
-                          </p>
-                          <p className="text-sm font-black mt-1">
-                            {selectedRepoSession.provider_name}
-                          </p>
-                          <p className="text-xs text-slate-500 mt-0.5">
-                            Role:{' '}
-                            {selectedRepoSession.clinician_mode === 'doctor'
-                              ? 'Medical Doctor'
-                              : 'Therapist/Counselor'}
-                          </p>
-                        </div>
-                      </div>
 
-                      {/* Clinical Details */}
-                      <div className="space-y-4">
-                        <div>
-                          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1.5 mb-2">
-                            Subjective Findings (Complaints)
-                          </h4>
-                          <p className="text-sm whitespace-pre-line leading-relaxed">
-                            {selectedRepoSession.subjective || 'No subjective details recorded'}
-                          </p>
+                        {/* Modal Body */}
+                        <div className="p-6 space-y-6 overflow-y-auto flex-1 text-slate-700 dark:text-slate-200">
+                          {/* Version Revision Selector */}
+                          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-850">
+                            <div>
+                              <span className="text-xs font-bold text-slate-655 dark:text-slate-300 uppercase block">
+                                Revision Audit logs
+                              </span>
+                              <span className="text-[10px] text-slate-400 mt-0.5 block">
+                                {sessionVersions.length} versions stored for this session.
+                              </span>
+                            </div>
+                            <div className="flex gap-2">
+                              <select
+                                className="px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none"
+                                value={selectedVersionId === null ? 'active' : selectedVersionId}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val === 'active') {
+                                    setSelectedVersionId(null);
+                                  } else {
+                                    setSelectedVersionId(parseInt(val));
+                                  }
+                                }}
+                              >
+                                <option value="active">Active (Current EMR Note)</option>
+                                {sessionVersions.map((v) => (
+                                  <option key={v.id} value={v.id}>
+                                    Version {v.version} (Edited by {v.editor_name || 'Counselor'} on{' '}
+                                    {new Date(v.created_at).toLocaleDateString('en-IN')})
+                                  </option>
+                                ))}
+                              </select>
+                              {selectedVersionId !== null && (
+                                <button
+                                  onClick={async () => {
+                                    const targetVersion = sessionVersions.find(
+                                      (v) => v.id === selectedVersionId,
+                                    );
+                                    if (!targetVersion) return;
+                                    if (
+                                      !confirm(
+                                        'Are you sure you want to restore this EMR note to the selected revision?',
+                                      )
+                                    )
+                                      return;
+                                    try {
+                                      await api.clinical.saveSession({
+                                        id: selectedRepoSession.id,
+                                        student_id: selectedRepoSession.student_id,
+                                        session_date: selectedRepoSession.session_date,
+                                        presenting_complaint: targetVersion.presenting_complaint,
+                                        subjective: targetVersion.subjective,
+                                        objective: targetVersion.objective,
+                                        assessment: targetVersion.assessment,
+                                        plan: targetVersion.plan,
+                                        risk_assessment: targetVersion.risk_assessment,
+                                      });
+                                      showToast(
+                                        'EMR note successfully restored to selected revision.',
+                                        'success',
+                                      );
+                                      fetchRepository();
+                                      setSelectedRepoSession(null);
+                                    } catch (err: any) {
+                                      showToast(
+                                        err.message || 'Restoring revision failed',
+                                        'error',
+                                      );
+                                    }
+                                  }}
+                                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[10px] font-bold shadow-sm transition cursor-pointer"
+                                >
+                                  Restore This Revision
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Patient / Provider Profile Box */}
+                          <div className="grid grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-850">
+                            <div>
+                              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                                Patient Information
+                              </p>
+                              <p className="text-sm font-black mt-1">
+                                {selectedRepoSession.student_name}
+                              </p>
+                              <p className="text-xs text-slate-500 font-mono mt-0.5">
+                                {selectedRepoSession.registration_number.toUpperCase()} ·{' '}
+                                {selectedRepoSession.student_dept}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                                Clinical Counselor
+                              </p>
+                              <p className="text-sm font-black mt-1">
+                                {selectedRepoSession.provider_name}
+                              </p>
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                Role:{' '}
+                                {selectedRepoSession.clinician_mode === 'doctor'
+                                  ? 'Medical Doctor'
+                                  : 'Therapist/Counselor'}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Clinical Details */}
+                          <div className="space-y-4">
+                            <div>
+                              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1.5 mb-2">
+                                Subjective Findings (Complaints)
+                              </h4>
+                              <p className="text-sm whitespace-pre-line leading-relaxed">
+                                {displayedContent.subjective || 'No subjective details recorded'}
+                              </p>
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1.5 mb-2">
+                                Objective Observations (MSE/Evaluation)
+                              </h4>
+                              <p className="text-sm whitespace-pre-line leading-relaxed">
+                                {displayedContent.objective || 'No objective details recorded'}
+                              </p>
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1.5 mb-2">
+                                Clinical Diagnosis
+                              </h4>
+                              <p className="text-sm font-bold italic">
+                                {displayedContent.diagnosis || 'No diagnosis recorded'}
+                              </p>
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1.5 mb-2">
+                                Treatment & Follow-up Plan
+                              </h4>
+                              <p className="text-sm whitespace-pre-line leading-relaxed">
+                                {displayedContent.plan || 'No treatment plan details recorded'}
+                              </p>
+                            </div>
+                            {displayedContent.risk_assessment && (
+                              <div>
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1.5 mb-2">
+                                  Risk Assessment Summary
+                                </h4>
+                                <p className="text-sm font-medium text-rose-600 dark:text-rose-400">
+                                  {displayedContent.risk_assessment}
+                                </p>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1.5 mb-2">
-                            Objective Observations (MSE/Evaluation)
-                          </h4>
-                          <p className="text-sm whitespace-pre-line leading-relaxed">
-                            {selectedRepoSession.objective || 'No objective details recorded'}
-                          </p>
-                        </div>
-                        <div>
-                          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1.5 mb-2">
-                            Clinical Diagnosis
-                          </h4>
-                          <p className="text-sm font-bold italic">
-                            {selectedRepoSession.diagnosis || 'No diagnosis recorded'}
-                          </p>
-                        </div>
-                        <div>
-                          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1.5 mb-2">
-                            Treatment & Follow-up Plan
-                          </h4>
-                          <p className="text-sm whitespace-pre-line leading-relaxed">
-                            {selectedRepoSession.plan || 'No treatment plan details recorded'}
-                          </p>
+
+                        {/* Modal Footer */}
+                        <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+                          <button
+                            onClick={() => printSessionReport(displayedContent)}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Printer size={14} /> Print Report
+                          </button>
+                          <button
+                            onClick={() => setSelectedRepoSession(null)}
+                            className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
+                          >
+                            Close
+                          </button>
                         </div>
                       </div>
                     </div>
-
-                    {/* Modal Footer */}
-                    <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-                      <button
-                        onClick={() => setSelectedRepoSession(null)}
-                        className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
-                      >
-                        Close
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+                  );
+                })()}
             </div>
           )}
 
@@ -2361,6 +2711,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                                 <th className="p-4">Resolved Date</th>
                                 <th className="p-4">Initial Crisis Log</th>
                                 <th className="p-4">Clinical Protocol Note</th>
+                                <th className="p-4 text-right">Actions</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-850 font-medium">
@@ -2392,6 +2743,14 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                                     </td>
                                     <td className="p-4 max-w-sm whitespace-pre-wrap leading-relaxed text-[11px]">
                                       {ec.referral_details}
+                                    </td>
+                                    <td className="p-4 text-right">
+                                      <button
+                                        onClick={() => printCrisisReport(ec)}
+                                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-bold shadow-sm transition flex items-center gap-1.5 cursor-pointer ml-auto"
+                                      >
+                                        <Printer size={12} /> Print Safety Plan
+                                      </button>
                                     </td>
                                   </tr>
                                 ))}
@@ -2936,11 +3295,11 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                                     </div>
                                     <button
                                       onClick={() =>
-                                        window.open(api.clinical.getPrintUrl(p.id), '_blank')
+                                        printPrescriptionReport(p, selectedStudentForProfile)
                                       }
-                                      className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-[10px] font-bold rounded-lg transition cursor-pointer"
+                                      className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-[10px] font-bold rounded-lg transition cursor-pointer flex items-center gap-1"
                                     >
-                                      Print Rx PDF
+                                      <Printer size={10} /> Print Rx PDF
                                     </button>
                                   </div>
                                   <div>

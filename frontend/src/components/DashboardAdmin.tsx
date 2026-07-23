@@ -1063,8 +1063,8 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                         </div>
                       </div>
 
-                      {/* Next Section 2: Assessment Analytics & Appointment Overview */}
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Next Section 2: Assessment Analytics, Appointment Overview & Screening Severity */}
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Assessment Analytics Bar Chart */}
                         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-6 rounded-3xl shadow-sm">
                           <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2 mb-6">
@@ -1204,6 +1204,62 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                                   name="No Show"
                                   stackId="a"
                                   fill="#64748b"
+                                  className="cursor-pointer"
+                                />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+
+                        {/* Psychological Triage Screening Trends */}
+                        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-6 rounded-3xl shadow-sm">
+                          <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2 mb-6">
+                            <Activity size={16} className="text-pink-500" /> Screening Trends (PHQ-9
+                            & GAD-7)
+                          </h3>
+                          <div className="h-72">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={stats.charts.wellnessScreeningTrends}>
+                                <CartesianGrid
+                                  strokeDasharray="3 3"
+                                  stroke="#334155"
+                                  opacity={0.1}
+                                  vertical={false}
+                                />
+                                <XAxis
+                                  dataKey="name"
+                                  stroke="#64748b"
+                                  fontSize={11}
+                                  axisLine={false}
+                                  tickLine={false}
+                                />
+                                <YAxis
+                                  stroke="#64748b"
+                                  fontSize={11}
+                                  axisLine={false}
+                                  tickLine={false}
+                                />
+                                <Tooltip
+                                  contentStyle={{
+                                    backgroundColor: 'hsl(var(--card))',
+                                    borderRadius: '12px',
+                                    border: 'none',
+                                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                                  }}
+                                />
+                                <Legend verticalAlign="top" height={36} iconType="circle" />
+                                <Bar
+                                  dataKey="depression"
+                                  name="PHQ-9 (Depression)"
+                                  fill="#3b82f6"
+                                  radius={[4, 4, 0, 0]}
+                                  className="cursor-pointer"
+                                />
+                                <Bar
+                                  dataKey="anxiety"
+                                  name="GAD-7 (Anxiety)"
+                                  fill="#ec4899"
+                                  radius={[4, 4, 0, 0]}
                                   className="cursor-pointer"
                                 />
                               </BarChart>

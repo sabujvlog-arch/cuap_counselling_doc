@@ -47,6 +47,7 @@ import { useSidebar } from '@/hooks/useSidebar';
 import Sidebar from './ui/Sidebar';
 import Breadcrumbs from './ui/Breadcrumbs';
 import NotificationCenter from './ui/NotificationCenter';
+import { printPrescriptionReport } from '@/utils/print';
 
 interface StudentProps {
   onLogout: () => void;
@@ -1140,7 +1141,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                         </div>
                         {!p.masked && (
                           <button
-                            onClick={() => window.open(api.clinical.getPrintUrl(p.id), '_blank')}
+                            onClick={() => printPrescriptionReport(p, studentProfile)}
                             className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition cursor-pointer"
                           >
                             <Printer size={14} /> Print / Save PDF

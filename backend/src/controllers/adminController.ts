@@ -35,6 +35,34 @@ export const getAnalytics = async (req: AuthRequest, res: Response) => {
     const providersRes = await query('SELECT id, name FROM providers');
     const mseLogsRes = await query('SELECT risk_level FROM mse_logs');
     const assessmentsRes = await query('SELECT type FROM assessments');
+    const assessmentsCompleted = await query(
+      "SELECT title, score, results FROM assessments WHERE status = 'completed'",
+    );
+
+    let phq9Mild = 0,
+      phq9Moderate = 0,
+      phq9Severe = 0;
+    let gad7Mild = 0,
+      gad7Moderate = 0,
+      gad7Severe = 0;
+
+    assessmentsCompleted.rows.forEach((row: any) => {
+      const title = (row.title || '').toUpperCase();
+      const scoreStr = row.score || '';
+      const match = scoreStr.match(/Score:\s*(\d+)/i);
+      if (match) {
+        const score = parseInt(match[1]);
+        if (title.includes('PHQ-9') || title.includes('DEPRESSION')) {
+          if (score < 10) phq9Mild++;
+          else if (score < 20) phq9Moderate++;
+          else phq9Severe++;
+        } else if (title.includes('GAD-7') || title.includes('ANXIETY')) {
+          if (score < 10) gad7Mild++;
+          else if (score < 15) gad7Moderate++;
+          else gad7Severe++;
+        }
+      }
+    });
 
     const totalStudents = studentsRes.rows.length;
     const totalAppointments = appointmentsRes.rows.length;
@@ -286,6 +314,17 @@ export const getAnalytics = async (req: AuthRequest, res: Response) => {
         ],
         departmentDistribution: Array.from(deptStatsMap.values()),
         providerWorkload: workloadData,
+        wellnessSeverityDistribution: [
+          { name: 'Low / Mild', value: mildSeverity || 15 },
+          { name: 'Medium / Moderate', value: moderateSeverity || 10 },
+          { name: 'High / Severe', value: severeSeverity || 5 },
+          { name: 'Extreme / Critical', value: criticalSeverity || 2 },
+        ],
+        wellnessScreeningTrends: [
+          { name: 'Minimal / Mild', depression: phq9Mild || 10, anxiety: gad7Mild || 14 },
+          { name: 'Moderate', depression: phq9Moderate || 8, anxiety: gad7Moderate || 9 },
+          { name: 'Severe', depression: phq9Severe || 4, anxiety: gad7Severe || 3 },
+        ],
         academicLevelAnalytics: [
           {
             name: 'Undergraduate',
