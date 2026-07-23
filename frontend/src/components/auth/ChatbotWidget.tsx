@@ -160,7 +160,7 @@ export default function ChatbotWidget() {
       <button
         id="chatbot-toggle-btn"
         onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-6 right-6 p-4 rounded-full z-50 cursor-pointer transition hover:scale-105"
+        className="fixed top-20 right-6 px-4 py-2.5 rounded-full z-50 cursor-pointer transition hover:scale-105 flex items-center gap-2 text-xs font-black uppercase tracking-wider shadow-lg"
         style={{
           background: 'var(--gradient-primary)',
           color: 'white',
@@ -169,13 +169,14 @@ export default function ChatbotWidget() {
         }}
         aria-label={open ? 'Close chat' : 'Open wellness chat'}
       >
-        {open ? <X size={22} /> : <MessageSquare size={22} />}
+        {open ? <X size={15} /> : <MessageSquare size={15} />}
+        <span>{open ? 'Close AI' : 'UniMind AI'}</span>
       </button>
 
       {/* Chat window */}
       {open && (
         <div
-          className="fixed bottom-24 right-6 w-96 max-w-[calc(100vw-2rem)] h-[480px] rounded-3xl flex flex-col z-50 overflow-hidden animate-slide-in-right relative"
+          className="fixed top-32 right-6 w-96 max-w-[calc(100vw-2rem)] h-[480px] rounded-3xl flex flex-col z-50 overflow-hidden animate-slide-in-right relative"
           style={{
             background: 'var(--card)',
             border: '1px solid var(--border)',
