@@ -163,7 +163,7 @@ export default function LoginForm({ portalId, onBack }: LoginFormProps) {
         </div>
 
         {/* Form body */}
-        <div className="px-6 pb-5 -mt-2">
+        <div className="px-6 pb-5 pt-3">
           <ErrorAlert message={error} onClose={() => setError('')} className="mb-4" />
 
           {!requires2FA ? (
