@@ -750,55 +750,6 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                   </p>
                 </button>
               </div>
-
-              {/* Line Chart */}
-              {historicalAssessments && historicalAssessments.length > 0 ? (
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-855 p-6 rounded-2xl shadow-sm">
-                  <h3 className="text-sm font-bold text-slate-850 dark:text-slate-100 mb-6 uppercase tracking-wider text-[10px]">
-                    📊 Self-Screening Score Progression
-                  </h3>
-                  <div className="h-72">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" strokeOpacity={0.5} />
-                        <XAxis dataKey="date" stroke="#94A3B8" fontSize={10} fontStyle="bold" />
-                        <YAxis stroke="#94A3B8" fontSize={10} fontStyle="bold" />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: 'var(--card)',
-                            borderColor: 'var(--border)',
-                            borderRadius: '12px',
-                          }}
-                        />
-                        <Legend />
-                        <Line
-                          type="monotone"
-                          dataKey="phq9"
-                          stroke="#3B82F6"
-                          strokeWidth={3}
-                          connectNulls
-                          activeDot={{ r: 6 }}
-                          name="PHQ-9 (Depression)"
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="gad7"
-                          stroke="#10B981"
-                          strokeWidth={3}
-                          connectNulls
-                          activeDot={{ r: 6 }}
-                          name="GAD-7 (Anxiety)"
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-12 rounded-2xl text-center text-slate-400 text-xs font-semibold">
-                  No screening assessments completed yet. Take your first self-quiz in the
-                  "Assessments Desk" tab to map your progress!
-                </div>
-              )}
             </div>
           )}
 
