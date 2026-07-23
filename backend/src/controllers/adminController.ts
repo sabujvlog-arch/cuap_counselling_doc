@@ -35,9 +35,7 @@ export const getAnalytics = async (req: AuthRequest, res: Response) => {
     const providersRes = await query('SELECT id, name FROM providers');
     const mseLogsRes = await query('SELECT risk_level FROM mse_logs');
     const assessmentsRes = await query('SELECT type FROM assessments');
-    const assessmentsCompleted = await query(
-      "SELECT title, score, results FROM assessments WHERE status = 'completed'",
-    );
+    const assessmentsCompleted = await query('SELECT type, scores, report FROM assessments');
 
     let phq9Mild = 0,
       phq9Moderate = 0,
@@ -47,11 +45,22 @@ export const getAnalytics = async (req: AuthRequest, res: Response) => {
       gad7Severe = 0;
 
     assessmentsCompleted.rows.forEach((row: any) => {
-      const title = (row.title || '').toUpperCase();
-      const scoreStr = row.score || '';
-      const match = scoreStr.match(/Score:\s*(\d+)/i);
-      if (match) {
-        const score = parseInt(match[1]);
+      const title = (row.type || '').toUpperCase();
+      let score = 0;
+      if (row.scores) {
+        try {
+          const parsed = typeof row.scores === 'string' ? JSON.parse(row.scores) : row.scores;
+          score = parsed.totalScore || 0;
+        } catch (e) {
+          const match =
+            (row.report || '').match(/Score:\s*(\d+)/i) ||
+            (row.report || '').match(/Calculated Score:\s*(\d+)/i);
+          if (match) {
+            score = parseInt(match[1]);
+          }
+        }
+      }
+      if (score > 0) {
         if (title.includes('PHQ-9') || title.includes('DEPRESSION')) {
           if (score < 10) phq9Mild++;
           else if (score < 20) phq9Moderate++;
