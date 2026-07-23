@@ -705,41 +705,49 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <button
                   onClick={() => setActiveTab('appointments')}
-                  className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-slate-900 dark:to-slate-855 border border-blue-200/50 dark:border-slate-800 rounded-2xl text-left cursor-pointer transition hover:-translate-y-0.5 hover:shadow-sm"
+                  className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/20 dark:to-slate-900 border border-blue-200/50 dark:border-slate-800 rounded-2xl text-left cursor-pointer transition hover:-translate-y-0.5 hover:shadow-sm"
                 >
                   <Calendar className="text-blue-600 dark:text-blue-400 mb-3" size={20} />
                   <h4 className="font-bold text-xs text-slate-800 dark:text-white">Book Session</h4>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Find an available slot</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Find an available slot
+                  </p>
                 </button>
                 <button
                   onClick={() => setActiveTab('documents')}
-                  className="p-4 bg-gradient-to-br from-violet-50 to-violet-100 dark:from-slate-900 dark:to-slate-855 border border-violet-200/50 dark:border-slate-800 rounded-2xl text-left cursor-pointer transition hover:-translate-y-0.5 hover:shadow-sm"
+                  className="p-4 bg-gradient-to-br from-violet-50 to-violet-100 dark:from-violet-950/20 dark:to-slate-900 border border-violet-200/50 dark:border-slate-800 rounded-2xl text-left cursor-pointer transition hover:-translate-y-0.5 hover:shadow-sm"
                 >
                   <FileText className="text-violet-600 dark:text-violet-400 mb-3" size={20} />
                   <h4 className="font-bold text-xs text-slate-800 dark:text-white">
                     Consent & Files
                   </h4>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Upload history records</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Upload history records
+                  </p>
                 </button>
                 <button
                   onClick={() => setActiveTab('assessment')}
-                  className="p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-slate-900 dark:to-slate-855 border border-emerald-200/50 dark:border-slate-800 rounded-2xl text-left cursor-pointer transition hover:-translate-y-0.5 hover:shadow-sm"
+                  className="p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/20 dark:to-slate-900 border border-emerald-200/50 dark:border-slate-800 rounded-2xl text-left cursor-pointer transition hover:-translate-y-0.5 hover:shadow-sm"
                 >
                   <Clipboard className="text-emerald-600 dark:text-emerald-400 mb-3" size={20} />
                   <h4 className="font-bold text-xs text-slate-800 dark:text-white">
                     Start Screening
                   </h4>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Analyze mood patterns</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Analyze mood patterns
+                  </p>
                 </button>
                 <button
                   onClick={() => setActiveTab('feedback')}
-                  className="p-4 bg-gradient-to-br from-rose-50 to-rose-100 dark:from-slate-900 dark:to-slate-855 border border-rose-200/50 dark:border-slate-800 rounded-2xl text-left cursor-pointer transition hover:-translate-y-0.5 hover:shadow-sm"
+                  className="p-4 bg-gradient-to-br from-rose-50 to-rose-100 dark:from-rose-950/20 dark:to-slate-900 border border-rose-200/50 dark:border-slate-800 rounded-2xl text-left cursor-pointer transition hover:-translate-y-0.5 hover:shadow-sm"
                 >
                   <Heart className="text-rose-600 dark:text-rose-400 mb-3" size={20} />
                   <h4 className="font-bold text-xs text-slate-800 dark:text-white">
                     Crisis Support
                   </h4>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Emergency direct numbers</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Emergency direct numbers
+                  </p>
                 </button>
               </div>
 
