@@ -145,7 +145,7 @@ function SecurityLoginCard() {
           />
           <div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-none mb-0.5">
-              ఆంధ్రప్రదేశ్ కేంద్ర విశ్వవిద్యాలయం
+              ఆంధ్రప్రదేశ్ కేంద్రీయ విశ్వవిద్యాలయం
             </p>
             <p className="text-[11px] font-black text-blue-700 uppercase tracking-wide leading-tight">
               Central University of Andhra Pradesh
@@ -401,7 +401,7 @@ export default function Home() {
           />
           <div>
             <p className="text-[10px] font-black text-blue-200 uppercase tracking-widest leading-none mb-0.5">
-              ఆంధ్రప్రదేశ్ కేంద్ర విశ్వవిద్యాలయం
+              ఆంధ్రప్రదేశ్ కేంద్రీయ విశ్వవిద్యాలయం
             </p>
             <p className="text-sm font-extrabold text-white leading-tight">
               Central University of Andhra Pradesh
