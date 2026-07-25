@@ -1711,6 +1711,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                       </span>
                       <input
                         type="date"
+                        min={new Date().toISOString().split('T')[0]}
                         value={scheduleSelectedDate}
                         onChange={(e) => setScheduleSelectedDate(e.target.value)}
                         className="px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none font-bold"

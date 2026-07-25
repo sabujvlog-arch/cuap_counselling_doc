@@ -771,19 +771,38 @@ export const getAvailableSlots = async (req: AuthRequest, res: Response) => {
       return acc;
     }, {});
 
-    const responseSlots = slots.map((s) => {
-      const bookedStatus = bookings[s.time];
-      return {
-        time: s.time,
-        status: bookedStatus
-          ? bookedStatus === 'approved'
-            ? 'occupied'
-            : bookedStatus === 'pending'
-              ? 'pending'
-              : 'occupied'
-          : 'available',
-      };
-    });
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (date < todayStr) {
+      return res.json({ slots: [], reason: 'Cannot book appointments for past dates.' });
+    }
+
+    const responseSlots = slots
+      .map((s) => {
+        const bookedStatus = bookings[s.time];
+        return {
+          time: s.time,
+          status: bookedStatus
+            ? bookedStatus === 'approved'
+              ? 'occupied'
+              : bookedStatus === 'pending'
+                ? 'pending'
+                : 'occupied'
+            : 'available',
+        };
+      })
+      .filter((s) => {
+        // If booking for today, exclude time slots that have already passed earlier today
+        if (date === todayStr) {
+          const now = new Date();
+          const currentHour = now.getHours();
+          const currentMin = now.getMinutes();
+          const slotHour = parseTime(s.time.split(' - ')[0] || s.time) / 60;
+          if (slotHour < currentHour || (slotHour === currentHour && currentMin >= 30)) {
+            return false;
+          }
+        }
+        return true;
+      });
 
     return res.json({ slots: responseSlots });
   } catch (err) {
