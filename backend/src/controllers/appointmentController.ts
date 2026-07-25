@@ -1573,7 +1573,14 @@ export const globalSearch = async (req: AuthRequest, res: Response) => {
 };
 
 export const toggleAvailabilitySlot = async (req: AuthRequest, res: Response) => {
-  if (!req.user || req.user.role !== 'provider') {
+  if (
+    !req.user ||
+    (req.user.role !== 'provider' &&
+      req.user.role !== 'clinician' &&
+      req.user.role !== 'dept-head' &&
+      req.user.role !== 'admin' &&
+      req.user.role !== 'super-admin')
+  ) {
     return res.status(403).json({ error: 'Only counselors can manage availability slots' });
   }
 
@@ -1583,33 +1590,35 @@ export const toggleAvailabilitySlot = async (req: AuthRequest, res: Response) =>
   }
 
   try {
-    const provRes = await query('SELECT id FROM providers WHERE user_id = $1', [req.user.id]);
-    if (provRes.rows.length === 0) {
-      return res.status(404).json({ error: 'Provider record not found' });
+    let providerId = req.user.id;
+    const provRes = await query('SELECT id FROM providers WHERE user_id = $1 OR id = $1', [
+      req.user.id,
+    ]);
+    if (provRes.rows && provRes.rows.length > 0) {
+      providerId = provRes.rows[0].id;
     }
-    const providerId = provRes.rows[0].id;
 
     if (isAvailable) {
-      // Delete from availability block (unblock)
+      // Unblock slot
       await query(
         `DELETE FROM availability WHERE provider_id = $1 AND day_of_week = $2 AND start_time = $3`,
         [providerId, dayOfWeek, timeSlot],
       );
     } else {
-      // Add block row if not existing
+      // Block slot (mark as holiday/blocked)
       const checkRes = await query(
         `SELECT id FROM availability WHERE provider_id = $1 AND day_of_week = $2 AND start_time = $3`,
         [providerId, dayOfWeek, timeSlot],
       );
       if (checkRes.rows.length === 0) {
         await query(
-          `INSERT INTO availability (provider_id, day_of_week, start_time, end_time, is_available) VALUES ($1, $2, $3, $3, $4)`,
-          [providerId, dayOfWeek, timeSlot, isAvailable ? 1 : 0],
+          `INSERT INTO availability (provider_id, day_of_week, start_time, end_time, is_holiday) VALUES ($1, $2, $3, $3, 1)`,
+          [providerId, dayOfWeek, timeSlot],
         );
       } else {
         await query(
-          `UPDATE availability SET is_available = $1 WHERE provider_id = $2 AND day_of_week = $3 AND start_time = $4`,
-          [isAvailable ? 1 : 0, providerId, dayOfWeek, timeSlot],
+          `UPDATE availability SET is_holiday = 1 WHERE provider_id = $1 AND day_of_week = $2 AND start_time = $3`,
+          [providerId, dayOfWeek, timeSlot],
         );
       }
     }
