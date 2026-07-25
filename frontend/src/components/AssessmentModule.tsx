@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { api } from '@/lib/api';
+import { api, API_BASE } from '@/lib/api';
 
 const PHQ9_QUESTIONS = [
   'Little interest or pleasure in doing things',
@@ -97,8 +97,7 @@ export default function AssessmentModule({ studentId, onSuccess }: AssessmentPro
         headers.set('Authorization', `Bearer ${token}`);
       }
 
-      const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-      const response = await fetch(`http://${hostname}:5000/api/assessments/${id}/pdf`, {
+      const response = await fetch(`${API_BASE}/assessments/${id}/pdf`, {
         headers,
       });
 

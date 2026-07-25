@@ -2,13 +2,16 @@ import { DEMO_USERS } from '@/config/demoUsers';
 import tempCredentials from '@/config/tempCredentials.json';
 
 const getApiBase = (): string => {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
   if (typeof window !== 'undefined') {
     return `http://${window.location.hostname}:5000/api`;
   }
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+  return 'http://localhost:5000/api';
 };
 
-const API_BASE = getApiBase();
+export const API_BASE = getApiBase();
 
 // Safe localStorage access
 const getToken = (): string | null => {
