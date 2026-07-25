@@ -4,6 +4,32 @@ import { AuthRequest } from '../middleware/auth';
 import { encrypt, decrypt } from '../utils/crypto';
 import { createNotification } from '../services/notificationService';
 import PDFDocument from 'pdfkit';
+import fs from 'fs';
+import path from 'path';
+
+let cachedLogoDataUri = '';
+const getLogoDataUri = (): string => {
+  if (cachedLogoDataUri) return cachedLogoDataUri;
+  try {
+    const candidatePaths = [
+      path.join(__dirname, '../../public/logo.png'),
+      path.join(__dirname, '../../../frontend/public/logo.png'),
+      path.join(process.cwd(), 'public/logo.png'),
+      path.join(process.cwd(), '../frontend/public/logo.png'),
+      path.join(process.cwd(), 'backend/public/logo.png'),
+    ];
+    for (const p of candidatePaths) {
+      if (fs.existsSync(p)) {
+        const fileData = fs.readFileSync(p);
+        cachedLogoDataUri = `data:image/png;base64,${fileData.toString('base64')}`;
+        return cachedLogoDataUri;
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load logo base64:', err);
+  }
+  return 'https://gate.cuap.in/assets/cuap_logo_long.png';
+};
 
 // Helper to encrypt session object
 const encryptSessionFields = (data: any) => {
@@ -1033,7 +1059,7 @@ export const getPrescriptionPrintLayout = async (req: AuthRequest, res: Response
         <div class="container">
           <div class="header">
             <div class="header-left">
-              <img src="${origin}/logo.png" style="width: 70px; height: 70px; object-fit: contain;" alt="CUAP Logo" />
+              <img src="${getLogoDataUri()}" style="width: 70px; height: 70px; object-fit: contain;" alt="CUAP Logo" />
               <div class="title-area">
                 <h1>Student Wellness & Counseling Centre</h1>
                 <p>Central University of Andhra Pradesh</p>
@@ -1402,7 +1428,7 @@ export const getMSEPrintLayout = async (req: AuthRequest, res: Response) => {
         <div class="container">
           <div class="header">
             <div class="header-left">
-              <img src="${origin}/logo.png" style="width: 70px; height: 70px; object-fit: contain;" alt="CUAP Logo" />
+              <img src="${getLogoDataUri()}" style="width: 70px; height: 70px; object-fit: contain;" alt="CUAP Logo" />
               <div class="title-area">
                 <h1>Student Wellness & Counseling Centre</h1>
                 <p>Central University of Andhra Pradesh</p>
@@ -1649,7 +1675,7 @@ export const getCaseHistoryPrintLayout = async (req: AuthRequest, res: Response)
         <div class="container">
           <div class="header">
             <div class="header-left">
-              <img src="http://localhost:3000/logo.png" style="width: 70px; height: 70px; object-fit: contain;" alt="CUAP Logo" />
+              <img src="${getLogoDataUri()}" style="width: 70px; height: 70px; object-fit: contain;" alt="CUAP Logo" />
               <div class="title-area">
                 <h1>Student Wellness & Counseling Centre</h1>
                 <p>Central University of Andhra Pradesh</p>
@@ -2132,7 +2158,7 @@ export const getCompiledClientReport = async (req: AuthRequest, res: Response) =
         <div class="container">
           <div class="header">
             <div class="header-left">
-              <img src="http://localhost:3000/logo.png" style="width: 65px; height: 65px; object-fit: contain;" alt="CUAP Logo" />
+              <img src="${getLogoDataUri()}" style="width: 65px; height: 65px; object-fit: contain;" alt="CUAP Logo" />
               <div class="title-area">
                 <h1>CUAP Mental Health & Wellness Portal</h1>
                 <p>Central University of Andhra Pradesh</p>
