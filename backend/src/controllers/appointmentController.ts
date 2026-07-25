@@ -1594,8 +1594,9 @@ export const toggleAvailabilitySlot = async (req: AuthRequest, res: Response) =>
     const provRes = await query('SELECT id FROM providers WHERE user_id = $1 OR id = $1', [
       req.user.id,
     ]);
-    if (provRes.rows && provRes.rows.length > 0) {
-      providerId = provRes.rows[0].id;
+    const provRows = provRes.rows || provRes;
+    if (provRows && provRows.length > 0) {
+      providerId = provRows[0].id;
     }
 
     if (isAvailable) {
@@ -1610,7 +1611,8 @@ export const toggleAvailabilitySlot = async (req: AuthRequest, res: Response) =>
         `SELECT id FROM availability WHERE provider_id = $1 AND day_of_week = $2 AND start_time = $3`,
         [providerId, dayOfWeek, timeSlot],
       );
-      if (checkRes.rows.length === 0) {
+      const checkRows = checkRes.rows || checkRes;
+      if (!checkRows || checkRows.length === 0) {
         await query(
           `INSERT INTO availability (provider_id, day_of_week, start_time, end_time, is_holiday) VALUES ($1, $2, $3, $3, 1)`,
           [providerId, dayOfWeek, timeSlot],

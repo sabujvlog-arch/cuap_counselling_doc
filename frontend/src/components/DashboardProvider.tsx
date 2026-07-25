@@ -1806,7 +1806,9 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                                     const isBlocked = !!blockedSlotsMap[key];
                                     try {
                                       await api.appointments.toggleAvailabilitySlot({
-                                        dayOfWeek: new Date(scheduleSelectedDate).getDay(),
+                                        dayOfWeek: new Date(
+                                          scheduleSelectedDate + 'T00:00:00',
+                                        ).getDay(),
                                         timeSlot: h.label,
                                         isAvailable: isBlocked,
                                       });
