@@ -50,7 +50,39 @@ import Sidebar from './ui/Sidebar';
 import Breadcrumbs from './ui/Breadcrumbs';
 import NotificationCenter from './ui/NotificationCenter';
 import EnterpriseTable from './ui/EnterpriseTable';
-import { printSessionReport, printPrescriptionReport, printCrisisReport } from '@/utils/print';
+import {
+  printSessionReport,
+  printPrescriptionReport,
+  printCrisisReport,
+  downloadPrescriptionPDF,
+} from '@/utils/print';
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-slate-900/95 dark:bg-slate-950/95 backdrop-blur-md border border-slate-700/50 p-4.5 rounded-2xl shadow-2xl text-left min-w-[160px] animate-scale-in">
+        <p className="text-xs font-black text-slate-200 mb-2 border-b border-slate-800 pb-1.5">
+          {label}
+        </p>
+        <div className="space-y-2">
+          {payload.map((entry: any, i: number) => (
+            <div key={i} className="flex items-center justify-between gap-4 text-[11px] font-bold">
+              <div className="flex items-center gap-2">
+                <span
+                  className="w-2.5 h-2.5 rounded-full"
+                  style={{ backgroundColor: entry.color || entry.fill || entry.stroke }}
+                ></span>
+                <span className="text-slate-400">{entry.name}:</span>
+              </div>
+              <span className="text-white font-black">{entry.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
 
 interface ProviderProps {
   onLogout: () => void;
@@ -77,13 +109,17 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
   const [loading, setLoading] = useState(false);
   const [notifCenterOpen, setNotifCenterOpen] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [drawerType, setDrawerType] = useState<
+    'patients' | 'today' | 'completed' | 'urgent' | null
+  >(null);
+  const [drawerSearch, setDrawerSearch] = useState('');
 
   const tabLabels: Record<string, string> = {
     dashboard: 'Workspace Dashboard',
     students: 'Assigned Students',
     schedule: "Today's Schedule",
     'counselling-emr': 'Session Notes',
-    prescription: 'Prescription Desk',
+    prescription: 'Therapeutic Plan',
     chat: 'Secure Messenger',
     availability: 'Schedule & Availability',
     repository: 'EMR Repository',
@@ -122,11 +158,241 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
   );
 
   // Prescription builder state
+  // Prescription / Therapeutic Plan builder state
   const [presStudentId, setPresStudentId] = useState('');
   const [presDiagnosis, setPresDiagnosis] = useState('');
   const [presMeds, setPresMeds] = useState('');
   const [presAdvice, setPresAdvice] = useState('');
   const [presLifestyle, setPresLifestyle] = useState('');
+  const [presNotes, setPresNotes] = useState('');
+  const [presIsReleased, setPresIsReleased] = useState(true);
+  const [presRegNo, setPresRegNo] = useState('');
+  const [presSelectedApptId, setPresSelectedApptId] = useState('');
+  const [aiGenerating, setAiGenerating] = useState(false);
+
+  const handlePresRegNoChange = (val: string) => {
+    setPresRegNo(val);
+    const foundStud = allStudents.find(
+      (s) => s.registration_number.toLowerCase() === val.toLowerCase().trim(),
+    );
+    if (foundStud) {
+      setPresStudentId(String(foundStud.student_id));
+    } else {
+      setPresStudentId('');
+    }
+    setPresSelectedApptId('');
+  };
+
+  const handlePresSelectedApptChange = (apptId: string) => {
+    setPresSelectedApptId(apptId);
+    const appt = appointments.find((a) => String(a.appointment_id) === apptId);
+    if (appt) {
+      setPresStudentId(String(appt.student_id));
+      setPresDiagnosis(appt.chief_complaint || '');
+      if (!presRegNo) {
+        setPresRegNo(appt.registration_number || '');
+      }
+    }
+  };
+
+  const handleGenerateAIRecommendations = () => {
+    if (!presDiagnosis) {
+      showToast('Please provide a Chief Complaint or Presenting Issue first.', 'error');
+      return;
+    }
+    setAiGenerating(true);
+    setTimeout(() => {
+      const complaint = presDiagnosis.toLowerCase();
+      let suggestions = {
+        interventions: [
+          {
+            medicineName: 'Mindfulness Grounding',
+            dose: '5-4-3-2-1 Sensory technique',
+            frequency: 'Twice daily or when anxious',
+            duration: '2 weeks',
+          },
+          {
+            medicineName: 'CBT Thought Journaling',
+            dose: 'Identify cognitive distortions in writing',
+            frequency: 'Daily before bed',
+            duration: '2 weeks',
+          },
+        ],
+        advice:
+          'Focus on progressive muscle relaxation (PMR). Practice identifying trigger events that spike emotional responses. Restructure negative automatic thoughts using objective evidence.',
+        lifestyle:
+          '8 hours sleep schedule. Limit screens 1 hour before sleep. 30 minutes light morning exercise. Avoid stimulants (caffeine/energy drinks).',
+      };
+
+      if (
+        complaint.includes('anx') ||
+        complaint.includes('panic') ||
+        complaint.includes('fear') ||
+        complaint.includes('worry')
+      ) {
+        suggestions = {
+          interventions: [
+            {
+              medicineName: 'Box Breathing (4-4-4-4)',
+              dose: 'Inhale 4s, hold 4s, exhale 4s, hold 4s',
+              frequency: '3 cycles when anxious',
+              duration: '3 weeks',
+            },
+            {
+              medicineName: 'Cognitive Restructuring',
+              dose: 'Challenge negative thoughts on a worksheet',
+              frequency: 'Daily',
+              duration: '2 weeks',
+            },
+            {
+              medicineName: 'Mindfulness Grounding (5-4-3-2-1)',
+              dose: 'Name 5 things you see, 4 feel, 3 hear, 2 smell, 1 taste',
+              frequency: 'When panicky',
+              duration: '4 weeks',
+            },
+          ],
+          advice:
+            'Practice deep breathing cues at the onset of anxiety. Use grounding to pull attention back from catastrophic thoughts to the immediate physical environment.',
+          lifestyle:
+            'Reduce daily caffeine intake. Maintain strict sleeping hours. Practice box breathing 10 minutes every morning.',
+        };
+      } else if (
+        complaint.includes('depress') ||
+        complaint.includes('sad') ||
+        complaint.includes('low') ||
+        complaint.includes('lonely') ||
+        complaint.includes('worthless')
+      ) {
+        suggestions = {
+          interventions: [
+            {
+              medicineName: 'Behavioral Activation',
+              dose: 'Engage in 2 rewarding activities (social/hobby)',
+              frequency: 'Daily',
+              duration: '3 weeks',
+            },
+            {
+              medicineName: 'Thought Record (CBT)',
+              dose: 'Log negative automatic thoughts and rational responses',
+              frequency: 'Daily',
+              duration: '2 weeks',
+            },
+            {
+              medicineName: 'Gratitude Journaling',
+              dose: 'Write down three positive things from the day',
+              frequency: 'Every night',
+              duration: '4 weeks',
+            },
+          ],
+          advice:
+            'Gradually increase pleasant and productive activities. Break down large tasks into very small, manageable steps. Challenge inner self-criticism.',
+          lifestyle:
+            'Maintain daily social interactions. Keep a structured morning routine. Expose yourself to early morning daylight for 15 minutes.',
+        };
+      } else if (
+        complaint.includes('academic') ||
+        complaint.includes('exam') ||
+        complaint.includes('stress') ||
+        complaint.includes('study') ||
+        complaint.includes('focus')
+      ) {
+        suggestions = {
+          interventions: [
+            {
+              medicineName: 'Pomodoro Technique',
+              dose: '25 min study, 5 min break',
+              frequency: 'During study sessions',
+              duration: '4 weeks',
+            },
+            {
+              medicineName: 'Time Block Planning',
+              dose: 'Schedule active study, exercise, and leisure hours',
+              frequency: 'Weekly',
+              duration: 'Ongoing',
+            },
+            {
+              medicineName: 'Cognitive Reframing',
+              dose: 'Replace "I will fail" with "I am preparing my best"',
+              frequency: 'When self-doubt arises',
+              duration: '2 weeks',
+            },
+          ],
+          advice:
+            'Structure study environments to eliminate distractions (put phones in another room). Practice self-compassion during high-stress exam periods.',
+          lifestyle:
+            'Get 7-8 hours of sleep before exams (no all-nighters). Drink plenty of water. Take brief walks during study breaks.',
+        };
+      } else if (
+        complaint.includes('anger') ||
+        complaint.includes('temper') ||
+        complaint.includes('irrit')
+      ) {
+        suggestions = {
+          interventions: [
+            {
+              medicineName: 'Anger Time-Out Strategy',
+              dose: 'Step away from triggers for 20 mins to cool down',
+              frequency: 'When anger triggers arise',
+              duration: '4 weeks',
+            },
+            {
+              medicineName: 'Deep Diaphragmatic Breathing',
+              dose: 'Slow abdominal breaths to lower heart rate',
+              frequency: '5 minutes daily',
+              duration: 'Ongoing',
+            },
+            {
+              medicineName: 'Trigger Log journaling',
+              dose: 'Document physical anger signs and trigger events',
+              frequency: 'Daily',
+              duration: '3 weeks',
+            },
+          ],
+          advice:
+            'Identify early physiological signs of anger (clenched fists, rapid breathing) and take immediate cooling intervals. Respond, do not react.',
+          lifestyle:
+            'Engage in regular high-intensity cardio exercises to release stress. Limit consumption of stimulants. Practice mindfulness daily.',
+        };
+      } else if (
+        complaint.includes('sleep') ||
+        complaint.includes('insomnia') ||
+        complaint.includes('nightmare')
+      ) {
+        suggestions = {
+          interventions: [
+            {
+              medicineName: 'Stimulus Control Therapy',
+              dose: 'Leave bed if awake for >20 mins; return only when sleepy',
+              frequency: 'Nightly',
+              duration: '4 weeks',
+            },
+            {
+              medicineName: 'Worry Time Journaling',
+              dose: 'Write down worries 2 hours before bed to clear mind',
+              frequency: 'Daily at 6 PM',
+              duration: '2 weeks',
+            },
+            {
+              medicineName: 'Progressive Muscle Relaxation',
+              dose: 'Tense and release muscle groups sequentially',
+              frequency: 'Before sleep',
+              duration: '3 weeks',
+            },
+          ],
+          advice:
+            'Maintain a cool, quiet, and pitch-dark sleeping environment. Use your bed strictly for sleeping, not for working or scrolling.',
+          lifestyle:
+            'Strict sleep/wake times. No screens/phones in bed. Avoid heavy meals or workouts 3 hours before sleep.',
+        };
+      }
+
+      setPresItems(suggestions.interventions);
+      setPresAdvice(suggestions.advice);
+      setPresLifestyle(suggestions.lifestyle);
+      setAiGenerating(false);
+      showToast('AI suggestions generated and pre-filled successfully!', 'success');
+    }, 1200);
+  };
 
   // Modals for new features
   const [showBookOnBehalf, setShowBookOnBehalf] = useState(false);
@@ -300,6 +566,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
             student_dept: app.student_dept,
             student_semester: app.student_semester,
             student_phone: app.student_phone,
+            student_gender: app.student_gender,
             last_appointment_date: app.slot_date,
             status: app.status,
           });
@@ -314,6 +581,27 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
       setAllStudents(Array.from(uniqueMap.values()));
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleFetchStudentByRegNo = async (regNo: string) => {
+    if (!regNo || regNo.trim().length < 3) return;
+    try {
+      const student = await api.students.getByReg(regNo.trim());
+      if (student) {
+        setBookingFormData((prev: any) => ({
+          ...prev,
+          student_id: student.id,
+          student_name: student.name,
+          phone: student.phone,
+          email: student.email,
+          emergency_contact: student.emergency_contact || '',
+          emergency_phone: student.emergency_phone || '',
+        }));
+        showToast(`Loaded details for student: ${student.name}`, 'success');
+      }
+    } catch (err) {
+      // Ignore or log error
     }
   };
 
@@ -543,6 +831,8 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
         lifestyleRecommendations: presLifestyle,
         followUpDate: presFollowUp || null,
         items: presItems,
+        prescriptionNotes: presNotes,
+        isReleased: presIsReleased,
       });
 
       showToast('Prescription generated successfully!', 'success');
@@ -554,6 +844,8 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
       setPresDiagnosis('');
       setPresAdvice('');
       setPresLifestyle('');
+      setPresNotes('');
+      setPresIsReleased(true);
       setPresFollowUp('');
       setPresItems([{ medicineName: '', dose: '', frequency: '', duration: '' }]);
     } catch (err: any) {
@@ -581,7 +873,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
           { id: 'counselling-emr', label: 'Session Notes', icon: Brain },
           { id: 'repository', label: 'EMR Repository', icon: Database },
           { id: 'generated-reports', label: 'Generated Reports', icon: FileText },
-          { id: 'prescription', label: 'Prescription Desk', icon: Printer },
+          { id: 'prescription', label: 'Therapeutic Plan', icon: FileText },
           { id: 'chat', label: 'Secure Messenger', icon: MessageSquare },
           { id: 'availability', label: 'Schedule & Availability', icon: CalendarIcon },
           { id: 'notifications', label: 'Announcements', icon: Bell },
@@ -622,6 +914,10 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
               <span className="text-[10px] text-slate-400 font-mono block">
                 {providerProfile?.specialization || 'Clinical Psychologist'}
               </span>
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 rounded-xl text-[10px] font-extrabold tracking-wider uppercase border border-emerald-250 dark:border-emerald-900/30">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Live Synced
             </div>
             <ThemeToggle />
 
@@ -742,10 +1038,21 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                       </button>
                     </div>
                   </div>
-
                   {/* Stat cards grid */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-5 rounded-2xl shadow-sm flex items-center gap-4">
+                    <div
+                      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-5 rounded-2xl shadow-sm flex items-center gap-4 stat-card cursor-pointer"
+                      style={
+                        {
+                          '--gradient-start': '#3b82f6',
+                          '--gradient-end': '#60a5fa',
+                        } as React.CSSProperties
+                      }
+                      onClick={() => {
+                        setDrawerType('patients');
+                        setDrawerSearch('');
+                      }}
+                    >
                       <div className="w-12 h-12 bg-blue-50 dark:bg-blue-950/20 text-blue-600 rounded-xl flex items-center justify-center text-lg shrink-0">
                         👥
                       </div>
@@ -754,9 +1061,25 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                           Total Patients
                         </span>
                         <span className="text-2xl font-extrabold">{totalStudentsCount}</span>
+                        <span className="text-[10px] text-slate-450 dark:text-slate-400 block mt-1 font-bold">
+                          ♂ {allStudents.filter((s) => s.student_gender === 'Male').length} Male | ♀{' '}
+                          {allStudents.filter((s) => s.student_gender === 'Female').length} Female
+                        </span>
                       </div>
                     </div>
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-5 rounded-2xl shadow-sm flex items-center gap-4">
+                    <div
+                      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-5 rounded-2xl shadow-sm flex items-center gap-4 stat-card cursor-pointer"
+                      style={
+                        {
+                          '--gradient-start': '#f59e0b',
+                          '--gradient-end': '#fcd34d',
+                        } as React.CSSProperties
+                      }
+                      onClick={() => {
+                        setDrawerType('today');
+                        setDrawerSearch('');
+                      }}
+                    >
                       <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/20 text-amber-600 rounded-xl flex items-center justify-center text-lg shrink-0">
                         📅
                       </div>
@@ -765,25 +1088,63 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                           Today's Sessions
                         </span>
                         <span className="text-2xl font-extrabold">{todayAppts.length}</span>
+                        <span className="text-[10px] text-slate-450 dark:text-slate-400 block mt-1 font-bold">
+                          ♂ {todayAppts.filter((a) => a.student_gender === 'Male').length} Male | ♀{' '}
+                          {todayAppts.filter((a) => a.student_gender === 'Female').length} Female
+                        </span>
                       </div>
                     </div>
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-5 rounded-2xl shadow-sm flex items-center gap-4">
+                    <div
+                      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-5 rounded-2xl shadow-sm flex items-center gap-4 stat-card cursor-pointer"
+                      style={
+                        {
+                          '--gradient-start': '#10b981',
+                          '--gradient-end': '#34d399',
+                        } as React.CSSProperties
+                      }
+                      onClick={() => {
+                        setDrawerType('completed');
+                        setDrawerSearch('');
+                      }}
+                    >
                       <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 rounded-xl flex items-center justify-center text-lg shrink-0">
                         ✓
                       </div>
                       <div>
                         <span className="text-xs font-bold text-slate-400 block">Completed</span>
                         <span className="text-2xl font-extrabold">{completedSessions.length}</span>
+                        <span className="text-[10px] text-slate-450 dark:text-slate-400 block mt-1 font-bold">
+                          ♂ {completedSessions.filter((a) => a.student_gender === 'Male').length}{' '}
+                          Male | ♀{' '}
+                          {completedSessions.filter((a) => a.student_gender === 'Female').length}{' '}
+                          Female
+                        </span>
                       </div>
                     </div>
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-5 rounded-2xl shadow-sm flex items-center gap-4">
-                      <div className="w-12 h-12 bg-red-50 dark:bg-red-950/20 text-red-600 rounded-xl flex items-center justify-center text-lg shrink-0">
+                    <div
+                      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-5 rounded-2xl shadow-sm flex items-center gap-4 stat-card cursor-pointer"
+                      style={
+                        {
+                          '--gradient-start': '#f43f5e',
+                          '--gradient-end': '#fb7185',
+                        } as React.CSSProperties
+                      }
+                      onClick={() => {
+                        setDrawerType('urgent');
+                        setDrawerSearch('');
+                      }}
+                    >
+                      <div className="w-12 h-12 bg-red-50 dark:bg-red-950/20 text-red-650 rounded-xl flex items-center justify-center text-lg shrink-0">
                         ⚠️
                       </div>
                       <div>
                         <span className="text-xs font-bold text-slate-400 block">Urgent Cases</span>
                         <span className="text-2xl font-extrabold text-red-600">
                           {urgentAppts.length}
+                        </span>
+                        <span className="text-[10px] text-slate-450 dark:text-slate-400 block mt-1 font-bold">
+                          ♂ {urgentAppts.filter((a) => a.student_gender === 'Male').length} Male | ♀{' '}
+                          {urgentAppts.filter((a) => a.student_gender === 'Female').length} Female
                         </span>
                       </div>
                     </div>
@@ -827,25 +1188,53 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                         <div className="md:col-span-2 h-64">
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={sortedChartData}>
+                              <defs>
+                                <linearGradient id="counselorCompleted" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.85} />
+                                  <stop offset="100%" stopColor="#34d399" stopOpacity={0.95} />
+                                </linearGradient>
+                                <linearGradient id="counselorScheduled" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.85} />
+                                  <stop offset="100%" stopColor="#60a5fa" stopOpacity={0.95} />
+                                </linearGradient>
+                              </defs>
                               <CartesianGrid
                                 strokeDasharray="3 3"
                                 vertical={false}
-                                stroke="var(--border)"
+                                stroke="currentColor"
+                                className="text-slate-100 dark:text-slate-800/60"
+                                opacity={0.6}
                               />
                               <XAxis
                                 dataKey="name"
-                                stroke="var(--text-secondary)"
-                                fontSize={11}
+                                stroke="#64748b"
+                                fontSize={10}
+                                fontWeight={700}
                                 tickLine={false}
+                                axisLine={false}
+                                dy={5}
                               />
                               <YAxis
-                                stroke="var(--text-secondary)"
-                                fontSize={11}
+                                stroke="#64748b"
+                                fontSize={10}
+                                fontWeight={700}
                                 tickLine={false}
+                                axisLine={false}
+                                dx={-5}
                               />
-                              <ChartTooltip />
-                              <Bar dataKey="Completed" fill="#10b981" radius={[4, 4, 0, 0]} />
-                              <Bar dataKey="Scheduled" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                              <ChartTooltip content={<CustomTooltip />} />
+                              <Bar
+                                dataKey="Completed"
+                                fill="url(#counselorCompleted)"
+                                radius={[6, 6, 0, 0]}
+                                barSize={14}
+                              />
+                              <Bar
+                                dataKey="Scheduled"
+                                fill="url(#counselorScheduled)"
+                                radius={[6, 6, 0, 0]}
+                                barSize={14}
+                              />
                             </BarChart>
                           </ResponsiveContainer>
                         </div>
@@ -1696,6 +2085,9 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                       <th className="px-5 py-4 font-bold border-b border-slate-100 dark:border-slate-800">
                         Visibility
                       </th>
+                      <th className="px-5 py-4 font-bold border-b border-slate-100 dark:border-slate-800 text-right">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -1707,11 +2099,25 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                         <td className="px-5 py-4 font-semibold text-slate-700 dark:text-slate-300">
                           {new Date(report.generated_date).toLocaleDateString()}
                         </td>
-                        <td className="px-5 py-4">
-                          <div className="font-bold text-slate-800 dark:text-white">
+                        <td
+                          className="px-5 py-4 cursor-pointer hover:underline"
+                          onClick={() => {
+                            const matchStudent = allStudents.find(
+                              (s) =>
+                                s.registration_number.toLowerCase() ===
+                                report.student_id.toLowerCase(),
+                            );
+                            if (matchStudent) {
+                              handleOpenStudentProfile(matchStudent);
+                            } else {
+                              showToast('Student profile details not loaded.', 'error');
+                            }
+                          }}
+                        >
+                          <div className="font-bold text-slate-800 dark:text-white group-hover:text-blue-600 transition-colors">
                             {report.student_name}
                           </div>
-                          <div className="text-[10px] uppercase font-bold text-slate-400">
+                          <div className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400">
                             {report.student_id}
                           </div>
                         </td>
@@ -1769,12 +2175,70 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                             </span>
                           </label>
                         </td>
+                        <td className="px-5 py-4 text-right">
+                          <div className="flex justify-end items-center gap-2">
+                            {/* PRINT ACTION */}
+                            <button
+                              onClick={async () => {
+                                if (report.type === 'prescription') {
+                                  window.open(api.clinical.getPrintUrl(report.id), '_blank');
+                                } else if (report.type === 'session') {
+                                  try {
+                                    const sess = await api.clinical.getSession(report.id);
+                                    printSessionReport(sess);
+                                  } catch (e) {
+                                    showToast('Failed to load session details.', 'error');
+                                  }
+                                } else if (report.type === 'assessment') {
+                                  const base = (
+                                    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
+                                  ).replace(/\/api$/, '');
+                                  const token =
+                                    typeof window !== 'undefined'
+                                      ? localStorage.getItem('cuap_wccms_token')
+                                      : '';
+                                  window.open(
+                                    `${base}/api/clinical/mse/${report.id}/print${token ? `?token=${token}` : ''}`,
+                                    '_blank',
+                                  );
+                                }
+                              }}
+                              className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition cursor-pointer"
+                              title="Print Report"
+                            >
+                              <Printer size={14} />
+                            </button>
+
+                            {/* DOWNLOAD ACTION */}
+                            <button
+                              onClick={() => {
+                                if (report.type === 'prescription') {
+                                  downloadPrescriptionPDF(report.id, report.student_id || 'STU');
+                                } else if (report.type === 'session') {
+                                  window.open(
+                                    api.clinical.getCompiledReportUrl(report.id),
+                                    '_blank',
+                                  );
+                                } else {
+                                  showToast(
+                                    'Direct download not available for assessments. Use Print.',
+                                    'error',
+                                  );
+                                }
+                              }}
+                              className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition cursor-pointer"
+                              title="Download Report"
+                            >
+                              <Download size={14} />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                     {generatedReports.length === 0 && (
                       <tr>
                         <td
-                          colSpan={6}
+                          colSpan={7}
                           className="px-5 py-12 text-center text-slate-400 font-medium"
                         >
                           No reports generated yet.
@@ -1787,60 +2251,108 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
             </div>
           )}
 
-          {/* TAB 3: PRESCRIPTION MODULE */}
           {activeTab === 'prescription' && (
             <div className="space-y-8 animate-fade-in-up">
               <div>
-                <h2 className="text-2xl font-black tracking-tight">Prescription Board</h2>
+                <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+                  Therapeutic Plan & Follow-Up Desk
+                </h2>
                 <p className="text-xs text-slate-500 mt-1">
-                  Issue official prescriptions with branding, lifestyle advice, and digital
-                  signature
+                  Design official therapeutic plans, counseling advice, lifestyle exercises, and
+                  follow-up slots.
                 </p>
               </div>
 
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl shadow-sm">
                 <form onSubmit={handleCreatePrescription} className="space-y-6">
+                  {/* Student & Session Lookup Row */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
-                        Student DB ID / Patient ID
-                      </label>
-                      <input
-                        type="number"
-                        required
-                        value={presStudentId}
-                        onChange={(e) => setPresStudentId(e.target.value)}
-                        placeholder="e.g. 1"
-                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
-                        Clinical Diagnosis
+                        Student Registration / Roll Number
                       </label>
                       <input
                         type="text"
                         required
-                        value={presDiagnosis}
-                        onChange={(e) => setPresDiagnosis(e.target.value)}
-                        placeholder="Major Depressive Disorder (F32.9)"
-                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                        value={presRegNo}
+                        onChange={(e) => handlePresRegNoChange(e.target.value)}
+                        placeholder="e.g. 23P1TL01S"
+                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950 font-bold uppercase text-slate-800 dark:text-slate-100"
                       />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
+                        Select Session Token / Appointment No
+                      </label>
+                      <select
+                        value={presSelectedApptId}
+                        onChange={(e) => handlePresSelectedApptChange(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950 font-bold text-slate-700 dark:text-slate-200"
+                      >
+                        <option value="">-- Select session token --</option>
+                        {appointments
+                          .filter(
+                            (a) =>
+                              !presRegNo ||
+                              a.registration_number.toLowerCase() ===
+                                presRegNo.toLowerCase().trim(),
+                          )
+                          .map((a) => (
+                            <option key={a.appointment_id} value={a.appointment_id}>
+                              Token #{a.appointment_id} - {a.student_name} (
+                              {new Date(a.slot_date).toLocaleDateString()})
+                            </option>
+                          ))}
+                      </select>
                     </div>
                   </div>
 
-                  {/* Prescription Items list */}
+                  {/* Chief Complaint & AI Assistant */}
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
+                        Chief Complaint / Presenting Issue
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          required
+                          value={presDiagnosis}
+                          onChange={(e) => setPresDiagnosis(e.target.value)}
+                          placeholder="e.g., Academic stress, anxiety, low mood, sleep issue..."
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950 font-bold text-slate-800 dark:text-slate-100"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleGenerateAIRecommendations}
+                          disabled={aiGenerating || !presDiagnosis}
+                          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0"
+                        >
+                          {aiGenerating ? (
+                            <>
+                              <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              Suggesting...
+                            </>
+                          ) : (
+                            '✨ Ask AI Helper'
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Therapeutic Interventions builder */}
                   <div>
                     <div className="flex justify-between items-center mb-3">
                       <label className="block text-xs font-bold text-slate-500 uppercase">
-                        Prescribed Medicines
+                        Prescribed Interventions & Daily Tasks
                       </label>
                       <button
                         type="button"
                         onClick={handleAddPresItem}
                         className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
                       >
-                        <Plus size={14} /> Add Medicine
+                        <Plus size={14} /> Add Exercise / Task
                       </button>
                     </div>
 
@@ -1853,28 +2365,28 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                           <input
                             type="text"
                             required
-                            placeholder="Medicine name"
+                            placeholder="Exercise name (e.g. Box Breathing)"
                             value={item.medicineName}
                             onChange={(e) =>
                               handlePresItemChange(idx, 'medicineName', e.target.value)
                             }
-                            className="px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-900 focus:outline-none"
+                            className="px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-900 focus:outline-none text-slate-800 dark:text-slate-100"
                           />
                           <input
                             type="text"
                             required
-                            placeholder="Dose (e.g. 50mg)"
+                            placeholder="Details (e.g. 4s cycles)"
                             value={item.dose}
                             onChange={(e) => handlePresItemChange(idx, 'dose', e.target.value)}
-                            className="px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-900 focus:outline-none"
+                            className="px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-900 focus:outline-none text-slate-800 dark:text-slate-100"
                           />
                           <input
                             type="text"
                             required
-                            placeholder="Frequency (e.g. Once daily)"
+                            placeholder="Frequency (e.g. Twice daily)"
                             value={item.frequency}
                             onChange={(e) => handlePresItemChange(idx, 'frequency', e.target.value)}
-                            className="px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-900 focus:outline-none"
+                            className="px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-900 focus:outline-none text-slate-800 dark:text-slate-100"
                           />
                           <div className="flex gap-2">
                             <input
@@ -1885,7 +2397,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                               onChange={(e) =>
                                 handlePresItemChange(idx, 'duration', e.target.value)
                               }
-                              className="flex-1 px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-900 focus:outline-none"
+                              className="flex-1 px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-900 focus:outline-none text-slate-800 dark:text-slate-100"
                             />
                             {presItems.length > 1 && (
                               <button
@@ -1902,50 +2414,80 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                     </div>
                   </div>
 
+                  {/* Advice & Lifestyle recommendations */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
-                        General Advice / Instructions
+                        Clinical Advice / Steps
                       </label>
                       <textarea
                         value={presAdvice}
                         onChange={(e) => setPresAdvice(e.target.value)}
-                        placeholder="Take after meals, avoid alcohol..."
+                        placeholder="Focus on somatic relaxation, journaling trigger logs..."
                         rows={3}
-                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100"
                       />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
-                        Lifestyle Recommendations
+                        Lifestyle & Wellness Habits
                       </label>
                       <textarea
                         value={presLifestyle}
                         onChange={(e) => setPresLifestyle(e.target.value)}
-                        placeholder="8 hours sleep, morning meditation, daily walking..."
+                        placeholder="8 hours sleep, limit screen-time, morning walk..."
                         rows={3}
-                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100"
                       />
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
-                      Follow-up Date
-                    </label>
-                    <input
-                      type="date"
-                      value={presFollowUp}
-                      onChange={(e) => setPresFollowUp(e.target.value)}
-                      className="px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
-                    />
+                  {/* Notes & Follow Up date */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
+                        Confidential Notes (Counselor Internal)
+                      </label>
+                      <textarea
+                        value={presNotes}
+                        onChange={(e) => setPresNotes(e.target.value)}
+                        placeholder="Clinical follow-up steps, cognitive shifts log..."
+                        rows={2}
+                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
+                        Recommended Follow-up Slot Date
+                      </label>
+                      <input
+                        type="date"
+                        value={presFollowUp}
+                        onChange={(e) => setPresFollowUp(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100"
+                      />
+                    </div>
                   </div>
 
+                  {/* Release trigger */}
+                  <label className="flex items-center gap-2 cursor-pointer mt-2">
+                    <input
+                      type="checkbox"
+                      checked={presIsReleased}
+                      onChange={(e) => setPresIsReleased(e.target.checked)}
+                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-350"
+                    />
+                    <span className="text-xs font-bold text-slate-650 dark:text-slate-300">
+                      Publish directly to student health dashboard plan
+                    </span>
+                  </label>
+
+                  {/* Submit buttons */}
                   <button
                     type="submit"
                     className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition shadow-sm cursor-pointer"
                   >
-                    Generate Prescription PDF
+                    Generate Therapeutic Plan PDF
                   </button>
                 </form>
               </div>
@@ -2482,7 +3024,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                         selectedRepoSession;
 
                   return (
-                    <div className="fixed inset-0 bg-black/60 backdrop-filter blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto flex flex-col shadow-2xl animate-fade-in-up">
                         {/* Modal Header */}
                         <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
@@ -3455,14 +3997,27 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                                         {new Date(p.prescription_date).toLocaleDateString()}
                                       </span>
                                     </div>
-                                    <button
-                                      onClick={() =>
-                                        printPrescriptionReport(p, selectedStudentForProfile)
-                                      }
-                                      className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-[10px] font-bold rounded-lg transition cursor-pointer flex items-center gap-1"
-                                    >
-                                      <Printer size={10} /> Print Rx PDF
-                                    </button>
+                                    <div className="flex gap-1.5">
+                                      <button
+                                        onClick={() =>
+                                          printPrescriptionReport(p, selectedStudentForProfile)
+                                        }
+                                        className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-[10px] font-bold rounded-lg transition cursor-pointer flex items-center gap-1"
+                                      >
+                                        <Printer size={10} /> Print
+                                      </button>
+                                      <button
+                                        onClick={() =>
+                                          downloadPrescriptionPDF(
+                                            p.id,
+                                            selectedStudentForProfile.registration_number || 'STU',
+                                          )
+                                        }
+                                        className="px-2.5 py-1 bg-blue-600 hover:bg-blue-750 text-white text-[10px] font-bold rounded-lg transition cursor-pointer flex items-center gap-1"
+                                      >
+                                        <Download size={10} /> PDF
+                                      </button>
+                                    </div>
                                   </div>
                                   <div>
                                     <span className="font-bold text-slate-400 block text-[9px] uppercase">
@@ -3644,22 +4199,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
-                        Student Name *
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. SAKE NARESH"
-                        required
-                        value={bookingFormData.student_name || ''}
-                        className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
-                        onChange={(e) =>
-                          setBookingFormData({ ...bookingFormData, student_name: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                      <label className="block text-xs font-bold text-slate-550 mb-1 uppercase">
                         Registration No / Roll No *
                       </label>
                       <input
@@ -3674,9 +4214,74 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                             registration_number: e.target.value,
                           })
                         }
+                        onBlur={(e) => handleFetchStudentByRegNo(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-550 mb-1 uppercase">
+                        Student Name *
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. SAKE NARESH"
+                        required
+                        value={bookingFormData.student_name || ''}
+                        className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
+                        onChange={(e) =>
+                          setBookingFormData({ ...bookingFormData, student_name: e.target.value })
+                        }
                       />
                     </div>
                   </div>
+
+                  {bookingFormData.student_name && (
+                    <div className="p-3 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-800/40 rounded-2xl space-y-1.5 animate-fade-in-up">
+                      <span className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 block tracking-wider">
+                        Verified Student Profile
+                      </span>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-slate-400 block text-[9px] uppercase font-bold">
+                            Full Name
+                          </span>
+                          <span className="font-extrabold text-slate-800 dark:text-slate-200">
+                            {bookingFormData.student_name}
+                          </span>
+                        </div>
+                        {bookingFormData.email && (
+                          <div>
+                            <span className="text-slate-400 block text-[9px] uppercase font-bold">
+                              Email Address
+                            </span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-300">
+                              {bookingFormData.email}
+                            </span>
+                          </div>
+                        )}
+                        {bookingFormData.phone && (
+                          <div>
+                            <span className="text-slate-400 block text-[9px] uppercase font-bold">
+                              Phone Number
+                            </span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-300">
+                              {bookingFormData.phone}
+                            </span>
+                          </div>
+                        )}
+                        {bookingFormData.emergency_contact && (
+                          <div>
+                            <span className="text-slate-400 block text-[9px] uppercase font-bold">
+                              Emergency Contact
+                            </span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-300">
+                              {bookingFormData.emergency_contact} ({bookingFormData.emergency_phone}
+                              )
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
@@ -3824,22 +4429,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
-                        Student Name *
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. SAKE NARESH"
-                        required
-                        value={bookingFormData.student_name || ''}
-                        className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
-                        onChange={(e) =>
-                          setBookingFormData({ ...bookingFormData, student_name: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                      <label className="block text-xs font-bold text-slate-550 mb-1 uppercase">
                         Registration No / Roll No *
                       </label>
                       <input
@@ -3854,9 +4444,74 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                             registration_number: e.target.value,
                           })
                         }
+                        onBlur={(e) => handleFetchStudentByRegNo(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-550 mb-1 uppercase">
+                        Student Name *
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. SAKE NARESH"
+                        required
+                        value={bookingFormData.student_name || ''}
+                        className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
+                        onChange={(e) =>
+                          setBookingFormData({ ...bookingFormData, student_name: e.target.value })
+                        }
                       />
                     </div>
                   </div>
+
+                  {bookingFormData.student_name && (
+                    <div className="p-3 bg-blue-50/50 dark:bg-blue-955/20 border border-blue-100 dark:border-blue-800/40 rounded-2xl space-y-1.5 animate-fade-in-up">
+                      <span className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 block tracking-wider">
+                        Verified Student Profile
+                      </span>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-slate-400 block text-[9px] uppercase font-bold">
+                            Full Name
+                          </span>
+                          <span className="font-extrabold text-slate-800 dark:text-slate-200">
+                            {bookingFormData.student_name}
+                          </span>
+                        </div>
+                        {bookingFormData.email && (
+                          <div>
+                            <span className="text-slate-400 block text-[9px] uppercase font-bold">
+                              Email Address
+                            </span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-300">
+                              {bookingFormData.email}
+                            </span>
+                          </div>
+                        )}
+                        {bookingFormData.phone && (
+                          <div>
+                            <span className="text-slate-400 block text-[9px] uppercase font-bold">
+                              Phone Number
+                            </span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-300">
+                              {bookingFormData.phone}
+                            </span>
+                          </div>
+                        )}
+                        {bookingFormData.emergency_contact && (
+                          <div>
+                            <span className="text-slate-400 block text-[9px] uppercase font-bold">
+                              Emergency Contact
+                            </span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-300">
+                              {bookingFormData.emergency_contact} ({bookingFormData.emergency_phone}
+                              )
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
@@ -3991,22 +4646,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
-                        Student Name *
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. SAKE NARESH"
-                        required
-                        value={bookingFormData.student_name || ''}
-                        className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
-                        onChange={(e) =>
-                          setBookingFormData({ ...bookingFormData, student_name: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                      <label className="block text-xs font-bold text-slate-550 mb-1 uppercase">
                         Registration No / Roll No *
                       </label>
                       <input
@@ -4021,9 +4661,74 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                             registration_number: e.target.value,
                           })
                         }
+                        onBlur={(e) => handleFetchStudentByRegNo(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-550 mb-1 uppercase">
+                        Student Name *
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. SAKE NARESH"
+                        required
+                        value={bookingFormData.student_name || ''}
+                        className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
+                        onChange={(e) =>
+                          setBookingFormData({ ...bookingFormData, student_name: e.target.value })
+                        }
                       />
                     </div>
                   </div>
+
+                  {bookingFormData.student_name && (
+                    <div className="p-3 bg-blue-50/50 dark:bg-blue-955/20 border border-blue-100 dark:border-blue-800/40 rounded-2xl space-y-1.5 animate-fade-in-up">
+                      <span className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 block tracking-wider">
+                        Verified Student Profile
+                      </span>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-slate-400 block text-[9px] uppercase font-bold">
+                            Full Name
+                          </span>
+                          <span className="font-extrabold text-slate-800 dark:text-slate-200">
+                            {bookingFormData.student_name}
+                          </span>
+                        </div>
+                        {bookingFormData.email && (
+                          <div>
+                            <span className="text-slate-400 block text-[9px] uppercase font-bold">
+                              Email Address
+                            </span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-300">
+                              {bookingFormData.email}
+                            </span>
+                          </div>
+                        )}
+                        {bookingFormData.phone && (
+                          <div>
+                            <span className="text-slate-400 block text-[9px] uppercase font-bold">
+                              Phone Number
+                            </span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-300">
+                              {bookingFormData.phone}
+                            </span>
+                          </div>
+                        )}
+                        {bookingFormData.emergency_contact && (
+                          <div>
+                            <span className="text-slate-400 block text-[9px] uppercase font-bold">
+                              Emergency Contact
+                            </span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-300">
+                              {bookingFormData.emergency_contact} ({bookingFormData.emergency_phone}
+                              )
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
@@ -4327,6 +5032,316 @@ HANDOFF & REFERRALS: ${safetyFormData.referral_details || 'N/A'}`;
         onClose={() => setNotifCenterOpen(false)}
         onUpdateCount={setUnreadNotifications}
       />
+
+      {/* Sliding side drawer for stat card details */}
+      {drawerType && (
+        <div className="fixed inset-0 z-[9999] overflow-hidden">
+          {/* Backdrop overlay */}
+          <div
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity cursor-pointer animate-fade-in"
+            onClick={() => setDrawerType(null)}
+          />
+          <div className="absolute inset-y-0 right-0 max-w-full flex">
+            <div className="w-screen max-w-md bg-white dark:bg-slate-900 shadow-xl flex flex-col h-full border-l border-slate-200 dark:border-slate-800 transition-all duration-300 transform translate-x-0 animate-slide-in-right">
+              {/* Header */}
+              <div className="p-5 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-wide">
+                    {drawerType === 'patients' && 'Assigned Patients'}
+                    {drawerType === 'today' && "Today's Active Schedule"}
+                    {drawerType === 'completed' && 'Completed Case Files'}
+                    {drawerType === 'urgent' && 'High-Risk Severity Registry'}
+                  </h2>
+                  <p className="text-[10px] text-slate-500 font-extrabold uppercase mt-0.5">
+                    {drawerType === 'patients' && `${allStudents.length} Assigned Patients`}
+                    {drawerType === 'today' &&
+                      `${appointments.filter((a) => a.slot_date === new Date().toISOString().split('T')[0]).length} Today's Sessions`}
+                    {drawerType === 'completed' &&
+                      `${appointments.filter((a) => a.status === 'completed').length} Completed Files`}
+                    {drawerType === 'urgent' &&
+                      `${appointments.filter((a) => a.chief_complaint && (a.chief_complaint.toLowerCase().includes('urgent') || a.chief_complaint.toLowerCase().includes('severe') || a.chief_complaint.toLowerCase().includes('emergency') || a.chief_complaint.toLowerCase().includes('suicidal') || a.chief_complaint.toLowerCase().includes('crisis'))).length} High-Risk Cases`}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setDrawerType(null)}
+                  className="p-1.5 text-slate-400 hover:text-slate-650 dark:hover:text-slate-250 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-850 cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Search Box */}
+              <div className="p-4 bg-slate-50/50 dark:bg-slate-950/20 border-b border-slate-100 dark:border-slate-800/60">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={drawerSearch}
+                    onChange={(e) => setDrawerSearch(e.target.value)}
+                    placeholder="Search by name, registration number or status..."
+                    className="w-full text-xs py-2 px-3 pl-9 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-slate-800 dark:text-slate-100"
+                  />
+                  <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
+                </div>
+              </div>
+
+              {/* List Body */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {(() => {
+                  const query = drawerSearch.toLowerCase().trim();
+
+                  if (drawerType === 'patients') {
+                    const filtered = allStudents.filter(
+                      (s) =>
+                        s.student_name.toLowerCase().includes(query) ||
+                        s.registration_number.toLowerCase().includes(query) ||
+                        (s.student_dept && s.student_dept.toLowerCase().includes(query)) ||
+                        (s.student_phone && s.student_phone.toLowerCase().includes(query)),
+                    );
+
+                    if (filtered.length === 0) {
+                      return (
+                        <p className="text-xs text-slate-400 text-center py-8">
+                          No assigned patients found.
+                        </p>
+                      );
+                    }
+
+                    return filtered.map((stud) => {
+                      const initials = stud.student_name
+                        .split(' ')
+                        .map((n: string) => n[0])
+                        .join('')
+                        .substring(0, 2)
+                        .toUpperCase();
+
+                      return (
+                        <div
+                          key={stud.student_id}
+                          onClick={() => {
+                            setDrawerType(null);
+                            handleOpenStudentProfile(stud);
+                          }}
+                          className="p-3 bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-850 rounded-xl flex items-center justify-between cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-850/60 transition shadow-xs hover:shadow-sm animate-fade-in-up"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center font-bold text-xs shadow-xs">
+                              {initials}
+                            </div>
+                            <div>
+                              <p className="font-bold text-xs text-slate-800 dark:text-white leading-snug">
+                                {stud.student_name}
+                              </p>
+                              <p className="text-[10px] text-blue-600 dark:text-blue-400 font-mono mt-0.5 font-bold tracking-wider">
+                                {stud.registration_number.toUpperCase()}
+                              </p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">
+                                {stud.student_dept || 'General Dept'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[9px] font-black uppercase inline-block mb-1.5 ${
+                                stud.status === 'completed'
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-300'
+                                  : stud.status === 'approved'
+                                    ? 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/20 dark:text-blue-300'
+                                    : 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/20 dark:text-amber-300'
+                              }`}
+                            >
+                              {stud.status}
+                            </span>
+                            <p className="text-[10px] text-slate-500 font-bold flex items-center gap-1 justify-end">
+                              📞 {stud.student_phone || 'N/A'}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    });
+                  }
+
+                  if (drawerType === 'today') {
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    const todayAppts = appointments.filter((a) => a.slot_date === todayStr);
+                    const filtered = todayAppts.filter(
+                      (a) =>
+                        a.student_name.toLowerCase().includes(query) ||
+                        a.registration_number.toLowerCase().includes(query) ||
+                        (a.status && a.status.toLowerCase().includes(query)),
+                    );
+
+                    if (filtered.length === 0) {
+                      return (
+                        <p className="text-xs text-slate-400 text-center py-8">
+                          No sessions scheduled for today.
+                        </p>
+                      );
+                    }
+
+                    return filtered.map((app) => (
+                      <div
+                        key={app.appointment_id}
+                        className="p-3 bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-850 rounded-xl flex items-center justify-between transition shadow-xs hover:shadow-sm animate-fade-in-up"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300 rounded font-mono text-[9px] font-extrabold">
+                              🕒 {app.slot_time}
+                            </span>
+                            <span
+                              className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
+                                app.status === 'completed'
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/20'
+                                  : app.status === 'pending'
+                                    ? 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/20'
+                                    : 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/20'
+                              }`}
+                            >
+                              {app.status}
+                            </span>
+                          </div>
+                          <p className="font-bold text-xs text-slate-800 dark:text-white mt-1.5">
+                            {app.student_name}
+                          </p>
+                          <p className="text-[9px] text-slate-400 font-mono mt-0.5">
+                            {app.registration_number.toUpperCase()}
+                          </p>
+                          <p className="text-[10px] text-slate-500 italic mt-1 leading-snug">
+                            "{app.chief_complaint || 'No complaint notes'}"
+                          </p>
+                        </div>
+                        {app.status !== 'completed' && (
+                          <button
+                            onClick={() => {
+                              setDrawerType(null);
+                              setActiveApp(app);
+                              setActiveTab('counselling-emr');
+                            }}
+                            className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[9px] font-extrabold rounded-lg shadow-sm cursor-pointer transition shrink-0 ml-2"
+                          >
+                            Open SOAP
+                          </button>
+                        )}
+                      </div>
+                    ));
+                  }
+
+                  if (drawerType === 'completed') {
+                    const completedSessions = appointments.filter((a) => a.status === 'completed');
+                    const filtered = completedSessions.filter(
+                      (a) =>
+                        a.student_name.toLowerCase().includes(query) ||
+                        a.registration_number.toLowerCase().includes(query) ||
+                        a.slot_date.toLowerCase().includes(query),
+                    );
+
+                    if (filtered.length === 0) {
+                      return (
+                        <p className="text-xs text-slate-400 text-center py-8">
+                          No completed sessions found.
+                        </p>
+                      );
+                    }
+
+                    return filtered.map((app) => (
+                      <div
+                        key={app.appointment_id}
+                        className="p-3 bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-850 rounded-xl flex items-center justify-between transition shadow-xs animate-fade-in-up"
+                      >
+                        <div>
+                          <p className="font-bold text-xs text-slate-850 dark:text-white">
+                            {app.student_name}
+                          </p>
+                          <p className="text-[9px] text-blue-600 dark:text-blue-455 font-mono mt-0.5 font-bold">
+                            {app.registration_number.toUpperCase()}
+                          </p>
+                          <p className="text-[10px] text-slate-450 mt-1 font-semibold">
+                            🗓️ {new Date(app.slot_date).toLocaleDateString()} at {app.slot_time}
+                          </p>
+                        </div>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => printSessionReport(app)}
+                            className="p-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 rounded-lg text-slate-600 dark:text-slate-350 cursor-pointer"
+                            title="Print Session"
+                          >
+                            <Printer size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ));
+                  }
+
+                  if (drawerType === 'urgent') {
+                    const urgentAppts = appointments.filter(
+                      (a) =>
+                        a.chief_complaint &&
+                        (a.chief_complaint.toLowerCase().includes('urgent') ||
+                          a.chief_complaint.toLowerCase().includes('severe') ||
+                          a.chief_complaint.toLowerCase().includes('emergency') ||
+                          a.chief_complaint.toLowerCase().includes('suicidal') ||
+                          a.chief_complaint.toLowerCase().includes('crisis')),
+                    );
+
+                    const filtered = urgentAppts.filter(
+                      (a) =>
+                        a.student_name.toLowerCase().includes(query) ||
+                        a.registration_number.toLowerCase().includes(query),
+                    );
+
+                    if (filtered.length === 0) {
+                      return (
+                        <p className="text-xs text-slate-400 text-center py-8">
+                          No urgent cases found.
+                        </p>
+                      );
+                    }
+
+                    return filtered.map((app) => (
+                      <div
+                        key={app.appointment_id}
+                        className="p-3 bg-red-50/50 dark:bg-red-950/10 border border-red-150 dark:border-red-900/30 rounded-xl flex items-center justify-between transition shadow-xs animate-fade-in-up"
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8px] font-black uppercase tracking-wider animate-pulse">
+                              HIGH RISK
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              {app.slot_date}
+                            </span>
+                          </div>
+                          <p className="font-bold text-xs text-slate-855 dark:text-white mt-1">
+                            {app.student_name}
+                          </p>
+                          <p className="text-[9px] text-slate-500 font-mono mt-0.5">
+                            {app.registration_number.toUpperCase()}
+                          </p>
+                          <p className="text-[10px] text-red-650 dark:text-red-400 font-extrabold mt-1 leading-snug">
+                            ⚠️ "{app.chief_complaint}"
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setDrawerType(null);
+                            setActiveApp(app);
+                            setActiveTab('counselling-emr');
+                          }}
+                          className="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[9px] font-extrabold rounded-lg cursor-pointer transition shrink-0 ml-2"
+                        >
+                          SOAP Note
+                        </button>
+                      </div>
+                    ));
+                  }
+
+                  return null;
+                })()}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

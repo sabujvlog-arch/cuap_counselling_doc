@@ -18,6 +18,7 @@ import {
   Heart,
   Clipboard,
   HelpCircle,
+  Activity,
   Eye,
   Printer,
   Sparkles,
@@ -28,6 +29,7 @@ import {
   AlertCircle,
   X,
   LayoutDashboard,
+  Volume2,
 } from 'lucide-react';
 import {
   LineChart,
@@ -47,7 +49,7 @@ import { useSidebar } from '@/hooks/useSidebar';
 import Sidebar from './ui/Sidebar';
 import Breadcrumbs from './ui/Breadcrumbs';
 import NotificationCenter from './ui/NotificationCenter';
-import { printPrescriptionReport } from '@/utils/print';
+import { printPrescriptionReport, downloadPrescriptionPDF } from '@/utils/print';
 
 interface StudentProps {
   onLogout: () => void;
@@ -101,6 +103,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
     | 'chat'
     | 'unimind'
     | 'feedback'
+    | 'breathing'
   >('overview');
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -124,10 +127,115 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
     assessment: 'Assessments Desk',
     chat: 'Secure Messenger',
     feedback: 'Feedback & Emergency',
+    breathing: 'Breathing Exercises',
   };
 
-  // Auth context for refreshing profile state
+  // Breathing Exercises module state
+  const [breathingActive, setBreathingActive] = useState(false);
+  const [breathingMode, setBreathingMode] = useState<'box' | '478' | 'deep'>('box');
+  const [exBreathingPhase, setExBreathingPhase] = useState<string>('Idle');
+  const [exBreathingTimer, setExBreathingTimer] = useState<number>(4);
+  const [breathingAudioEnabled, setBreathingAudioEnabled] = useState<boolean>(true);
   const { refreshSession } = useAuth();
+
+  const playBreathingTone = (frequency: number, duration: number) => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const audioCtx = new AudioContextClass();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+
+      gainNode.gain.setValueAtTime(0.12, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + duration);
+    } catch (e) {
+      console.warn('Audio context blocked:', e);
+    }
+  };
+
+  const getCircleScaleClass = () => {
+    if (!breathingActive) return 'scale-100 bg-teal-500/25 border-teal-400/50';
+    switch (exBreathingPhase) {
+      case 'Inhale':
+        return 'scale-150 bg-emerald-500/35 border-emerald-400';
+      case 'Hold':
+        return 'scale-150 bg-blue-500/35 border-blue-400';
+      case 'Exhale':
+        return 'scale-90 bg-indigo-500/25 border-indigo-400';
+      case 'Hold (Out)':
+        return 'scale-90 bg-slate-500/25 border-slate-400';
+      default:
+        return 'scale-100 bg-teal-500/25 border-teal-400/50';
+    }
+  };
+
+  useEffect(() => {
+    let interval: any = null;
+    const routines = {
+      box: [
+        ['Inhale', 4, 440],
+        ['Hold', 4, 554],
+        ['Exhale', 4, 392],
+        ['Hold (Out)', 4, 330],
+      ],
+      478: [
+        ['Inhale', 4, 440],
+        ['Hold', 7, 554],
+        ['Exhale', 8, 392],
+      ],
+      deep: [
+        ['Inhale', 5, 440],
+        ['Exhale', 5, 392],
+      ],
+    };
+
+    if (breathingActive) {
+      const routine = routines[breathingMode];
+      let currentPhaseIndex = 0;
+
+      const startPhase = (index: number) => {
+        const [phaseName, duration, freq] = routine[index];
+        setExBreathingPhase(phaseName as string);
+        setExBreathingTimer(duration as number);
+        if (breathingAudioEnabled) {
+          playBreathingTone(freq as number, 0.6);
+        }
+      };
+
+      startPhase(0);
+
+      interval = setInterval(() => {
+        setExBreathingTimer((prev) => {
+          if (prev <= 1) {
+            currentPhaseIndex = (currentPhaseIndex + 1) % routine.length;
+            const [nextPhase, nextDuration, freq] = routine[currentPhaseIndex];
+            setExBreathingPhase(nextPhase as string);
+            if (breathingAudioEnabled) {
+              playBreathingTone(freq as number, 0.6);
+            }
+            return nextDuration as number;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      setExBreathingPhase('Idle');
+      setExBreathingTimer(4);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [breathingActive, breathingMode, breathingAudioEnabled]);
 
   // Booking states
   const [providers, setProviders] = useState<any[]>([]);
@@ -163,6 +271,11 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
   // Digital Consent Form states
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [signatureName, setSignatureName] = useState('');
+  const [parentEmail, setParentEmail] = useState('');
+  const [parentPhone, setParentPhone] = useState('');
+  const [parentConsentSharing, setParentConsentSharing] = useState(false);
+  const [selectedIssues, setSelectedIssues] = useState<string[]>([]);
+  const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
 
   // Daily Mood check-in states
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
@@ -377,10 +490,22 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
       );
       return;
     }
+    if (selectedIssues.length === 0) {
+      showToast('Please select at least one primary issue/concern.', 'error');
+      return;
+    }
+    if (!parentEmail.trim() || !parentPhone.trim()) {
+      showToast('Please fill in parental contact details.', 'error');
+      return;
+    }
     try {
       const res = await api.documents.submitConsent({
         signature: signatureName,
         date: new Date().toISOString(),
+        parentEmail,
+        parentPhone,
+        parentConsentSharing,
+        majorIssues: selectedIssues,
       });
       showToast(res.message || 'Consent form submitted successfully!', 'success');
       await refreshSession();
@@ -584,6 +709,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
           { id: 'documents', label: 'Document Centre', icon: FileText },
           { id: 'assessment', label: 'Assessments Desk', icon: Clipboard },
           { id: 'chat', label: 'Secure Messenger', icon: MessageSquare },
+          { id: 'breathing', label: 'Breathing Exercises', icon: Activity },
           { id: 'feedback', label: 'Feedback & Emergency', icon: Heart },
         ]}
         activeTab={activeTab}
@@ -621,6 +747,10 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
               <span className="text-[10px] text-slate-400 font-mono block">
                 {studentProfile?.registration_number?.toUpperCase()}
               </span>
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 rounded-xl text-[10px] font-extrabold tracking-wider uppercase border border-emerald-250 dark:border-emerald-900/30">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Live Synced
             </div>
             <ThemeToggle />
 
@@ -663,100 +793,131 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                   Access counseling schedules, EMR summaries, self-screenings, and AI helpers in one
                   workspace
                 </p>
-              </div>
-
-              {/* KPI Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* KPI 1: Next Session */}
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
-                  <div>
-                    <span className="text-[10px] font-black uppercase text-slate-450 tracking-wider">
-                      Next Appointment
-                    </span>
-                    <h3 className="text-base font-extrabold text-slate-855 dark:text-slate-100 mt-2 leading-snug">
-                      {appointments.find((a) => a.status === 'approved')
-                        ? `Dr. ${appointments.find((a) => a.status === 'approved').provider_name}`
-                        : 'No active session'}
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-1">
-                      {appointments.find((a) => a.status === 'approved')
-                        ? `${appointments.find((a) => a.status === 'approved').slot_date} at ${appointments.find((a) => a.status === 'approved').slot_time}`
-                        : 'Schedule a session below'}
-                    </p>
-                  </div>
-                  {appointments.find((a) => a.status === 'approved') && (
-                    <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider mt-4">
-                      ✓ Confirmed
-                    </span>
-                  )}
-                </div>
-
-                {/* KPI 2: Consent */}
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
-                  <div>
-                    <span className="text-[10px] font-black uppercase text-slate-450 tracking-wider">
-                      Counseling Consent
-                    </span>
-                    <h3 className="text-base font-extrabold text-slate-855 dark:text-slate-100 mt-2 leading-snug">
-                      {studentProfile?.informed_consent_signed
-                        ? 'Signed & Submitted'
-                        : 'Pending signature'}
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-1">
-                      {studentProfile?.informed_consent_signed
-                        ? `Consent date: ${new Date(studentProfile.consent_date).toLocaleDateString()}`
-                        : 'Action required in Document Centre'}
-                    </p>
-                  </div>
-                  <span
-                    className={`text-[10px] font-bold uppercase tracking-wider mt-4 ${
-                      studentProfile?.informed_consent_signed
-                        ? 'text-emerald-600'
-                        : 'text-amber-500 animate-pulse'
-                    }`}
+                {/* KPI Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {/* KPI 1: Next Session */}
+                  <div
+                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-855 p-5 rounded-2xl shadow-sm flex flex-col justify-between stat-card"
+                    style={
+                      {
+                        '--gradient-start': '#3b82f6',
+                        '--gradient-end': '#60a5fa',
+                      } as React.CSSProperties
+                    }
                   >
-                    {studentProfile?.informed_consent_signed ? '✓ Compliant' : '⚠️ Unsigned'}
-                  </span>
-                </div>
-
-                {/* KPI 3: Screenings */}
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
-                  <div>
-                    <span className="text-[10px] font-black uppercase text-slate-450 tracking-wider">
-                      Self-Assessments
-                    </span>
-                    <h3 className="text-base font-extrabold text-slate-855 dark:text-slate-100 mt-2 leading-snug">
-                      {historicalAssessments.length} Completed
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Take mental health quizzes (PHQ-9, GAD-7)
-                    </p>
+                    <div>
+                      <span className="text-[10px] font-black uppercase text-slate-450 tracking-wider">
+                        Next Appointment
+                      </span>
+                      <h3 className="text-base font-extrabold text-slate-855 dark:text-slate-100 mt-2 leading-snug">
+                        {appointments.find((a) => a.status === 'approved')
+                          ? `Dr. ${appointments.find((a) => a.status === 'approved').provider_name}`
+                          : 'No active session'}
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {appointments.find((a) => a.status === 'approved')
+                          ? `${appointments.find((a) => a.status === 'approved').slot_date} at ${appointments.find((a) => a.status === 'approved').slot_time}`
+                          : 'Schedule a session below'}
+                      </p>
+                    </div>
+                    {appointments.find((a) => a.status === 'approved') && (
+                      <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider mt-4">
+                        ✓ Confirmed
+                      </span>
+                    )}
                   </div>
-                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider mt-4">
-                    Track Severity
-                  </span>
-                </div>
 
-                {/* KPI 4: Unread messages */}
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
-                  <div>
-                    <span className="text-[10px] font-black uppercase text-slate-450 tracking-wider">
-                      Announcements
+                  {/* KPI 2: Consent */}
+                  <div
+                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-855 p-5 rounded-2xl shadow-sm flex flex-col justify-between stat-card"
+                    style={
+                      {
+                        '--gradient-start': '#10b981',
+                        '--gradient-end': '#34d399',
+                      } as React.CSSProperties
+                    }
+                  >
+                    <div>
+                      <span className="text-[10px] font-black uppercase text-slate-450 tracking-wider">
+                        Counseling Consent
+                      </span>
+                      <h3 className="text-base font-extrabold text-slate-855 dark:text-slate-100 mt-2 leading-snug">
+                        {studentProfile?.informed_consent_signed
+                          ? 'Signed & Submitted'
+                          : 'Pending signature'}
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {studentProfile?.informed_consent_signed
+                          ? `Consent date: ${new Date(studentProfile.consent_date).toLocaleDateString()}`
+                          : 'Action required in Document Centre'}
+                      </p>
+                    </div>
+                    <span
+                      className={`text-[10px] font-bold uppercase tracking-wider mt-4 ${
+                        studentProfile?.informed_consent_signed
+                          ? 'text-emerald-600'
+                          : 'text-amber-500 animate-pulse'
+                      }`}
+                    >
+                      {studentProfile?.informed_consent_signed ? '✓ Compliant' : '⚠️ Unsigned'}
                     </span>
-                    <h3 className="text-base font-extrabold text-slate-855 dark:text-slate-100 mt-2 leading-snug">
-                      {announcements.length} Published
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Latest:{' '}
-                      {announcements[0]
-                        ? announcements[0].message.substring(0, 30) + '...'
-                        : 'None'}
-                    </p>
                   </div>
-                  <span className="text-[10px] text-indigo-650 dark:text-indigo-400 font-bold uppercase tracking-wider mt-4">
-                    Central Bulletins
-                  </span>
-                </div>
+
+                  {/* KPI 3: Screenings */}
+                  <div
+                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-855 p-5 rounded-2xl shadow-sm flex flex-col justify-between stat-card"
+                    style={
+                      {
+                        '--gradient-start': '#ec4899',
+                        '--gradient-end': '#f472b6',
+                      } as React.CSSProperties
+                    }
+                  >
+                    <div>
+                      <span className="text-[10px] font-black uppercase text-slate-450 tracking-wider">
+                        Self-Assessments
+                      </span>
+                      <h3 className="text-base font-extrabold text-slate-855 dark:text-slate-100 mt-2 leading-snug">
+                        {historicalAssessments.length} Completed
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Take mental health quizzes (PHQ-9, GAD-7)
+                      </p>
+                    </div>
+                    <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider mt-4">
+                      Track Severity
+                    </span>
+                  </div>
+
+                  {/* KPI 4: Unread messages */}
+                  <div
+                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-855 p-5 rounded-2xl shadow-sm flex flex-col justify-between stat-card"
+                    style={
+                      {
+                        '--gradient-start': '#6366f1',
+                        '--gradient-end': '#818cf8',
+                      } as React.CSSProperties
+                    }
+                  >
+                    <div>
+                      <span className="text-[10px] font-black uppercase text-slate-450 tracking-wider">
+                        Announcements
+                      </span>
+                      <h3 className="text-base font-extrabold text-slate-855 dark:text-slate-100 mt-2 leading-snug">
+                        {announcements.length} Published
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Latest:{' '}
+                        {announcements[0]
+                          ? announcements[0].message.substring(0, 30) + '...'
+                          : 'None'}
+                      </p>
+                    </div>
+                    <span className="text-[10px] text-indigo-650 dark:text-indigo-400 font-bold uppercase tracking-wider mt-4">
+                      Central Bulletins
+                    </span>
+                  </div>
+                </div>{' '}
               </div>
 
               {/* Quick Actions Grid */}
@@ -1337,12 +1498,25 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                           </span>
                         </div>
                         {!p.masked && (
-                          <button
-                            onClick={() => printPrescriptionReport(p, studentProfile)}
-                            className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition cursor-pointer"
-                          >
-                            <Printer size={14} /> Print / Save PDF
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => printPrescriptionReport(p, studentProfile)}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl transition cursor-pointer"
+                            >
+                              <Printer size={14} /> Print
+                            </button>
+                            <button
+                              onClick={() =>
+                                downloadPrescriptionPDF(
+                                  p.id,
+                                  studentProfile.registration_number || 'STU',
+                                )
+                              }
+                              className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition cursor-pointer"
+                            >
+                              <Download size={14} /> Download PDF
+                            </button>
+                          </div>
                         )}
                       </div>
                     ))}
@@ -1460,6 +1634,171 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                           and Privacy Policy.
                         </span>
                       </label>
+
+                      {/* MAJOR ISSUES SELECTION (BRANCHING) */}
+                      <div className="space-y-3">
+                        <label className="block text-slate-500 font-bold mb-1 uppercase tracking-wide text-[10px]">
+                          Primary Areas of Concern / Major Issues (Select all that apply) *
+                        </label>
+                        <div className="space-y-2 border border-slate-200 dark:border-slate-800 rounded-xl p-3 bg-slate-50/50 dark:bg-slate-950/20">
+                          {[
+                            {
+                              id: 'academic',
+                              label: 'Academic / Educational',
+                              issues: [
+                                'Exam Stress',
+                                'Lack of Concentration',
+                                'Time Management',
+                                'Grade Anxiety',
+                                'Procrastination',
+                              ],
+                            },
+                            {
+                              id: 'emotional',
+                              label: 'Emotional / Mental Health',
+                              issues: [
+                                'Anxiety',
+                                'Depression',
+                                'Mood Swings',
+                                'Grief / Loss',
+                                'Stress / Overwhelm',
+                              ],
+                            },
+                            {
+                              id: 'social',
+                              label: 'Social / Relationships',
+                              issues: [
+                                'Family Problems',
+                                'Relationship Conflict',
+                                'Peer Pressure',
+                                'Loneliness / Isolation',
+                                'Social Anxiety',
+                              ],
+                            },
+                            {
+                              id: 'physical',
+                              label: 'Physical / Health',
+                              issues: [
+                                'Insomnia / Sleep Issues',
+                                'Chronic Fatigue',
+                                'Appetite Changes',
+                                'Physical Illness Recovery',
+                              ],
+                            },
+                            {
+                              id: 'career',
+                              label: 'Career / Future Planning',
+                              issues: [
+                                'Career Direction Uncertainty',
+                                'Job Search Stress',
+                                'Interview Anxiety',
+                              ],
+                            },
+                          ].map((cat) => {
+                            const isExpanded = expandedCategories.includes(cat.id);
+                            return (
+                              <div
+                                key={cat.id}
+                                className="border border-slate-100 dark:border-slate-900 rounded-lg overflow-hidden bg-white dark:bg-slate-900"
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (isExpanded) {
+                                      setExpandedCategories(
+                                        expandedCategories.filter((id) => id !== cat.id),
+                                      );
+                                    } else {
+                                      setExpandedCategories([...expandedCategories, cat.id]);
+                                    }
+                                  }}
+                                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-850 cursor-pointer"
+                                >
+                                  <span>{cat.label}</span>
+                                  <span className="text-slate-400">{isExpanded ? '▼' : '▶'}</span>
+                                </button>
+                                {isExpanded && (
+                                  <div className="p-3 bg-slate-50/50 dark:bg-slate-950/10 border-t border-slate-100 dark:border-slate-900 grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    {cat.issues.map((issue) => {
+                                      const isChecked = selectedIssues.includes(issue);
+                                      return (
+                                        <label
+                                          key={issue}
+                                          className="flex items-center gap-2 text-[11px] font-medium text-slate-650 dark:text-slate-350 cursor-pointer"
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            checked={isChecked}
+                                            onChange={(e) => {
+                                              if (e.target.checked) {
+                                                setSelectedIssues([...selectedIssues, issue]);
+                                              } else {
+                                                setSelectedIssues(
+                                                  selectedIssues.filter((i) => i !== issue),
+                                                );
+                                              }
+                                            }}
+                                            className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
+                                          />
+                                          <span>{issue}</span>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* PARENTAL LINKAGE DETAILS */}
+                      <div className="space-y-4 border border-slate-200 dark:border-slate-800 rounded-xl p-4 bg-slate-50/50 dark:bg-slate-950/20">
+                        <h4 className="text-slate-500 font-bold uppercase tracking-wide text-[10px] mb-1">
+                          Parent / Guardian Linkage Information *
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-slate-400 font-semibold mb-1 text-[10px]">
+                              Parents Email ID *
+                            </label>
+                            <input
+                              type="email"
+                              required
+                              value={parentEmail}
+                              onChange={(e) => setParentEmail(e.target.value)}
+                              placeholder="parent@example.com"
+                              className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg bg-white dark:bg-slate-900 font-medium text-slate-800 dark:text-white text-xs focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-slate-400 font-semibold mb-1 text-[10px]">
+                              Parents Phone Number *
+                            </label>
+                            <input
+                              type="tel"
+                              required
+                              value={parentPhone}
+                              onChange={(e) => setParentPhone(e.target.value)}
+                              placeholder="e.g. +919876543210"
+                              className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg bg-white dark:bg-slate-900 font-medium text-slate-800 dark:text-white text-xs focus:outline-none"
+                            />
+                          </div>
+                        </div>
+                        <label className="flex items-start gap-2.5 cursor-pointer group mt-2">
+                          <input
+                            type="checkbox"
+                            checked={parentConsentSharing}
+                            onChange={(e) => setParentConsentSharing(e.target.checked)}
+                            className="mt-0.5 w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
+                          />
+                          <span className="text-slate-600 dark:text-slate-400 font-medium text-[11px] leading-relaxed">
+                            I explicitly authorize the Student Wellness Center to share
+                            automated/manual severity reports with my parents in case of
+                            psychological crisis or severe concern.
+                          </span>
+                        </label>
+                      </div>
 
                       <div>
                         <label className="block text-slate-500 font-bold mb-1.5 uppercase tracking-wide text-[10px]">
@@ -1920,6 +2259,153 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                 </div>
               );
             })()}
+
+          {activeTab === 'breathing' && (
+            <div className="space-y-8 animate-fade-in-up">
+              <div>
+                <h2 className="text-2xl font-black tracking-tight font-sans">
+                  Breathing Exercises & Audio Guide
+                </h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  Regulate your autonomic nervous system, improve focus, and reduce anxiety with box
+                  breathing and structured guides.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Visualizer & Controls Card */}
+                <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-8 rounded-3xl shadow-sm flex flex-col items-center justify-center min-h-[420px] relative overflow-hidden">
+                  {/* Visual scale circle */}
+                  <div className="relative flex items-center justify-center w-72 h-72 mb-8">
+                    {/* Pulsing ring outer */}
+                    <div
+                      className={`absolute inset-0 rounded-full border-2 border-dashed transition-all duration-1000 ${
+                        breathingActive
+                          ? 'animate-spin-slow border-teal-500/20'
+                          : 'border-slate-200 dark:border-slate-800'
+                      }`}
+                    />
+
+                    {/* Scaling core circle */}
+                    <div
+                      className={`w-48 h-48 rounded-full border-4 flex flex-col items-center justify-center transition-all duration-1000 ease-in-out ${getCircleScaleClass()}`}
+                    >
+                      <span className="text-2xl font-black tracking-wider text-slate-800 dark:text-white uppercase transition-opacity duration-300">
+                        {exBreathingTimer}s
+                      </span>
+                      <span className="text-[11px] font-bold tracking-widest text-slate-550 dark:text-slate-400 uppercase mt-1">
+                        {exBreathingPhase}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Playback Controls */}
+                  <div className="flex items-center gap-4 z-10">
+                    <button
+                      onClick={() => setBreathingActive(!breathingActive)}
+                      className={`px-8 py-3 rounded-full font-bold text-sm shadow-md transition transform hover:scale-[1.02] active:scale-[0.98] cursor-pointer ${
+                        breathingActive
+                          ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                          : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      }`}
+                    >
+                      {breathingActive ? 'Pause Exercise' : 'Start Session'}
+                    </button>
+
+                    <button
+                      onClick={() => setBreathingAudioEnabled(!breathingAudioEnabled)}
+                      className={`p-3 rounded-full border transition cursor-pointer ${
+                        breathingAudioEnabled
+                          ? 'bg-slate-100 border-slate-200 dark:bg-slate-800 dark:border-slate-700 text-blue-600'
+                          : 'bg-transparent border-slate-200 dark:border-slate-800 text-slate-400'
+                      }`}
+                      title={breathingAudioEnabled ? 'Mute Guide' : 'Unmute Guide'}
+                    >
+                      <Volume2 size={20} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Routines Card */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-6 rounded-3xl shadow-sm h-fit space-y-6">
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-wider">
+                    Select Breathing Mode
+                  </h3>
+
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => {
+                        setBreathingMode('box');
+                        setBreathingActive(false);
+                      }}
+                      className={`w-full text-left p-4 rounded-2xl border transition-all cursor-pointer ${
+                        breathingMode === 'box'
+                          ? 'border-blue-500 bg-blue-50/30 dark:bg-blue-955/20'
+                          : 'border-slate-150 dark:border-slate-850 hover:bg-slate-50/50 dark:hover:bg-slate-900/40'
+                      }`}
+                    >
+                      <span className="font-bold text-sm text-slate-900 dark:text-white block">
+                        Box Breathing (4-4-4-4)
+                      </span>
+                      <span className="text-[11px] text-slate-450 mt-1 block">
+                        Equal parts inhale, hold, exhale, hold. Ideal for tactical stress relief and
+                        calming the amygdala.
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setBreathingMode('478');
+                        setBreathingActive(false);
+                      }}
+                      className={`w-full text-left p-4 rounded-2xl border transition-all cursor-pointer ${
+                        breathingMode === '478'
+                          ? 'border-blue-500 bg-blue-50/30 dark:bg-blue-955/20'
+                          : 'border-slate-150 dark:border-slate-850 hover:bg-slate-50/50 dark:hover:bg-slate-900/40'
+                      }`}
+                    >
+                      <span className="font-bold text-sm text-slate-900 dark:text-white block">
+                        4-7-8 Relaxing Routine
+                      </span>
+                      <span className="text-[11px] text-slate-450 mt-1 block">
+                        4s inhale, 7s hold, 8s slow exhale. Designed by Dr. Andrew Weil to act as a
+                        natural nervous system tranquilizer.
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setBreathingMode('deep');
+                        setBreathingActive(false);
+                      }}
+                      className={`w-full text-left p-4 rounded-2xl border transition-all cursor-pointer ${
+                        breathingMode === 'deep'
+                          ? 'border-blue-500 bg-blue-50/30 dark:bg-blue-955/20'
+                          : 'border-slate-150 dark:border-slate-850 hover:bg-slate-50/50 dark:hover:bg-slate-900/40'
+                      }`}
+                    >
+                      <span className="font-bold text-sm text-slate-900 dark:text-white block">
+                        Deep Inhale / Exhale (5-5)
+                      </span>
+                      <span className="text-[11px] text-slate-450 mt-1 block">
+                        5s slow inhale, 5s slow exhale. Simulates the resonant frequency of blood
+                        flow to maximize cardiac coherence.
+                      </span>
+                    </button>
+                  </div>
+
+                  <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-850 text-[11px] leading-relaxed text-slate-550 dark:text-slate-400">
+                    <strong className="text-slate-700 dark:text-slate-350 block mb-1">
+                      💡 Quick Tip:
+                    </strong>
+                    Sit comfortably with a straight spine. Inhale quietly through your nose, and
+                    exhale with a gentle whoosh sound through your mouth. Keep the audio sound
+                    unmuted to follow the auditory prompts!
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {activeTab === 'feedback' && (
             <div className="space-y-8 animate-fade-in-up">

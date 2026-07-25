@@ -5,9 +5,28 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(__dirname),
   },
+  allowedDevOrigins: [
+    '172.24.0.118',
+    '172.24.0.118:3000',
+    '172.21.91.100',
+    '172.21.91.100:3000',
+    'localhost:3000',
+  ],
   images: {
     unoptimized: false, // keep optimization on
     localPatterns: [{ pathname: '/**' }],
+  },
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'http://127.0.0.1:5000/api/:path*',
+      },
+      {
+        source: '/uploads/:path*',
+        destination: 'http://127.0.0.1:5000/uploads/:path*',
+      },
+    ];
   },
   async headers() {
     return [

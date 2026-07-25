@@ -452,6 +452,27 @@ export default function SOAPEditor({
     sessionNotesText,
     riskAssessment,
     treatmentPlanData,
+    history,
+    pastPsychiatric,
+    pastMedical,
+    medicationHistory,
+    familyHistory,
+    socialHistory,
+    substanceUse,
+    personalityTraits,
+    protectiveFactors,
+    strengths,
+    clientFeedback,
+    followUpNotes,
+    differentialDiagnosis,
+    prognosis,
+    medicationPlan,
+    dietaryAdvice,
+    exerciseAdvice,
+    medReferral,
+    medFollowUp,
+    homeworkReview,
+    medicationAdherence,
   ]);
 
   // ============================================================
@@ -759,117 +780,7 @@ export default function SOAPEditor({
   };
 
   // ============================================================
-  // Render helpers
-  // ============================================================
-
-  const AccordionSection = ({
-    id,
-    label,
-    icon,
-    visible,
-    children,
-    rightContent,
-  }: {
-    id: string;
-    label: string;
-    icon: React.ReactNode;
-    visible: boolean;
-    children: React.ReactNode;
-    rightContent?: React.ReactNode;
-  }) => {
-    if (!visible) return null;
-    const isOpen = expandedSections.has(id);
-    return (
-      <div className={`emr-section ${isOpen ? 'emr-section-open' : ''}`}>
-        <button className="emr-section-header" onClick={() => toggleSection(id)}>
-          <div className="emr-section-header-left">
-            <span className="emr-section-icon">{icon}</span>
-            <span className="emr-section-label">{label}</span>
-          </div>
-          <div className="emr-section-header-right">
-            {rightContent}
-            <span className="emr-chevron">
-              {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-            </span>
-          </div>
-        </button>
-        {isOpen && <div className="emr-section-body">{children}</div>}
-      </div>
-    );
-  };
-
-  const FormField = ({
-    label,
-    value,
-    onChange,
-    placeholder = '',
-    type = 'textarea',
-    rows = 3,
-    required = false,
-  }: {
-    label: string;
-    value: string;
-    onChange: (v: string) => void;
-    placeholder?: string;
-    type?: 'textarea' | 'input' | 'select';
-    rows?: number;
-    required?: boolean;
-  }) => (
-    <div className="emr-field">
-      <label className="emr-label">
-        {label}
-        {required && <span className="emr-required">*</span>}
-      </label>
-      {type === 'textarea' ? (
-        <textarea
-          className="emr-textarea"
-          rows={rows}
-          value={value}
-          onChange={(e) => {
-            onChange(e.target.value);
-            triggerAutoSave();
-          }}
-          placeholder={placeholder || `Enter ${label.toLowerCase()}...`}
-        />
-      ) : (
-        <input
-          className="emr-input"
-          value={value}
-          onChange={(e) => {
-            onChange(e.target.value);
-            triggerAutoSave();
-          }}
-          placeholder={placeholder || label}
-        />
-      )}
-    </div>
-  );
-
-  const VitalsInput = ({
-    label,
-    value,
-    onChange,
-    unit,
-  }: {
-    label: string;
-    value: string;
-    onChange: (v: string) => void;
-    unit: string;
-  }) => (
-    <div className="emr-vital-field">
-      <label className="emr-vital-label">{label}</label>
-      <div className="emr-vital-input-row">
-        <input
-          className="emr-vital-input"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="—"
-        />
-        <span className="emr-vital-unit">{unit}</span>
-      </div>
-    </div>
-  );
-
+  // Render helpers moved outside component function to preserve focus
   // ============================================================
 
   return (
@@ -1346,6 +1257,8 @@ export default function SOAPEditor({
             icon={<User size={18} />}
             visible={true}
             rightContent={statusChip(fieldStatus(presentingComplaint, history, pastMedical))}
+            isOpen={expandedSections.has('section-1')}
+            onToggle={() => toggleSection('section-1')}
           >
             <div className="emr-grid-2">
               <div className="emr-field">
@@ -1475,6 +1388,8 @@ export default function SOAPEditor({
                 counselingSessionNotes,
               ),
             )}
+            isOpen={expandedSections.has('section-2')}
+            onToggle={() => toggleSection('section-2')}
           >
             {/* 2a: Counseling Assessment */}
             <div className="emr-subsection">
@@ -1732,6 +1647,8 @@ export default function SOAPEditor({
             rightContent={statusChip(
               fieldStatus(medicalExam.chiefComplaint, finalDiagnosis, medicalExam.bp),
             )}
+            isOpen={expandedSections.has('section-3')}
+            onToggle={() => toggleSection('section-3')}
           >
             {/* 3a: Medical Examination */}
             <div className="emr-subsection">
@@ -1984,6 +1901,8 @@ export default function SOAPEditor({
             icon={<FlaskConical size={18} />}
             visible={true}
             rightContent={statusChip(fieldStatus(mseChecklist.clinicalImpression))}
+            isOpen={expandedSections.has('section-4')}
+            onToggle={() => toggleSection('section-4')}
           >
             {/* MSE */}
             <div className="emr-subsection">
@@ -2280,6 +2199,8 @@ export default function SOAPEditor({
             icon={<FileText size={18} />}
             visible={true}
             rightContent={statusChip(fieldStatus(sessionNotesText, riskAssessment))}
+            isOpen={expandedSections.has('section-5')}
+            onToggle={() => toggleSection('section-5')}
           >
             <FormField
               label="Session Notes"
@@ -2311,6 +2232,8 @@ export default function SOAPEditor({
             icon={<ClipboardList size={18} />}
             visible={true}
             rightContent={statusChip(fieldStatus(subjective, objective, assessment, plan))}
+            isOpen={expandedSections.has('section-6')}
+            onToggle={() => toggleSection('section-6')}
           >
             <div
               style={{
@@ -2727,6 +2650,8 @@ export default function SOAPEditor({
             rightContent={statusChip(
               fieldStatus(treatmentPlanData.goals, treatmentPlanData.interventions),
             )}
+            isOpen={expandedSections.has('section-7')}
+            onToggle={() => toggleSection('section-7')}
           >
             <div className="emr-grid-2">
               <FormField
@@ -2775,6 +2700,8 @@ export default function SOAPEditor({
             icon={<Paperclip size={18} />}
             visible={true}
             rightContent={statusChip(attachments.length > 0 ? 'completed' : 'empty')}
+            isOpen={expandedSections.has('section-8')}
+            onToggle={() => toggleSection('section-8')}
           >
             <div
               style={{
@@ -3274,3 +3201,114 @@ export default function SOAPEditor({
     </div>
   );
 }
+
+// ── Render Helpers defined outside component to preserve input focus ──
+
+const AccordionSection = ({
+  id,
+  label,
+  icon,
+  visible,
+  children,
+  rightContent,
+  isOpen,
+  onToggle,
+}: {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  visible: boolean;
+  children: React.ReactNode;
+  rightContent?: React.ReactNode;
+  isOpen: boolean;
+  onToggle: () => void;
+}) => {
+  if (!visible) return null;
+  return (
+    <div className={`emr-section ${isOpen ? 'emr-section-open' : ''}`}>
+      <button className="emr-section-header" onClick={onToggle}>
+        <div className="emr-section-header-left">
+          <span className="emr-section-icon">{icon}</span>
+          <span className="emr-section-label">{label}</span>
+        </div>
+        <div className="emr-section-header-right">
+          {rightContent}
+          <span className="emr-chevron">
+            {isOpen ? (
+              <ChevronRight size={16} style={{ transform: 'rotate(90deg)' }} />
+            ) : (
+              <ChevronRight size={16} />
+            )}
+          </span>
+        </div>
+      </button>
+      {isOpen && <div className="emr-section-body">{children}</div>}
+    </div>
+  );
+};
+
+const FormField = ({
+  label,
+  value,
+  onChange,
+  placeholder = '',
+  type = 'textarea',
+  rows = 3,
+  required = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  type?: 'textarea' | 'input' | 'select';
+  rows?: number;
+  required?: boolean;
+}) => (
+  <div className="emr-field">
+    <label className="emr-label">
+      {label}
+      {required && <span className="emr-required">*</span>}
+    </label>
+    {type === 'textarea' ? (
+      <textarea
+        className="emr-textarea"
+        rows={rows}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder || `Enter ${label.toLowerCase()}...`}
+      />
+    ) : (
+      <input
+        className="emr-input"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder || label}
+      />
+    )}
+  </div>
+);
+
+const VitalsInput = ({
+  label,
+  value,
+  onChange,
+  unit,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  unit: string;
+}) => (
+  <div className="emr-vital-field">
+    <label className="emr-vital-label">{label}</label>
+    <div className="emr-vital-input-row">
+      <input
+        className="emr-vital-input"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="—"
+      />
+      <span className="emr-vital-unit">{unit}</span>
+    </div>
+  </div>
+);

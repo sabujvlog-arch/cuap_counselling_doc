@@ -134,6 +134,10 @@ export default function DashboardDeptHead({
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 rounded-xl text-[10px] font-extrabold tracking-wider uppercase border border-emerald-250 dark:border-emerald-900/30">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Live Synced
+            </div>
             <ThemeToggle />
             <button
               onClick={onLogout}
@@ -148,7 +152,12 @@ export default function DashboardDeptHead({
       <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
         {/* Oversight widgets */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm flex items-center gap-4">
+          <div
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm flex items-center gap-4 stat-card"
+            style={
+              { '--gradient-start': '#6366f1', '--gradient-end': '#818cf8' } as React.CSSProperties
+            }
+          >
             <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center">
               <Users size={20} />
             </div>
@@ -159,7 +168,12 @@ export default function DashboardDeptHead({
               <h2 className="text-xl font-black text-slate-909 mt-0.5">{sessions.length}</h2>
             </div>
           </div>
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm flex items-center gap-4">
+          <div
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm flex items-center gap-4 stat-card"
+            style={
+              { '--gradient-start': '#ef4444', '--gradient-end': '#fb7185' } as React.CSSProperties
+            }
+          >
             <div className="w-10 h-10 bg-red-50 dark:bg-red-950/30 text-red-650 dark:text-red-400 rounded-xl flex items-center justify-center">
               <ShieldAlert size={20} />
             </div>
@@ -172,7 +186,12 @@ export default function DashboardDeptHead({
               </h2>
             </div>
           </div>
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm flex items-center gap-4">
+          <div
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm flex items-center gap-4 stat-card"
+            style={
+              { '--gradient-start': '#10b981', '--gradient-end': '#34d399' } as React.CSSProperties
+            }
+          >
             <div className="w-10 h-10 bg-green-50 dark:bg-green-950/30 text-green-600 dark:text-green-400 rounded-xl flex items-center justify-center">
               <UserCheck size={20} />
             </div>
@@ -185,7 +204,12 @@ export default function DashboardDeptHead({
               </h2>
             </div>
           </div>
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm flex items-center gap-4">
+          <div
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm flex items-center gap-4 stat-card"
+            style={
+              { '--gradient-start': '#3b82f6', '--gradient-end': '#60a5fa' } as React.CSSProperties
+            }
+          >
             <div className="w-10 h-10 bg-blue-50 dark:bg-blue-950/30 text-blue-650 dark:text-blue-400 rounded-xl flex items-center justify-center">
               <FileText size={20} />
             </div>
@@ -601,7 +625,7 @@ export default function DashboardDeptHead({
 
         {/* Details Modal */}
         {selectedRepoSession && (
-          <div className="fixed inset-0 bg-black/60 backdrop-filter blur-sm z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto flex flex-col shadow-2xl">
               {/* Modal Header */}
               <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">

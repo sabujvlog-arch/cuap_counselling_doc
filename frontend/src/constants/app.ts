@@ -173,6 +173,7 @@ export const SEMESTERS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'] as 
 // Referral Sources
 // ─────────────────────────────────────────────────────────────────
 export const REFERRAL_SOURCES = [
+  'Self',
   'Self-Referral',
   'Faculty Referral',
   'Peer Referral',

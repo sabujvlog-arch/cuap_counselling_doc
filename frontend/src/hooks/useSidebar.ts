@@ -14,14 +14,13 @@ export function useSidebar() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(true);
 
   // Pin state: true = locked (no auto-collapse/hover expansion), false = dynamic
-  const [sidebarPinned, setSidebarPinned] = useState<boolean>(true);
+  const [sidebarPinned, setSidebarPinned] = useState<boolean>(false);
 
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Read initial preferences from localStorage on mount
   useEffect(() => {
     const savedCollapsed = localStorage.getItem('sidebar_collapsed');
-    const savedPinned = localStorage.getItem('sidebar_pinned');
 
     if (isTabletOrMobile) {
       // Auto-collapse by default on smaller viewports
@@ -29,7 +28,7 @@ export function useSidebar() {
       setSidebarPinned(false);
     } else {
       setSidebarCollapsed(savedCollapsed === null ? false : savedCollapsed === 'true');
-      setSidebarPinned(savedPinned === null ? true : savedPinned === 'true');
+      setSidebarPinned(false);
     }
   }, [isTabletOrMobile]);
 
@@ -46,10 +45,8 @@ export function useSidebar() {
 
   const persistPinned = useCallback(
     (pinned: boolean) => {
-      if (!isTabletOrMobile) {
-        localStorage.setItem('sidebar_pinned', String(pinned));
-      }
-      setSidebarPinned(pinned);
+      // Pinned state is always false as the pin button is removed.
+      setSidebarPinned(false);
     },
     [isTabletOrMobile],
   );

@@ -51,7 +51,7 @@ const sendSMS = async (recipient: string, message: string): Promise<boolean> => 
   }
 };
 
-const sendEmail = async (
+export const sendEmail = async (
   recipient: string,
   subject: string,
   htmlContent: string,
@@ -120,6 +120,21 @@ export const login = async (req: Request, res: Response) => {
     }
 
     const user = userRes.rows[0];
+    if (user.is_blocked === 1 || user.is_blocked === true) {
+      await query(
+        'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
+        [
+          user.id,
+          'LOGIN_BLOCKED',
+          `Blocked user "${user.username}" attempted login. User-Agent: ${req.headers['user-agent'] || 'unknown'}`,
+          req.ip,
+        ],
+      );
+      return res
+        .status(403)
+        .json({ error: 'Your account is blocked. Please contact your system administrator.' });
+    }
+
     let passwordMatch = false;
 
     // Student temporary credentials rule: Username = Password (Student ID = Student ID)
@@ -529,15 +544,15 @@ export const updateProvider = async (req: AuthRequest, res: Response) => {
            signature_url = COALESCE($9, signature_url)
        WHERE id = $10`,
       [
-        name,
-        employeeId,
-        department,
-        qualification,
-        specialization,
-        phone,
-        email,
-        photoUrl,
-        signatureUrl,
+        name !== undefined ? name : null,
+        employeeId !== undefined ? employeeId : null,
+        department !== undefined ? department : null,
+        qualification !== undefined ? qualification : null,
+        specialization !== undefined ? specialization : null,
+        phone !== undefined ? phone : null,
+        email !== undefined ? email : null,
+        photoUrl !== undefined ? photoUrl : null,
+        signatureUrl !== undefined ? signatureUrl : null,
         id,
       ],
     );
@@ -547,7 +562,7 @@ export const updateProvider = async (req: AuthRequest, res: Response) => {
        SET email = COALESCE($1, email),
            phone = COALESCE($2, phone)
        WHERE id = $3`,
-      [email, phone, userId],
+      [email !== undefined ? email : null, phone !== undefined ? phone : null, userId],
     );
 
     if (password && password.trim() !== '') {
@@ -587,6 +602,50 @@ export const deleteProvider = async (req: AuthRequest, res: Response) => {
     }
     const { user_id, name, employee_id } = provRes.rows[0];
 
+    // Clean up grandchild and child tables in dependency order to prevent constraint errors
+    const sessionIdsQuery = 'SELECT id FROM sessions WHERE provider_id = $1';
+
+    // 1. Grandchild tables (referencing sessions)
+    await query('DELETE FROM session_history WHERE session_id IN (' + sessionIdsQuery + ')', [id]);
+    await query('DELETE FROM mse_logs WHERE session_id IN (' + sessionIdsQuery + ')', [id]);
+    await query('DELETE FROM session_drafts WHERE session_id IN (' + sessionIdsQuery + ')', [id]);
+    await query('DELETE FROM report_access WHERE session_id IN (' + sessionIdsQuery + ')', [id]);
+    await query('DELETE FROM follow_ups WHERE session_id IN (' + sessionIdsQuery + ')', [id]);
+
+    // 2. Prescription items referencing prescriptions
+    await query(
+      'DELETE FROM prescription_items WHERE prescription_id IN (SELECT id FROM prescriptions WHERE provider_id = $1 OR session_id IN (' +
+        sessionIdsQuery +
+        '))',
+      [id],
+    );
+    await query(
+      'DELETE FROM prescriptions WHERE provider_id = $1 OR session_id IN (' + sessionIdsQuery + ')',
+      [id],
+    );
+
+    // 3. Child tables referencing providers directly
+    await query('DELETE FROM availability WHERE provider_id = $1', [id]);
+    await query('DELETE FROM session_drafts WHERE provider_id = $1', [id]);
+    await query('DELETE FROM resource_prescriptions WHERE provider_id = $1', [id]);
+    await query('DELETE FROM test_orders WHERE provider_id = $1', [id]);
+    await query('DELETE FROM assessments WHERE provider_id = $1', [id]);
+    await query('DELETE FROM sessions WHERE provider_id = $1', [id]);
+    await query('DELETE FROM appointments WHERE provider_id = $1', [id]);
+    await query('DELETE FROM emergency_cases WHERE provider_id = $1', [id]);
+    await query('DELETE FROM spot_registrations WHERE provider_id = $1', [id]);
+    await query('DELETE FROM follow_ups WHERE provider_id = $1', [id]);
+    await query('DELETE FROM student_case_histories WHERE provider_id = $1', [id]);
+
+    // 4. User level tables referencing users directly
+    await query('DELETE FROM messages WHERE sender_id = $1 OR receiver_id = $1', [user_id]);
+    await query('DELETE FROM notifications WHERE user_id = $1', [user_id]);
+    await query('DELETE FROM report_access WHERE granted_by = $1', [user_id]);
+    await query('UPDATE documents SET uploaded_by = NULL WHERE uploaded_by = $1', [user_id]);
+    await query('UPDATE audit_logs SET user_id = NULL WHERE user_id = $1', [user_id]);
+
+    // 5. Delete primary provider and user rows
+    await query('DELETE FROM providers WHERE id = $1', [id]);
     await query('DELETE FROM users WHERE id = $1', [user_id]);
 
     await query(
@@ -623,6 +682,10 @@ export const createStudent = async (req: AuthRequest, res: Response) => {
     emergencyPhone,
     bloodGroup,
     address,
+    parentEmail,
+    parentPhone,
+    parentConsentSharing,
+    majorIssues,
   } = req.body;
 
   if (
@@ -679,7 +742,11 @@ export const createStudent = async (req: AuthRequest, res: Response) => {
         : 'day_scholar');
 
     await query(
-      'INSERT INTO students (user_id, registration_number, name, age, gender, dob, department, semester, phone, email, hostel_scholar, student_type, emergency_contact, emergency_phone, blood_group, address) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)',
+      `INSERT INTO students (
+        user_id, registration_number, name, age, gender, dob, department, semester, phone, email, 
+        hostel_scholar, student_type, emergency_contact, emergency_phone, blood_group, address,
+        parent_email, parent_phone, parent_consent_sharing, major_issues
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`,
       [
         userId,
         regNorm,
@@ -697,6 +764,14 @@ export const createStudent = async (req: AuthRequest, res: Response) => {
         emergencyPhone,
         bloodGroup,
         address,
+        parentEmail || null,
+        parentPhone || null,
+        parentConsentSharing ? 1 : 0,
+        majorIssues
+          ? typeof majorIssues === 'string'
+            ? majorIssues
+            : JSON.stringify(majorIssues)
+          : null,
       ],
     );
 

@@ -2,6 +2,8 @@ import { Response } from 'express';
 import { query } from '../config/db';
 import { AuthRequest } from '../middleware/auth';
 import { createNotification } from '../services/notificationService';
+import { encrypt } from '../utils/crypto';
+import { sendEmail } from './authController';
 
 export interface ConflictCheckResult {
   conflict: boolean;
@@ -69,8 +71,8 @@ export async function resolveCurrentSlot(
   const providerUserId = providerRes.rows[0].user_id;
 
   const availRes = await query(
-    'SELECT * FROM availability WHERE provider_id = $1 AND day_of_week = $2',
-    [providerUserId, dayOfWeek],
+    'SELECT * FROM availability WHERE (provider_id = $1 OR provider_id = (SELECT id FROM providers WHERE user_id = $1)) AND day_of_week = $2',
+    [providerId, dayOfWeek],
   );
   if (availRes.rows.length === 0 || availRes.rows[0].is_holiday) return null;
 
@@ -235,6 +237,141 @@ export const getProviders = async (req: AuthRequest, res: Response) => {
   }
 };
 
+const autoGenerateClinicalNote = async (
+  appointmentId: number,
+  studentId: number,
+  providerId: number,
+  sessionDate: string,
+  chiefComplaint: string,
+): Promise<number | null> => {
+  try {
+    const encComplaint = encrypt(chiefComplaint || 'Consultation');
+    const encDefault = encrypt('Not specified');
+
+    const insertRes = await query(
+      `INSERT INTO sessions (
+        appointment_id, student_id, provider_id, session_date,
+        presenting_complaint, history, mse, diagnosis, case_formulation, risk_assessment,
+        subjective, objective, assessment, plan, workflow_stage, is_released
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+       RETURNING id`,
+      [
+        appointmentId,
+        studentId,
+        providerId,
+        sessionDate,
+        encComplaint, // presenting_complaint
+        encDefault, // history
+        encDefault, // mse
+        encDefault, // diagnosis
+        encDefault, // case_formulation
+        encDefault, // risk_assessment
+        encDefault, // subjective
+        encDefault, // objective
+        encDefault, // assessment
+        encDefault, // plan
+        'registration', // workflow_stage
+        0, // is_released
+      ],
+    );
+    console.log(`Auto-generated clinical note (session) for appointment ID ${appointmentId}`);
+    return insertRes.rows?.[0]?.id || insertRes.lastInsertId || null;
+  } catch (err) {
+    console.error('Error auto-generating clinical note:', err);
+    return null;
+  }
+};
+
+const triggerBookingEmails = async (
+  appointmentId: number,
+  studentId: number,
+  providerId: number,
+  slotDate: string,
+  slotTime: string,
+  reason: string,
+) => {
+  try {
+    const studentRes = await query('SELECT name, email FROM students WHERE id = $1', [studentId]);
+    const providerRes = await query('SELECT name, email FROM providers WHERE id = $1', [
+      providerId,
+    ]);
+
+    if (studentRes.rows.length > 0 && providerRes.rows.length > 0) {
+      const student = studentRes.rows[0];
+      const provider = providerRes.rows[0];
+
+      const studentSubject = `Appointment Confirmed - CUAP Student Wellness Hub`;
+      const studentHtml = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+          <h2 style="color: #1e3a8a;">Central University of Andhra Pradesh</h2>
+          <h3>Student Wellness Counseling Centre</h3>
+          <hr/>
+          <p>Dear <strong>${student.name}</strong>,</p>
+          <p>Your counseling appointment has been successfully scheduled and confirmed.</p>
+          <table style="border-collapse: collapse; width: 100%; max-width: 500px; margin: 20px 0;">
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; background: #f9f9f9;">Counselor</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">Dr. ${provider.name}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; background: #f9f9f9;">Date</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${slotDate}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; background: #f9f9f9;">Time Slot</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${slotTime}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; background: #f9f9f9;">Reason / Agenda</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${reason || 'General counseling'}</td>
+            </tr>
+          </table>
+          <p>Please arrive 10 minutes prior to your scheduled time slot.</p>
+          <p>Sincerely,<br/>CUAP Support Team</p>
+        </div>
+      `;
+
+      await sendEmail(student.email, studentSubject, studentHtml);
+
+      const providerSubject = `New Appointment Scheduled - ${student.name}`;
+      const providerHtml = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+          <h2 style="color: #1e3a8a;">New Counseling Encounter Registered</h2>
+          <hr/>
+          <p>Dear Dr. <strong>${provider.name}</strong>,</p>
+          <p>A new counseling encounter has been successfully registered with you.</p>
+          <table style="border-collapse: collapse; width: 100%; max-width: 500px; margin: 20px 0;">
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; background: #f9f9f9;">Student/Client</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${student.name}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; background: #f9f9f9;">Date</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${slotDate}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; background: #f9f9f9;">Time Slot</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${slotTime}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; background: #f9f9f9;">Indicated Reason</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${reason || 'General walk-in/encounter'}</td>
+            </tr>
+          </table>
+          <p>An initial Clinical Intake Note has been automatically generated in your EMR timeline.</p>
+        </div>
+      `;
+
+      await sendEmail(provider.email, providerSubject, providerHtml);
+      console.log(
+        `Booking confirmation emails sent to student and counselor for appointment ID ${appointmentId}`,
+      );
+    }
+  } catch (err) {
+    console.error('Error triggering booking confirmation emails:', err);
+  }
+};
+
 export const bookAppointment = async (req: AuthRequest, res: Response) => {
   const {
     providerId,
@@ -325,6 +462,20 @@ export const bookAppointment = async (req: AuthRequest, res: Response) => {
 
     await query('COMMIT');
 
+    try {
+      const appRes = await query(
+        'SELECT id FROM appointments WHERE student_id = $1 AND provider_id = $2 AND slot_date = $3 AND slot_time = $4 ORDER BY created_at DESC LIMIT 1',
+        [studentId, providerId, date, timeSlot],
+      );
+      const newAppId = appRes.rows[0]?.id;
+      if (newAppId) {
+        await autoGenerateClinicalNote(newAppId, studentId, providerId, date, chiefComplaint);
+        triggerBookingEmails(newAppId, studentId, providerId, date, timeSlot, chiefComplaint);
+      }
+    } catch (e) {
+      console.error('Error in post-booking triggers:', e);
+    }
+
     return res.status(201).json({
       message: 'Your counseling appointment has been booked successfully.',
       status,
@@ -349,7 +500,7 @@ export const getAppointments = async (req: AuthRequest, res: Response) => {
   try {
     let sql = `
       SELECT a.*, 
-             s.name as student_name, s.registration_number, s.department as student_dept, s.semester as student_semester, s.phone as student_phone,
+             s.name as student_name, s.registration_number, s.department as student_dept, s.semester as student_semester, s.phone as student_phone, s.gender as student_gender,
              p.name as provider_name, p.specialization as provider_spec, p.department as provider_dept
       FROM appointments a
       JOIN students s ON a.student_id = s.id
@@ -652,11 +803,10 @@ export const getCounselorSettings = async (req: AuthRequest, res: Response) => {
     if (providerRes.rows.length === 0) {
       return res.status(404).json({ error: 'Provider not found' });
     }
-    const userId = providerRes.rows[0].user_id;
 
     const settingsRes = await query(
-      'SELECT * FROM availability WHERE provider_id = $1 ORDER BY day_of_week ASC',
-      [userId],
+      'SELECT * FROM availability WHERE (provider_id = $1 OR provider_id = (SELECT id FROM providers WHERE user_id = $1)) ORDER BY day_of_week ASC',
+      [providerId],
     );
     return res.json(settingsRes.rows);
   } catch (err) {
@@ -680,12 +830,12 @@ export const updateCounselorSettings = async (req: AuthRequest, res: Response) =
     if (providerRes.rows.length === 0) {
       return res.status(404).json({ error: 'Provider not found' });
     }
-    const userId = providerRes.rows[0].user_id;
+    const resolvedProviderId = providerId; // Keep using providers.id
 
     for (const wd of workingDays) {
       const checkRes = await query(
-        'SELECT id FROM availability WHERE provider_id = $1 AND day_of_week = $2',
-        [userId, wd.dayOfWeek],
+        'SELECT id FROM availability WHERE (provider_id = $1 OR provider_id = (SELECT id FROM providers WHERE user_id = $1)) AND day_of_week = $2',
+        [resolvedProviderId, wd.dayOfWeek],
       );
 
       if (checkRes.rows.length > 0) {
@@ -693,7 +843,7 @@ export const updateCounselorSettings = async (req: AuthRequest, res: Response) =
           `UPDATE availability 
            SET start_time = $1, end_time = $2, break_start = $3, break_end = $4, is_holiday = $5,
                session_duration = $6, buffer_time = $7, max_appointments_per_day = $8, slot_interval = $9
-           WHERE provider_id = $10 AND day_of_week = $11`,
+           WHERE (provider_id = $10 OR provider_id = (SELECT id FROM providers WHERE user_id = $10)) AND day_of_week = $11`,
           [
             wd.startTime,
             wd.endTime,
@@ -704,7 +854,7 @@ export const updateCounselorSettings = async (req: AuthRequest, res: Response) =
             bufferTime || 0,
             maxAppointments || 8,
             slotInterval || sessionDuration,
-            userId,
+            resolvedProviderId,
             wd.dayOfWeek,
           ],
         );
@@ -713,7 +863,7 @@ export const updateCounselorSettings = async (req: AuthRequest, res: Response) =
           `INSERT INTO availability (provider_id, day_of_week, start_time, end_time, break_start, break_end, is_holiday, session_duration, buffer_time, max_appointments_per_day, slot_interval)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
           [
-            userId,
+            resolvedProviderId,
             wd.dayOfWeek,
             wd.startTime,
             wd.endTime,
@@ -912,9 +1062,28 @@ export const bookOnBehalf = async (req: AuthRequest, res: Response) => {
 
     await query('COMMIT');
 
+    const appointmentId = insertRes.rows?.[0]?.id || insertRes.lastInsertId;
+    if (appointmentId) {
+      await autoGenerateClinicalNote(
+        appointmentId,
+        resolvedStudentId,
+        targetProviderId,
+        slot_date,
+        chief_complaint || reason || 'Booked on behalf',
+      );
+      triggerBookingEmails(
+        appointmentId,
+        resolvedStudentId,
+        targetProviderId,
+        slot_date,
+        slot_time,
+        chief_complaint || reason || 'Booked on behalf',
+      );
+    }
+
     return res.json({
       message: 'Appointment booked successfully',
-      appointmentId: insertRes.rows?.[0]?.id || insertRes.lastInsertId,
+      appointmentId,
     });
   } catch (err: any) {
     try {
@@ -958,6 +1127,23 @@ export const registerEmergency = async (req: AuthRequest, res: Response) => {
 
     const targetProviderId = await resolveProviderId(req.user, provider_id);
 
+    await query('BEGIN');
+
+    // 1. Create booking instance (appointments)
+    const slotDate = new Date().toISOString().split('T')[0];
+    const slotTime = new Date().toLocaleTimeString('en-US', { hour12: false }).slice(0, 5);
+    const crisisText = crisis_notes || 'Emergency Walk-in Crisis';
+
+    const appInsert = await query(
+      `INSERT INTO appointments 
+       (student_id, provider_id, slot_date, slot_time, status, reason, chief_complaint)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id`,
+      [resolvedStudentId, targetProviderId, slotDate, slotTime, 'approved', crisisText, crisisText],
+    );
+    const appointmentId = appInsert.rows?.[0]?.id || appInsert.lastInsertId;
+
+    // 2. Create emergency case record
     const insertRes = await query(
       `INSERT INTO emergency_cases 
        (student_id, provider_id, priority, crisis_notes, referral_details, emergency_contact)
@@ -967,17 +1153,45 @@ export const registerEmergency = async (req: AuthRequest, res: Response) => {
         resolvedStudentId,
         targetProviderId,
         priority || 'high',
-        crisis_notes || 'Emergency Walk-in Crisis',
+        crisisText,
         referral_details || 'Immediate Emergency',
         emergency_contact || 'N/A',
       ],
     );
+
+    // 3. Create clinical note session
+    if (appointmentId) {
+      await autoGenerateClinicalNote(
+        appointmentId,
+        resolvedStudentId,
+        targetProviderId,
+        slotDate,
+        crisisText,
+      );
+    }
+
+    await query('COMMIT');
+
+    // 4. Trigger booking notifications
+    if (appointmentId) {
+      triggerBookingEmails(
+        appointmentId,
+        resolvedStudentId,
+        targetProviderId,
+        slotDate,
+        slotTime,
+        crisisText,
+      );
+    }
 
     return res.json({
       message: 'Emergency registered successfully',
       emergencyId: insertRes.rows?.[0]?.id || insertRes.lastInsertId,
     });
   } catch (err: any) {
+    try {
+      await query('ROLLBACK');
+    } catch (_) {}
     console.error('Register emergency error:', err);
     return res.status(500).json({ error: err.message || 'Internal server error' });
   }
@@ -1008,24 +1222,73 @@ export const registerSpot = async (req: AuthRequest, res: Response) => {
 
     const targetProviderId = await resolveProviderId(req.user, provider_id);
 
-    const insertRes = await query(
-      `INSERT INTO spot_registrations 
-       (student_id, provider_id, reason_for_visit, priority)
-       VALUES ($1, $2, $3, $4)
+    await query('BEGIN');
+
+    // 1. Create booking instance (appointments)
+    const slotDate = new Date().toISOString().split('T')[0];
+    const slotTime = new Date().toLocaleTimeString('en-US', { hour12: false }).slice(0, 5);
+    const visitReason = reason_for_visit || 'Spot Registration Walk-in';
+
+    const appInsert = await query(
+      `INSERT INTO appointments 
+       (student_id, provider_id, slot_date, slot_time, status, reason, chief_complaint)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id`,
       [
         resolvedStudentId,
         targetProviderId,
-        reason_for_visit || 'Spot Registration Walk-in',
-        priority || 'normal',
+        slotDate,
+        slotTime,
+        'approved',
+        visitReason,
+        visitReason,
       ],
     );
+    const appointmentId = appInsert.rows?.[0]?.id || appInsert.lastInsertId;
+
+    // 2. Create clinical note session
+    let newSessionId: number | null = null;
+    if (appointmentId) {
+      newSessionId = await autoGenerateClinicalNote(
+        appointmentId,
+        resolvedStudentId,
+        targetProviderId,
+        slotDate,
+        visitReason,
+      );
+    }
+
+    // 3. Create spot registration record
+    const insertRes = await query(
+      `INSERT INTO spot_registrations 
+       (student_id, provider_id, reason_for_visit, priority, session_id)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id`,
+      [resolvedStudentId, targetProviderId, visitReason, priority || 'normal', newSessionId],
+    );
+
+    await query('COMMIT');
+
+    // 4. Trigger booking notifications
+    if (appointmentId) {
+      triggerBookingEmails(
+        appointmentId,
+        resolvedStudentId,
+        targetProviderId,
+        slotDate,
+        slotTime,
+        visitReason,
+      );
+    }
 
     return res.json({
       message: 'Spot registration successful',
       spotId: insertRes.rows?.[0]?.id || insertRes.lastInsertId,
     });
   } catch (err: any) {
+    try {
+      await query('ROLLBACK');
+    } catch (_) {}
     console.error('Register spot error:', err);
     return res.status(500).json({ error: err.message || 'Internal server error' });
   }

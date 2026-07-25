@@ -880,6 +880,10 @@ export const updateAdminStudent = async (req: AuthRequest, res: Response) => {
     emergencyPhone,
     bloodGroup,
     address,
+    parentEmail,
+    parentPhone,
+    parentConsentSharing,
+    majorIssues,
   } = req.body;
 
   try {
@@ -894,8 +898,9 @@ export const updateAdminStudent = async (req: AuthRequest, res: Response) => {
       UPDATE students 
       SET name = $1, age = $2, gender = $3, dob = $4, department = $5, semester = $6, 
           phone = $7, email = $8, hostel_scholar = $9, emergency_contact = $10, 
-          emergency_phone = $11, blood_group = $12, address = $13
-      WHERE id = $14
+          emergency_phone = $11, blood_group = $12, address = $13,
+          parent_email = $14, parent_phone = $15, parent_consent_sharing = $16, major_issues = $17
+      WHERE id = $18
     `,
       [
         name,
@@ -911,6 +916,14 @@ export const updateAdminStudent = async (req: AuthRequest, res: Response) => {
         emergencyPhone,
         bloodGroup,
         address,
+        parentEmail || null,
+        parentPhone || null,
+        parentConsentSharing ? 1 : 0,
+        majorIssues
+          ? typeof majorIssues === 'string'
+            ? majorIssues
+            : JSON.stringify(majorIssues)
+          : null,
         id,
       ],
     );
@@ -982,6 +995,106 @@ export const deleteAdminStudent = async (req: AuthRequest, res: Response) => {
     return res.json({ message: 'Student account deleted successfully' });
   } catch (err) {
     console.error('deleteAdminStudent error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const listUsers = async (req: AuthRequest, res: Response) => {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin permissions required' });
+  }
+
+  try {
+    const usersRes = await query(
+      'SELECT id, username, role, is_blocked, created_at FROM users ORDER BY username ASC',
+    );
+    return res.json(usersRes.rows);
+  } catch (err) {
+    console.error('List users error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const toggleBlockUser = async (req: AuthRequest, res: Response) => {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin permissions required' });
+  }
+
+  const { id } = req.params;
+  try {
+    const userRes = await query('SELECT id, username, is_blocked FROM users WHERE id = $1', [id]);
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const targetUser = userRes.rows[0];
+    if (targetUser.id === req.user.id) {
+      return res.status(400).json({ error: 'You cannot block your own admin account.' });
+    }
+
+    const newBlocked = targetUser.is_blocked === 1 || targetUser.is_blocked === true ? 0 : 1;
+    await query('UPDATE users SET is_blocked = $1 WHERE id = $2', [newBlocked, id]);
+
+    await query(
+      'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
+      [
+        req.user.id,
+        newBlocked ? 'BLOCK_USER' : 'UNBLOCK_USER',
+        `Admin ${newBlocked ? 'blocked' : 'unblocked'} user ${targetUser.username}`,
+        req.ip,
+      ],
+    );
+
+    return res.json({
+      message: `User accounts successfully ${newBlocked ? 'blocked' : 'unblocked'}.`,
+      is_blocked: newBlocked,
+    });
+  } catch (err) {
+    console.error('Toggle block user error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const updateUserRole = async (req: AuthRequest, res: Response) => {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin permissions required' });
+  }
+
+  const { id } = req.params;
+  const { role } = req.body;
+
+  if (!role) {
+    return res.status(400).json({ error: 'Role is required.' });
+  }
+
+  try {
+    const userRes = await query('SELECT id, username, role FROM users WHERE id = $1', [id]);
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const targetUser = userRes.rows[0];
+    if (targetUser.id === req.user.id) {
+      return res
+        .status(400)
+        .json({ error: 'You cannot revoke permissions from your own admin account.' });
+    }
+
+    await query('UPDATE users SET role = $1 WHERE id = $2', [role, id]);
+
+    await query(
+      'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
+      [
+        req.user.id,
+        'UPDATE_USER_ROLE',
+        `Admin changed role of user ${targetUser.username} from ${targetUser.role} to ${role}`,
+        req.ip,
+      ],
+    );
+
+    return res.json({ message: 'User role updated successfully.' });
+  } catch (err) {
+    console.error('Update user role error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };

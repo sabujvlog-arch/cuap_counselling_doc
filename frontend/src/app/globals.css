@@ -806,3 +806,168 @@ svg {
     color: black !important;
   }
 }
+
+/* ================================================================
+   Custom Animations
+   ================================================================ */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 20s linear infinite;
+}
+
+/* ================================================================
+   Global Premium Table UI Styling Overrides
+   ================================================================ */
+table {
+  width: 100% !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+}
+
+thead tr {
+  background-color: #f8fafc !important;
+  border-bottom: 2px solid #e2e8f0 !important;
+}
+
+[data-theme='dark'] thead tr {
+  background-color: #111827 !important;
+  border-bottom: 2px solid #1e293b !important;
+}
+
+th {
+  padding: 14px 18px !important;
+  font-weight: 700 !important;
+  font-size: 0.72rem !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+  color: #475569 !important;
+  border-bottom: 1.5px solid #e2e8f0 !important;
+  border-right: none !important;
+}
+
+[data-theme='dark'] th {
+  color: #9ca3af !important;
+  border-bottom-color: #1e293b !important;
+}
+
+td {
+  padding: 14px 18px !important;
+  font-size: 0.8125rem !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  color: #334155 !important;
+  border-right: none !important;
+}
+
+[data-theme='dark'] td {
+  border-bottom: 1px solid rgba(30, 41, 59, 0.4) !important;
+  color: #cbd5e1 !important;
+}
+
+tr:last-child td {
+  border-bottom: none !important;
+}
+
+tr {
+  transition: background-color 150ms ease !important;
+}
+
+tbody tr:hover td {
+  background-color: rgba(241, 245, 249, 0.5) !important;
+}
+
+[data-theme='dark'] tbody tr:hover td {
+  background-color: rgba(30, 41, 59, 0.25) !important;
+}
+
+/* Beautiful card container wrap for scroll areas */
+.overflow-x-auto {
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 16px !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05) !important;
+  background-color: #ffffff !important;
+  overflow: hidden !important;
+  margin-bottom: 10px !important;
+}
+
+[data-theme='dark'] .overflow-x-auto {
+  border-color: #1e293b !important;
+  background-color: #0b0f19 !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* ================================================================
+   Premium Stat Card Gradient Lines
+   ================================================================ */
+.stat-card {
+  position: relative !important;
+  overflow: hidden !important;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease !important;
+  padding: 24px 28px !important;
+  min-height: 125px !important;
+}
+
+.stat-card:hover {
+  transform: translateY(-3px) !important;
+  box-shadow:
+    0 12px 20px -3px rgba(0, 0, 0, 0.08),
+    0 4px 6px -2px rgba(0, 0, 0, 0.03) !important;
+}
+
+[data-theme='dark'] .stat-card:hover {
+  box-shadow:
+    0 12px 20px -3px rgba(0, 0, 0, 0.35),
+    0 4px 6px -2px rgba(0, 0, 0, 0.25) !important;
+}
+
+.stat-card::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 4.5px !important;
+  background: linear-gradient(
+    90deg,
+    var(--gradient-start, var(--primary)),
+    var(--gradient-end, var(--primary))
+  ) !important;
+  border-top-left-radius: 16px !important;
+  border-top-right-radius: 16px !important;
+}
+
+/* Typography scaling for bigger stats cards */
+.stat-card span.text-2xl,
+.stat-card p.text-2xl,
+.stat-card h2.text-xl,
+.stat-card h3.text-base {
+  font-size: 1.68rem !important;
+  line-height: 2.25rem !important;
+  font-weight: 900 !important;
+}
+
+.stat-card span.text-xs,
+.stat-card p.text-xs,
+.stat-card p.text-\[10px\],
+.stat-card span.text-\[10px\],
+.stat-card span.text-slate-400 {
+  font-size: 0.76rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+}
+
+.stat-card .w-12,
+.stat-card .w-10 {
+  width: 3.25rem !important;
+  height: 3.25rem !important;
+  font-size: 1.25rem !important;
+}

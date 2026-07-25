@@ -520,6 +520,45 @@ const upgradeDatabaseSchema = async (): Promise<void> => {
   } catch (err) {
     console.error('Error seeding default availability:', err);
   }
+
+  // Parental Linkage & Issues
+  try {
+    await query('ALTER TABLE students ADD COLUMN parent_email VARCHAR(255)');
+    console.log('Added parent_email column to students table.');
+  } catch (e) {}
+
+  try {
+    await query('ALTER TABLE students ADD COLUMN parent_phone VARCHAR(20)');
+    console.log('Added parent_phone column to students table.');
+  } catch (e) {}
+
+  try {
+    await query('ALTER TABLE students ADD COLUMN parent_consent_sharing INTEGER DEFAULT 0');
+    console.log('Added parent_consent_sharing column to students table.');
+  } catch (e) {}
+
+  try {
+    await query('ALTER TABLE students ADD COLUMN major_issues TEXT');
+    console.log('Added major_issues column to students table.');
+  } catch (e) {}
+
+  // User Block
+  try {
+    await query('ALTER TABLE users ADD COLUMN is_blocked INTEGER DEFAULT 0');
+    console.log('Added is_blocked column to users table.');
+  } catch (e) {}
+
+  // Prescription Notes
+  try {
+    await query('ALTER TABLE prescriptions ADD COLUMN prescription_notes TEXT');
+    console.log('Added prescription_notes column to prescriptions table.');
+  } catch (e) {}
+
+  // is_released to prescriptions (if not already added in previous phases, it's safe to run)
+  try {
+    await query('ALTER TABLE prescriptions ADD COLUMN is_released INTEGER DEFAULT 1');
+    console.log('Added is_released column to prescriptions table.');
+  } catch (e) {}
 };
 
 // Generic query executor
@@ -573,6 +612,7 @@ const createPostgresTables = async (): Promise<void> => {
       otp_code VARCHAR(10),
       otp_expires_at TIMESTAMP WITH TIME ZONE,
       two_factor_enabled BOOLEAN DEFAULT TRUE,
+      is_blocked BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -609,6 +649,10 @@ const createPostgresTables = async (): Promise<void> => {
       address TEXT NOT NULL,
       informed_consent_signed BOOLEAN DEFAULT FALSE,
       consent_date TIMESTAMP WITH TIME ZONE,
+      parent_email VARCHAR(255),
+      parent_phone VARCHAR(20),
+      parent_consent_sharing BOOLEAN DEFAULT FALSE,
+      major_issues TEXT,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -719,6 +763,8 @@ const createPostgresTables = async (): Promise<void> => {
       advice TEXT,
       lifestyle_recommendations TEXT,
       follow_up_date DATE,
+      is_released BOOLEAN DEFAULT TRUE,
+      prescription_notes TEXT,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -822,6 +868,7 @@ const createSqliteTables = (): Promise<void> => {
           otp_code TEXT,
           otp_expires_at TEXT,
           two_factor_enabled INTEGER DEFAULT 1,
+          is_blocked INTEGER DEFAULT 0,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
       `);
@@ -863,6 +910,10 @@ const createSqliteTables = (): Promise<void> => {
           address TEXT NOT NULL,
           informed_consent_signed INTEGER DEFAULT 0,
           consent_date TEXT,
+          parent_email TEXT,
+          parent_phone TEXT,
+          parent_consent_sharing INTEGER DEFAULT 0,
+          major_issues TEXT,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
@@ -992,6 +1043,8 @@ const createSqliteTables = (): Promise<void> => {
           advice TEXT,
           lifestyle_recommendations TEXT,
           follow_up_date TEXT,
+          is_released INTEGER DEFAULT 1,
+          prescription_notes TEXT,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
           FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,

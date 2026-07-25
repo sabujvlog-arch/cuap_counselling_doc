@@ -46,20 +46,36 @@ export default function ChatbotWidget() {
     setHistory(updated);
     setInput('');
     setLoading(true);
-    try {
-      const res = await api.auth.publicChat(text, history);
-      setHistory([...updated, { sender: 'assistant', text: res.reply }]);
-    } catch {
-      setHistory([
-        ...updated,
-        {
-          sender: 'assistant',
-          text: "I'm sorry, I'm having connectivity issues. Please try again.",
-        },
-      ]);
-    } finally {
-      setLoading(false);
+
+    const MAX_RETRIES = 3;
+    let attempt = 0;
+    let lastError: any = null;
+
+    while (attempt < MAX_RETRIES) {
+      try {
+        const res = await api.auth.publicChat(text, history);
+        setHistory([...updated, { sender: 'assistant', text: res.reply }]);
+        setLoading(false);
+        return; // success — exit
+      } catch (err) {
+        lastError = err;
+        attempt++;
+        if (attempt < MAX_RETRIES) {
+          // Wait before retrying: 1s, 2s, 4s…
+          await new Promise((r) => setTimeout(r, 1000 * attempt));
+        }
+      }
     }
+
+    // All retries exhausted
+    setHistory([
+      ...updated,
+      {
+        sender: 'assistant',
+        text: "I'm sorry, I'm experiencing connectivity issues right now. Please check your network and try again in a moment.",
+      },
+    ]);
+    setLoading(false);
   };
 
   const handleInitiateBooking = (providerId: string, date: string, timeSlot: string) => {
@@ -104,54 +120,174 @@ export default function ChatbotWidget() {
     } finally {
       setBookingLoading(false);
     }
+  }; // ────────────────────────────────────────────────
+  // Markdown-to-React converter (no extra dependency)
+  // ────────────────────────────────────────────────
+  const parseInline = (raw: string, keyPrefix: string): React.ReactNode[] => {
+    // Split on **bold**, *italic*, keeping delimiters
+    const tokens = raw.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+    return tokens.map((tok, i) => {
+      if (/^\*\*[^*]+\*\*$/.test(tok)) {
+        return (
+          <strong
+            key={`${keyPrefix}-b${i}`}
+            className="font-black text-slate-800 dark:text-slate-100"
+          >
+            {tok.slice(2, -2)}
+          </strong>
+        );
+      }
+      if (/^\*[^*]+\*$/.test(tok)) {
+        return (
+          <em key={`${keyPrefix}-i${i}`} className="italic text-slate-600 dark:text-slate-300">
+            {tok.slice(1, -1)}
+          </em>
+        );
+      }
+      return tok;
+    });
   };
 
   const renderMessageContent = (msg: ChatMessage) => {
     const text = msg.text;
-    const regex = /\[([^\]]+)\]\((book:\/\/[^\)]+)\)/g;
-    const parts = [];
-    let lastIndex = 0;
-    let match;
 
-    while ((match = regex.exec(text)) !== null) {
-      if (match.index > lastIndex) {
-        parts.push(text.substring(lastIndex, match.index));
+    // ── Step 1: extract book:// links, split text into segments ──
+    const bookRegex = /\[([^\]]+)\]\((book:\/\/[^)]+)\)/g;
+    const segments: Array<
+      { type: 'text'; content: string } | { type: 'book'; label: string; uri: string }
+    > = [];
+    let last = 0;
+    let m: RegExpExecArray | null;
+    while ((m = bookRegex.exec(text)) !== null) {
+      if (m.index > last) segments.push({ type: 'text', content: text.slice(last, m.index) });
+      segments.push({ type: 'book', label: m[1], uri: m[2] });
+      last = bookRegex.lastIndex;
+    }
+    if (last < text.length) segments.push({ type: 'text', content: text.slice(last) });
+
+    // ── Step 2: render each segment ──
+    const nodes: React.ReactNode[] = [];
+
+    segments.forEach((seg, si) => {
+      if (seg.type === 'book') {
+        const parsed = seg.uri.match(/book:\/\/([^/]+)\/([^/]+)\/(.+)/);
+        if (parsed) {
+          nodes.push(
+            <button
+              key={`book-${si}`}
+              type="button"
+              onClick={() =>
+                handleInitiateBooking(parsed[1], parsed[2], decodeURIComponent(parsed[3]))
+              }
+              className="mt-2 block w-full text-center py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[11px] font-bold shadow-sm transition hover:scale-[1.02] cursor-pointer"
+            >
+              📅 Confirm Appointment Slot
+            </button>,
+          );
+        }
+        return;
       }
 
-      const label = match[1];
-      const uri = match[2];
+      // ── Step 3: parse plain text lines into markdown blocks ──
+      const lines = seg.content.split('\n');
+      let i = 0;
+      while (i < lines.length) {
+        const raw = lines[i];
+        const trimmed = raw.trim();
 
-      const parsed = uri.match(/book:\/\/([^\/]+)\/([^\/]+)\/(.+)/);
-      if (parsed) {
-        const providerId = parsed[1];
-        const date = parsed[2];
-        const timeSlot = decodeURIComponent(parsed[3]);
+        // Skip blank
+        if (!trimmed) {
+          i++;
+          continue;
+        }
 
-        parts.push(
-          <button
-            key={uri}
-            type="button"
-            onClick={() => handleInitiateBooking(providerId, date, timeSlot)}
-            className="mt-2 block w-full text-center py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[11px] font-bold shadow-sm transition hover:scale-[1.02] cursor-pointer"
+        // Horizontal rule: --- or ***
+        if (/^[-*]{3,}$/.test(trimmed)) {
+          nodes.push(
+            <hr key={`${si}-hr${i}`} className="my-2 border-slate-200 dark:border-slate-700" />,
+          );
+          i++;
+          continue;
+        }
+
+        // Heading: ### / ## / #
+        const headMatch = trimmed.match(/^(#{1,3})\s+(.+)/);
+        if (headMatch) {
+          const level = headMatch[1].length;
+          const cls =
+            level === 1
+              ? 'text-sm font-black text-slate-800 dark:text-white mt-3 mb-1'
+              : level === 2
+                ? 'text-xs font-black text-slate-700 dark:text-slate-100 mt-2 mb-0.5'
+                : 'text-[11px] font-extrabold text-slate-600 dark:text-slate-200 mt-1.5 mb-0.5';
+          nodes.push(
+            <p key={`${si}-h${i}`} className={cls}>
+              {parseInline(headMatch[2], `${si}-h${i}`)}
+            </p>,
+          );
+          i++;
+          continue;
+        }
+
+        // Numbered list block: collect consecutive lines starting with 1. 2. etc.
+        if (/^\d+\.\s/.test(trimmed)) {
+          const items: string[] = [];
+          while (i < lines.length && /^\d+\.\s/.test(lines[i].trim())) {
+            items.push(lines[i].trim().replace(/^\d+\.\s/, ''));
+            i++;
+          }
+          nodes.push(
+            <ol key={`${si}-ol${i}`} className="list-decimal list-inside space-y-0.5 my-1 pl-1">
+              {items.map((item, ii) => (
+                <li
+                  key={ii}
+                  className="text-[11px] leading-relaxed text-slate-700 dark:text-slate-300"
+                >
+                  {parseInline(item, `${si}-oli${ii}`)}
+                </li>
+              ))}
+            </ol>,
+          );
+          continue;
+        }
+
+        // Bullet list block: - or * or •
+        if (/^[-*•]\s/.test(trimmed)) {
+          const items: string[] = [];
+          while (i < lines.length && /^[-*•]\s/.test(lines[i].trim())) {
+            items.push(lines[i].trim().replace(/^[-*•]\s/, ''));
+            i++;
+          }
+          nodes.push(
+            <ul key={`${si}-ul${i}`} className="space-y-0.5 my-1 pl-3">
+              {items.map((item, ii) => (
+                <li
+                  key={ii}
+                  className="flex items-start gap-1.5 text-[11px] leading-relaxed text-slate-700 dark:text-slate-300"
+                >
+                  <span className="mt-1.5 w-1 h-1 rounded-full bg-blue-500 shrink-0" />
+                  <span>{parseInline(item, `${si}-uli${ii}`)}</span>
+                </li>
+              ))}
+            </ul>,
+          );
+          continue;
+        }
+
+        // Normal paragraph line
+        nodes.push(
+          <p
+            key={`${si}-p${i}`}
+            className="text-[11px] leading-relaxed text-slate-700 dark:text-slate-300 my-0.5"
           >
-            📅 Confirm Appointment Slot
-          </button>,
+            {parseInline(trimmed, `${si}-p${i}`)}
+          </p>,
         );
-      } else {
-        parts.push(
-          <a key={uri} href={uri} className="underline text-blue-600 dark:text-blue-400">
-            {label}
-          </a>,
-        );
+        i++;
       }
-      lastIndex = regex.lastIndex;
-    }
+    });
 
-    if (lastIndex < text.length) {
-      parts.push(text.substring(lastIndex));
-    }
-
-    return parts.length > 0 ? parts : text;
+    return nodes.length > 0 ? nodes : text;
   };
 
   return (

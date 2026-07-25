@@ -43,6 +43,8 @@ import {
   Menu,
   Server,
   AlertCircle,
+  Search,
+  Printer,
 } from 'lucide-react';
 import OPDRegister from './OPDRegister';
 import ThemeToggle from './ui/ThemeToggle';
@@ -56,6 +58,33 @@ import { BookOpen, Clipboard, Heart } from 'lucide-react';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-slate-900/95 dark:bg-slate-950/95 backdrop-blur-md border border-slate-700/50 p-4.5 rounded-2xl shadow-2xl text-left min-w-[160px] animate-scale-in">
+        <p className="text-xs font-black text-slate-200 mb-2 border-b border-slate-800 pb-1.5">
+          {label}
+        </p>
+        <div className="space-y-2">
+          {payload.map((entry: any, i: number) => (
+            <div key={i} className="flex items-center justify-between gap-4 text-[11px] font-bold">
+              <div className="flex items-center gap-2">
+                <span
+                  className="w-2.5 h-2.5 rounded-full"
+                  style={{ backgroundColor: entry.stroke || entry.fill }}
+                ></span>
+                <span className="text-slate-400">{entry.name}:</span>
+              </div>
+              <span className="text-white font-black">{entry.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 interface AdminProps {
   onLogout: () => void;
   adminUsername: string;
@@ -66,9 +95,11 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
     | 'overview'
     | 'providers'
     | 'students'
+    | 'users'
     | 'appointments'
     | 'opd'
     | 'repository'
+    | 'reports'
     | 'audits'
     | 'settings'
     | 'architecture'
@@ -76,6 +107,13 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [drawerType, setDrawerType] = useState<
+    'patients' | 'active_cases' | 'high_severity' | 'counselors' | 'perf_score' | null
+  >(null);
+  const [drawerSearch, setDrawerSearch] = useState('');
+  const [userRoleFilter, setUserRoleFilter] = useState<string>('all');
+  const [chartMetric, setChartMetric] = useState<string>('all');
+  const [workloadMetric, setWorkloadMetric] = useState<string>('all');
 
   const isMobile = useMediaQuery('(max-width: 1023px)');
 
@@ -90,11 +128,28 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
     overview: 'Overview & Charts',
     providers: 'Manage Counselors',
     students: 'Manage Students',
+    users: 'User Accounts',
     appointments: 'Appointments Manager',
     opd: 'OPD Patient Register',
     repository: 'Assessment Repository',
+    reports: 'Generated Reports',
     audits: 'System Audit Logs',
     settings: 'Backup & Settings',
+  };
+
+  // Generated Reports state
+  const [adminReports, setAdminReports] = useState<any[]>([]);
+  const [adminReportsLoading, setAdminReportsLoading] = useState(false);
+  const fetchAdminReports = async () => {
+    setAdminReportsLoading(true);
+    try {
+      const data = await api.clinical.getGeneratedReports();
+      setAdminReports(data);
+    } catch (err) {
+      console.error('Failed to fetch reports:', err);
+    } finally {
+      setAdminReportsLoading(false);
+    }
   };
 
   // EMR Repository states
@@ -136,6 +191,9 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
     emergencyPhone: '',
     bloodGroup: 'O+',
     address: '',
+    parentEmail: '',
+    parentPhone: '',
+    parentConsentSharing: false,
   });
   const [editingStudent, setEditingStudent] = useState<any | null>(null);
   const [editForm, setEditForm] = useState({
@@ -152,6 +210,9 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
     emergencyPhone: '',
     bloodGroup: 'O+',
     address: '',
+    parentEmail: '',
+    parentPhone: '',
+    parentConsentSharing: false,
   });
   const [editingProvider, setEditingProvider] = useState<any | null>(null);
   const [providerEditForm, setProviderEditForm] = useState({
@@ -208,6 +269,46 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
   const [appointments, setAppointments] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [backupFile, setBackupFile] = useState('');
+  const [usersList, setUsersList] = useState<any[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+
+  const fetchUsers = async () => {
+    setUsersLoading(true);
+    try {
+      const data = await api.admin.listUsers();
+      setUsersList(data);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to fetch users list', 'error');
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  const handleToggleBlock = async (id: number) => {
+    try {
+      const res = await api.admin.toggleBlockUser(id);
+      showToast(res.message || 'User block status updated.', 'success');
+      fetchUsers();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update user block status.', 'error');
+    }
+  };
+
+  const handleRoleChange = async (id: number, newRole: string) => {
+    try {
+      await api.admin.updateUserRole(id, newRole);
+      showToast('User role updated successfully.', 'success');
+      fetchUsers();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update user role.', 'error');
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'users') {
+      fetchUsers();
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     setMounted(true);
@@ -414,6 +515,9 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
         emergencyPhone: '',
         bloodGroup: 'O+',
         address: '',
+        parentEmail: '',
+        parentPhone: '',
+        parentConsentSharing: false,
       });
       fetchStudents();
       fetchAudits();
@@ -438,6 +542,9 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
       emergencyContact: s.emergency_contact || '',
       emergencyPhone: s.emergency_phone || '',
       address: s.address || '',
+      parentEmail: s.parent_email || '',
+      parentPhone: s.parent_phone || '',
+      parentConsentSharing: s.parent_consent_sharing === 1 || s.parent_consent_sharing === true,
     });
   };
 
@@ -635,9 +742,11 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
           { id: 'overview', label: 'Overview & Charts', icon: Activity },
           { id: 'providers', label: 'Manage Counselors', icon: Users },
           { id: 'students', label: 'Manage Students', icon: Users },
+          { id: 'users', label: 'User Accounts', icon: KeyRound },
           { id: 'appointments', label: 'Appointments Manager', icon: Calendar },
           { id: 'opd', label: 'OPD Patient Register', icon: FileText },
           { id: 'repository', label: 'Assessment Repository', icon: Database },
+          { id: 'reports', label: 'Generated Reports', icon: Printer },
           { id: 'audits', label: 'System Audit Logs', icon: ShieldAlert },
           { id: 'settings', label: 'Backup & Settings', icon: Database },
         ]}
@@ -675,6 +784,10 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                 Administrator
               </span>
               <span className="text-[10px] text-slate-400 font-mono block">{adminUsername}</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 rounded-xl text-[10px] font-extrabold tracking-wider uppercase border border-emerald-250 dark:border-emerald-900/30">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Live Synced
             </div>
             <ThemeToggle />
 
@@ -735,53 +848,105 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
 
               {stats && (
                 <>
+                  {/* High-Priority Emergency Status Banner */}
+                  {(stats.charts?.emergencyStatus?.todayCount > 0 ||
+                    stats.charts?.emergencyStatus?.criticalAlerts > 0) && (
+                    <div className="bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/50 p-5 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in-up">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-rose-100 dark:bg-rose-900/40 text-rose-650 dark:text-rose-400 rounded-xl flex items-center justify-center shrink-0">
+                          <ShieldAlert size={20} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black uppercase text-rose-600 tracking-wider">
+                              🚨 Emergency Alert Status (Highest Priority)
+                            </span>
+                            <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping"></span>
+                          </div>
+                          <h4 className="text-base font-extrabold text-rose-800 dark:text-rose-350 mt-0.5">
+                            {stats.charts.emergencyStatus.todayCount} Critical Cases Logged Today |{' '}
+                            {stats.charts.emergencyStatus.criticalAlerts} Active Warnings
+                          </h4>
+                          <p className="text-xs text-rose-650 dark:text-rose-455 mt-0.5">
+                            System alert: Multi-dimensional clinical triage records flagged as
+                            "Critical". Coordinate immediate care.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setRepoSeverity('Critical');
+                          setActiveTab('repository');
+                        }}
+                        className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition shadow-sm cursor-pointer shrink-0"
+                      >
+                        View Emergency Queue
+                      </button>
+                    </div>
+                  )}
+
                   {/* Statistics Cards */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 w-full">
                     {[
                       {
                         label: 'Total Patients',
                         value: stats.summary.totalPatients,
                         icon: Users,
-                        color: 'text-blue-500 bg-blue-50 dark:bg-blue-950/20',
-                        onClick: () => setActiveTab('students'),
+                        onClick: () => {
+                          setDrawerType('patients');
+                          setDrawerSearch('');
+                        },
+                        gradStart: '#3b82f6',
+                        gradEnd: '#60a5fa',
+                        iconColor: 'text-blue-500 bg-blue-50 dark:bg-blue-950/20',
                       },
                       {
                         label: 'Active Cases',
                         value: stats.summary.activeCases,
                         icon: Activity,
-                        color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/20',
                         onClick: () => {
-                          setRepoSeverity('');
-                          setActiveTab('repository');
+                          setDrawerType('active_cases');
+                          setDrawerSearch('');
                         },
+                        gradStart: '#10b981',
+                        gradEnd: '#34d399',
+                        iconColor: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/20',
                       },
                       {
                         label: 'High Severity Cases',
                         value: stats.summary.highSeverityCases,
                         icon: ShieldAlert,
-                        color: 'text-red-500 bg-red-50 dark:bg-red-950/20',
                         onClick: () => {
-                          setRepoSeverity('High');
-                          setActiveTab('repository');
+                          setDrawerType('high_severity');
+                          setDrawerSearch('');
                         },
+                        gradStart: '#ef4444',
+                        gradEnd: '#fb7185',
+                        iconColor: 'text-red-500 bg-red-50 dark:bg-red-950/20',
                       },
                       {
                         label: 'Total Counselors',
                         value: stats.summary.totalProviders,
                         icon: Users,
-                        color: 'text-indigo-500 bg-indigo-50 dark:bg-indigo-950/20',
-                        onClick: () => setActiveTab('providers'),
+                        onClick: () => {
+                          setDrawerType('counselors');
+                          setDrawerSearch('');
+                        },
+                        gradStart: '#6366f1',
+                        gradEnd: '#818cf8',
+                        iconColor: 'text-indigo-500 bg-indigo-50 dark:bg-indigo-950/20',
                       },
                       {
                         label: 'Dept Perf Score',
                         value: `${stats.summary.departmentPerformanceScore}%`,
                         icon: Activity,
-                        color: 'text-pink-500 bg-pink-50 dark:bg-pink-950/20',
-                        onClick: () =>
-                          showToast(
-                            'Department Performance score aggregates counselor workload, response time, and patient feedback ratings.',
-                            'success',
-                          ),
+                        onClick: () => {
+                          setDrawerType('perf_score');
+                          setDrawerSearch('');
+                        },
+                        gradStart: '#ec4899',
+                        gradEnd: '#f472b6',
+                        iconColor: 'text-pink-500 bg-pink-50 dark:bg-pink-950/20',
                       },
                     ].map((card, i) => {
                       const Icon = card.icon;
@@ -789,18 +954,32 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                         <div
                           key={i}
                           onClick={card.onClick}
-                          className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-850 shadow-sm flex flex-col justify-between min-h-[110px] cursor-pointer hover:shadow-md transition-all duration-200 hover:-translate-y-0.5"
+                          className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-3xl shadow-sm cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-lg flex flex-col justify-between w-full h-[192px] stat-card"
+                          style={
+                            {
+                              '--gradient-start': card.gradStart,
+                              '--gradient-end': card.gradEnd,
+                            } as React.CSSProperties
+                          }
                         >
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-snug">
-                            {card.label}
-                          </p>
-                          <div className="flex items-center justify-between mt-4">
-                            <p className="text-2xl font-black">{card.value}</p>
+                          <div className="flex justify-between items-start">
+                            <span className="text-[10px] font-black uppercase tracking-wider block text-slate-400">
+                              {card.label}
+                            </span>
                             <div
-                              className={`w-9 h-9 rounded-xl flex items-center justify-center ${card.color}`}
+                              className={`w-8 h-8 rounded-xl flex items-center justify-center ${card.iconColor}`}
                             >
-                              <Icon size={18} />
+                              <Icon size={16} />
                             </div>
+                          </div>
+
+                          <div className="flex items-end justify-between mt-auto">
+                            <span className="text-5xl font-black tracking-tight block text-slate-900 dark:text-white">
+                              {card.value}
+                            </span>
+                            <span className="text-[9px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400">
+                              View Details
+                            </span>
                           </div>
                         </div>
                       );
@@ -931,13 +1110,52 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Weekly Visit Trend Line Chart */}
                         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-6 rounded-3xl shadow-sm lg:col-span-2">
-                          <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2 mb-6">
-                            <Activity size={16} className="text-blue-500" /> Weekly Visit Trend
-                          </h3>
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                            <div>
+                              <h3 className="text-sm font-black text-slate-800 dark:text-white flex items-center gap-2">
+                                <Activity size={16} className="text-blue-500" /> Weekly Visit Trend
+                              </h3>
+                              <p className="text-[10px] font-bold text-slate-400 mt-0.5">
+                                Interactive counselor workload and walk-in analytics
+                              </p>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-1 bg-slate-50 dark:bg-slate-950 p-1 rounded-xl border border-slate-150 dark:border-slate-850 text-[10px] font-extrabold tracking-tight">
+                              {[
+                                { id: 'all', label: 'All Metrics' },
+                                { id: 'visits', label: 'Visits', color: 'bg-blue-500' },
+                                {
+                                  id: 'appointments',
+                                  label: 'Appointments',
+                                  color: 'bg-emerald-500',
+                                },
+                                { id: 'sessions', label: 'Sessions', color: 'bg-purple-500' },
+                                { id: 'walkins', label: 'Walk-ins', color: 'bg-amber-500' },
+                              ].map((m) => (
+                                <button
+                                  key={m.id}
+                                  type="button"
+                                  onClick={() => setChartMetric(m.id)}
+                                  className={`px-3 py-1.5 rounded-lg transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
+                                    chartMetric === m.id
+                                      ? 'bg-white dark:bg-slate-900 text-slate-800 dark:text-white shadow-sm ring-1 ring-slate-200/50 dark:ring-slate-800/50'
+                                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                                  }`}
+                                >
+                                  {m.color && (
+                                    <span className={`w-1.5 h-1.5 rounded-full ${m.color}`}></span>
+                                  )}
+                                  {m.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
                           <div className="h-80">
                             <ResponsiveContainer width="100%" height="100%">
-                              <LineChart
+                              <AreaChart
                                 data={stats.charts.weeklyVisitTrend}
+                                margin={{ top: 10, right: 10, left: -15, bottom: 0 }}
                                 onClick={(data) => {
                                   if (data && data.activeLabel) {
                                     showToast(
@@ -948,70 +1166,100 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                                   }
                                 }}
                               >
+                                <defs>
+                                  <linearGradient id="colorVisits" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
+                                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.01} />
+                                  </linearGradient>
+                                  <linearGradient
+                                    id="colorAppointments"
+                                    x1="0"
+                                    y1="0"
+                                    x2="0"
+                                    y2="1"
+                                  >
+                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
+                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.01} />
+                                  </linearGradient>
+                                  <linearGradient id="colorSessions" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.25} />
+                                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.01} />
+                                  </linearGradient>
+                                  <linearGradient id="colorWalkins" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.25} />
+                                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.01} />
+                                  </linearGradient>
+                                </defs>
                                 <CartesianGrid
                                   strokeDasharray="3 3"
-                                  stroke="#334155"
-                                  opacity={0.1}
+                                  stroke="currentColor"
+                                  className="text-slate-100 dark:text-slate-800/60"
+                                  opacity={0.6}
                                   vertical={false}
                                 />
                                 <XAxis
                                   dataKey="name"
                                   stroke="#64748b"
-                                  fontSize={11}
+                                  fontSize={10}
+                                  fontWeight={700}
                                   axisLine={false}
                                   tickLine={false}
                                   dy={10}
                                 />
                                 <YAxis
                                   stroke="#64748b"
-                                  fontSize={11}
+                                  fontSize={10}
+                                  fontWeight={700}
                                   axisLine={false}
                                   tickLine={false}
-                                  dx={-10}
+                                  dx={-5}
                                 />
-                                <Tooltip
-                                  contentStyle={{
-                                    backgroundColor: 'hsl(var(--card))',
-                                    borderRadius: '12px',
-                                    border: '1px solid hsl(var(--border))',
-                                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-                                  }}
-                                />
-                                <Legend verticalAlign="top" height={36} iconType="circle" />
-                                <Line
-                                  type="monotone"
-                                  dataKey="visits"
-                                  name="Daily Visits"
-                                  stroke="#3b82f6"
-                                  strokeWidth={3}
-                                  activeDot={{ r: 6 }}
-                                  className="cursor-pointer"
-                                />
-                                <Line
-                                  type="monotone"
-                                  dataKey="appointments"
-                                  name="Appointments"
-                                  stroke="#10b981"
-                                  strokeWidth={2}
-                                  className="cursor-pointer"
-                                />
-                                <Line
-                                  type="monotone"
-                                  dataKey="sessions"
-                                  name="Sessions"
-                                  stroke="#8b5cf6"
-                                  strokeWidth={2}
-                                  className="cursor-pointer"
-                                />
-                                <Line
-                                  type="monotone"
-                                  dataKey="walkins"
-                                  name="Walk-ins"
-                                  stroke="#f59e0b"
-                                  strokeWidth={2}
-                                  className="cursor-pointer"
-                                />
-                              </LineChart>
+                                <Tooltip content={<CustomTooltip />} />
+                                {(chartMetric === 'all' || chartMetric === 'visits') && (
+                                  <Area
+                                    type="monotone"
+                                    dataKey="visits"
+                                    name="Daily Visits"
+                                    stroke="#3b82f6"
+                                    strokeWidth={3}
+                                    fill="url(#colorVisits)"
+                                    activeDot={{ r: 6, strokeWidth: 0 }}
+                                  />
+                                )}
+                                {(chartMetric === 'all' || chartMetric === 'appointments') && (
+                                  <Area
+                                    type="monotone"
+                                    dataKey="appointments"
+                                    name="Appointments"
+                                    stroke="#10b981"
+                                    strokeWidth={2.5}
+                                    fill="url(#colorAppointments)"
+                                    activeDot={{ r: 5, strokeWidth: 0 }}
+                                  />
+                                )}
+                                {(chartMetric === 'all' || chartMetric === 'sessions') && (
+                                  <Area
+                                    type="monotone"
+                                    dataKey="sessions"
+                                    name="Sessions"
+                                    stroke="#8b5cf6"
+                                    strokeWidth={2.5}
+                                    fill="url(#colorSessions)"
+                                    activeDot={{ r: 5, strokeWidth: 0 }}
+                                  />
+                                )}
+                                {(chartMetric === 'all' || chartMetric === 'walkins') && (
+                                  <Area
+                                    type="monotone"
+                                    dataKey="walkins"
+                                    name="Walk-ins"
+                                    stroke="#f59e0b"
+                                    strokeWidth={2.5}
+                                    fill="url(#colorWalkins)"
+                                    activeDot={{ r: 5, strokeWidth: 0 }}
+                                  />
+                                )}
+                              </AreaChart>
                             </ResponsiveContainer>
                           </div>
                         </div>
@@ -1091,14 +1339,48 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Counselor Workload Detailed Horizontal Bar */}
                         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-6 rounded-3xl shadow-sm lg:col-span-2">
-                          <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2 mb-6">
-                            <Users size={16} className="text-indigo-500" /> Counselor Workload
-                          </h3>
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                            <div>
+                              <h3 className="text-sm font-black text-slate-800 dark:text-white flex items-center gap-2">
+                                <Users size={16} className="text-indigo-500" /> Counselor Workload
+                              </h3>
+                              <p className="text-[10px] font-bold text-slate-400 mt-0.5">
+                                Case distribution, caseload balances, and session completion metrics
+                              </p>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-1 bg-slate-50 dark:bg-slate-950 p-1 rounded-xl border border-slate-150 dark:border-slate-850 text-[10px] font-extrabold tracking-tight">
+                              {[
+                                { id: 'all', label: 'All Metrics' },
+                                { id: 'assigned', label: 'Assigned', color: 'bg-blue-500' },
+                                { id: 'active', label: 'Active', color: 'bg-emerald-500' },
+                                { id: 'completed', label: 'Completed', color: 'bg-purple-500' },
+                              ].map((m) => (
+                                <button
+                                  key={m.id}
+                                  type="button"
+                                  onClick={() => setWorkloadMetric(m.id)}
+                                  className={`px-3 py-1.5 rounded-lg transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
+                                    workloadMetric === m.id
+                                      ? 'bg-white dark:bg-slate-900 text-slate-800 dark:text-white shadow-sm ring-1 ring-slate-200/50 dark:ring-slate-800/50'
+                                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                                  }`}
+                                >
+                                  {m.color && (
+                                    <span className={`w-1.5 h-1.5 rounded-full ${m.color}`}></span>
+                                  )}
+                                  {m.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
                           <div className="h-72">
                             <ResponsiveContainer width="100%" height="100%">
                               <BarChart
                                 data={stats.charts.providerWorkload}
                                 layout="vertical"
+                                margin={{ top: 0, right: 10, left: -10, bottom: 0 }}
                                 onClick={(data) => {
                                   if (data && data.activeLabel) {
                                     showToast(
@@ -1109,16 +1391,32 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                                   }
                                 }}
                               >
+                                <defs>
+                                  <linearGradient id="barAssigned" x1="0" y1="0" x2="1" y2="0">
+                                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.85} />
+                                    <stop offset="100%" stopColor="#60a5fa" stopOpacity={0.95} />
+                                  </linearGradient>
+                                  <linearGradient id="barActive" x1="0" y1="0" x2="1" y2="0">
+                                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.85} />
+                                    <stop offset="100%" stopColor="#34d399" stopOpacity={0.95} />
+                                  </linearGradient>
+                                  <linearGradient id="barCompleted" x1="0" y1="0" x2="1" y2="0">
+                                    <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.85} />
+                                    <stop offset="100%" stopColor="#c084fc" stopOpacity={0.95} />
+                                  </linearGradient>
+                                </defs>
                                 <CartesianGrid
                                   strokeDasharray="3 3"
-                                  stroke="#334155"
-                                  opacity={0.1}
+                                  stroke="currentColor"
+                                  className="text-slate-100 dark:text-slate-800/60"
+                                  opacity={0.6}
                                   horizontal={false}
                                 />
                                 <XAxis
                                   type="number"
                                   stroke="#64748b"
-                                  fontSize={11}
+                                  fontSize={10}
+                                  fontWeight={700}
                                   axisLine={false}
                                   tickLine={false}
                                 />
@@ -1126,44 +1424,43 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                                   dataKey="name"
                                   type="category"
                                   stroke="#64748b"
-                                  fontSize={11}
+                                  fontSize={10}
+                                  fontWeight={700}
                                   axisLine={false}
                                   tickLine={false}
-                                  width={100}
+                                  width={110}
                                 />
-                                <Tooltip
-                                  contentStyle={{
-                                    backgroundColor: 'hsl(var(--card))',
-                                    borderRadius: '12px',
-                                    border: 'none',
-                                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                                  }}
-                                />
-                                <Legend verticalAlign="top" height={36} iconType="circle" />
-                                <Bar
-                                  dataKey="assignedStudents"
-                                  name="Assigned Students"
-                                  fill="#3b82f6"
-                                  radius={[0, 4, 4, 0]}
-                                  barSize={10}
-                                  className="cursor-pointer"
-                                />
-                                <Bar
-                                  dataKey="activeCases"
-                                  name="Active Cases"
-                                  fill="#10b981"
-                                  radius={[0, 4, 4, 0]}
-                                  barSize={10}
-                                  className="cursor-pointer"
-                                />
-                                <Bar
-                                  dataKey="sessionsCompleted"
-                                  name="Sessions Completed"
-                                  fill="#8b5cf6"
-                                  radius={[0, 4, 4, 0]}
-                                  barSize={10}
-                                  className="cursor-pointer"
-                                />
+                                <Tooltip content={<CustomTooltip />} />
+                                {(workloadMetric === 'all' || workloadMetric === 'assigned') && (
+                                  <Bar
+                                    dataKey="assignedStudents"
+                                    name="Assigned Students"
+                                    fill="url(#barAssigned)"
+                                    radius={[0, 6, 6, 0]}
+                                    barSize={workloadMetric === 'all' ? 8 : 16}
+                                    className="cursor-pointer"
+                                  />
+                                )}
+                                {(workloadMetric === 'all' || workloadMetric === 'active') && (
+                                  <Bar
+                                    dataKey="activeCases"
+                                    name="Active Cases"
+                                    fill="url(#barActive)"
+                                    radius={[0, 6, 6, 0]}
+                                    barSize={workloadMetric === 'all' ? 8 : 16}
+                                    className="cursor-pointer"
+                                  />
+                                )}
+                                {(workloadMetric === 'all' || workloadMetric === 'completed') && (
+                                  <Bar
+                                    dataKey="sessionsCompleted"
+                                    name="Sessions Completed"
+                                    fill="url(#barCompleted)"
+                                    radius={[0, 6, 6, 0]}
+                                    barSize={workloadMetric === 'all' ? 8 : 16}
+                                    className="cursor-pointer"
+                                  />
+                                )}
                               </BarChart>
                             </ResponsiveContainer>
                           </div>
@@ -1626,6 +1923,210 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
             </div>
           )}
 
+          {/* TAB: USER ACCOUNTS MANAGEMENT */}
+          {activeTab === 'users' &&
+            (() => {
+              const studentUsersCount = usersList.filter((u) => u.role === 'student').length;
+              const counselorUsersCount = usersList.filter((u) => u.role === 'provider').length;
+              const adminUsersCount = usersList.filter((u) => u.role === 'admin').length;
+              const facultyUsersCount = usersList.filter((u) => u.role === 'faculty').length;
+
+              const filteredUsers = usersList.filter(
+                (usr) => userRoleFilter === 'all' || usr.role === userRoleFilter,
+              );
+
+              return (
+                <div className="space-y-8 animate-fade-in-up">
+                  <div>
+                    <h2 className="text-2xl font-black tracking-tight">User Account Control</h2>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Manage login privileges, revoke permissions, and block/unblock portal access
+                      instantly.
+                    </p>
+                  </div>
+
+                  {/* Segment Filter Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 w-full">
+                    {[
+                      {
+                        id: 'all',
+                        label: 'All Users',
+                        count: usersList.length,
+                        gradStart: '#3b82f6',
+                        gradEnd: '#60a5fa',
+                      },
+                      {
+                        id: 'student',
+                        label: 'Students',
+                        count: studentUsersCount,
+                        gradStart: '#6366f1',
+                        gradEnd: '#818cf8',
+                      },
+                      {
+                        id: 'provider',
+                        label: 'Counselors',
+                        count: counselorUsersCount,
+                        gradStart: '#10b981',
+                        gradEnd: '#34d399',
+                      },
+                      {
+                        id: 'admin',
+                        label: 'Administrators',
+                        count: adminUsersCount,
+                        gradStart: '#8b5cf6',
+                        gradEnd: '#a78bfa',
+                      },
+                      {
+                        id: 'faculty',
+                        label: 'Faculty',
+                        count: facultyUsersCount,
+                        gradStart: '#ec4899',
+                        gradEnd: '#f472b6',
+                      },
+                    ].map((seg) => (
+                      <div
+                        key={seg.id}
+                        onClick={() => setUserRoleFilter(seg.id)}
+                        className={`p-6 bg-white dark:bg-slate-900 border rounded-3xl shadow-sm cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-lg flex flex-col justify-between w-full h-[192px] stat-card ${
+                          userRoleFilter === seg.id
+                            ? 'border-blue-600 dark:border-blue-500 ring-1 ring-blue-500/20 shadow-md'
+                            : 'border-slate-200 dark:border-slate-850 text-slate-755 dark:text-slate-200 hover:border-slate-350 dark:hover:border-slate-700'
+                        }`}
+                        style={
+                          {
+                            '--gradient-start': seg.gradStart,
+                            '--gradient-end': seg.gradEnd,
+                          } as React.CSSProperties
+                        }
+                      >
+                        <div className="flex justify-between items-start">
+                          <span className="text-[10px] font-black uppercase tracking-wider block text-slate-400">
+                            {seg.label}
+                          </span>
+                          {userRoleFilter === seg.id && (
+                            <span className="w-2.5 h-2.5 rounded-full bg-blue-600 dark:bg-blue-500 animate-ping"></span>
+                          )}
+                        </div>
+
+                        <div className="flex items-end justify-between mt-auto">
+                          <span className="text-5xl font-black tracking-tight block text-slate-900 dark:text-white">
+                            {seg.count}
+                          </span>
+                          <span
+                            className={`text-[9px] font-extrabold uppercase px-2.5 py-1 rounded-full ${
+                              userRoleFilter === seg.id
+                                ? 'bg-blue-600 text-white dark:bg-blue-500'
+                                : 'bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400'
+                            }`}
+                          >
+                            {userRoleFilter === seg.id ? 'Active Filter' : 'Filter View'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+                    <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
+                      <h3 className="font-bold text-sm text-slate-700 dark:text-slate-350">
+                        System User Accounts ({filteredUsers.length})
+                      </h3>
+                      <button
+                        onClick={fetchUsers}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition shadow-sm"
+                      >
+                        <RefreshCw size={12} className={usersLoading ? 'animate-spin' : ''} />{' '}
+                        Refresh List
+                      </button>
+                    </div>
+
+                    {usersLoading ? (
+                      <div className="p-12 text-center text-slate-400 dark:text-slate-500 flex flex-col items-center justify-center gap-2">
+                        <RefreshCw size={24} className="animate-spin text-blue-600" />
+                        <span className="text-xs font-medium">Retrieving security records...</span>
+                      </div>
+                    ) : filteredUsers.length === 0 ? (
+                      <div className="p-12 text-center text-slate-400 dark:text-slate-600">
+                        No system users found for this filter.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50 dark:bg-slate-950 text-slate-400 dark:text-slate-550 font-bold border-b border-slate-200 dark:border-slate-800 text-xs">
+                              <th className="p-4">Username / Email ID</th>
+                              <th className="p-4">Role Permission</th>
+                              <th className="p-4">Status</th>
+                              <th className="p-4">Created Date</th>
+                              <th className="p-4 text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
+                            {filteredUsers.map((usr) => (
+                              <tr
+                                key={usr.id}
+                                className="hover:bg-slate-50/50 dark:hover:bg-slate-950/20 transition-colors"
+                              >
+                                <td className="p-4">
+                                  <div className="font-bold text-slate-800 dark:text-slate-200">
+                                    {usr.username}
+                                  </div>
+                                </td>
+                                <td className="p-4">
+                                  <select
+                                    value={usr.role}
+                                    onChange={(e) => handleRoleChange(usr.id, e.target.value)}
+                                    className="px-2 py-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none"
+                                  >
+                                    <option value="student">Student</option>
+                                    <option value="provider">Counselor (Provider)</option>
+                                    <option value="front-desk">Front Desk</option>
+                                    <option value="admin">System Administrator</option>
+                                    <option value="faculty">Faculty</option>
+                                    <option value="none">Suspended / Detached (None)</option>
+                                  </select>
+                                </td>
+                                <td className="p-4">
+                                  {usr.is_blocked === 1 || usr.is_blocked === true ? (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-900">
+                                      Blocked (No Access)
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-250 dark:border-emerald-900">
+                                      Active (Access Granted)
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="p-4 text-xs text-slate-500 dark:text-slate-400">
+                                  {usr.created_at
+                                    ? new Date(usr.created_at).toLocaleDateString()
+                                    : 'N/A'}
+                                </td>
+                                <td className="p-4 text-right">
+                                  <button
+                                    onClick={() => handleToggleBlock(usr.id)}
+                                    className={`px-3 py-1.5 rounded-xl font-bold text-xs shadow-sm transition cursor-pointer ${
+                                      usr.is_blocked === 1 || usr.is_blocked === true
+                                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                        : 'bg-rose-600 hover:bg-rose-700 text-white'
+                                    }`}
+                                  >
+                                    {usr.is_blocked === 1 || usr.is_blocked === true
+                                      ? 'Unblock User'
+                                      : 'Block User'}
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
           {/* TAB 2: MANAGE PROVIDERS */}
           {activeTab === 'providers' && (
             <div className="space-y-8 animate-fade-in-up">
@@ -1687,9 +2188,22 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">
-                        Employee ID
-                      </label>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="block text-xs font-bold text-slate-500">
+                          Employee ID
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const generated = `26EMP${Math.floor(1000 + Math.random() * 9000)}`;
+                            setProviderForm({ ...providerForm, employeeId: generated });
+                            showToast(`Auto-generated Employee ID: ${generated}`, 'success');
+                          }}
+                          className="text-[10px] font-bold text-blue-600 hover:underline cursor-pointer"
+                        >
+                          Auto-Generate
+                        </button>
+                      </div>
                       <input
                         type="text"
                         required
@@ -1869,9 +2383,22 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                     className="space-y-4 max-h-[500px] overflow-y-auto pr-1"
                   >
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">
-                        Registration Number
-                      </label>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="block text-xs font-bold text-slate-500">
+                          Registration Number
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const generated = `26STU${Math.floor(10000 + Math.random() * 90000)}`;
+                            setStudentForm({ ...studentForm, registrationNumber: generated });
+                            showToast(`Auto-generated Registration No: ${generated}`, 'success');
+                          }}
+                          className="text-[10px] font-bold text-blue-600 hover:underline cursor-pointer"
+                        >
+                          Auto-Generate
+                        </button>
+                      </div>
                       <input
                         type="text"
                         required
@@ -2067,6 +2594,50 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                         rows={2}
                       />
                     </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">
+                          Parents Email ID
+                        </label>
+                        <input
+                          type="email"
+                          value={studentForm.parentEmail}
+                          onChange={(e) =>
+                            setStudentForm({ ...studentForm, parentEmail: e.target.value })
+                          }
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                          placeholder="parent@example.com"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">
+                          Parents Phone
+                        </label>
+                        <input
+                          type="tel"
+                          value={studentForm.parentPhone}
+                          onChange={(e) =>
+                            setStudentForm({ ...studentForm, parentPhone: e.target.value })
+                          }
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none bg-slate-50 dark:bg-slate-950"
+                          placeholder="e.g. 9876543210"
+                        />
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer mt-1">
+                      <input
+                        type="checkbox"
+                        checked={studentForm.parentConsentSharing}
+                        onChange={(e) =>
+                          setStudentForm({ ...studentForm, parentConsentSharing: e.target.checked })
+                        }
+                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
+                      />
+                      <span className="text-[11px] font-semibold text-slate-650 dark:text-slate-350">
+                        Consent for Parental Data Sharing
+                      </span>
+                    </label>
 
                     <button
                       type="submit"
@@ -2385,7 +2956,7 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
 
           {/* Edit Counselor Modal */}
           {editingProvider && (
-            <div className="fixed inset-0 bg-black/60 backdrop-filter blur-sm z-50 flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-2xl p-6 w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-2xl animate-fade-in-up text-left">
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-5">
                   <h3 className="font-black text-lg text-slate-800 dark:text-white">
@@ -2665,7 +3236,216 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
             </div>
           )}
 
+          {/* TAB: GENERATED REPORTS */}
+          {activeTab === 'reports' &&
+            (() => {
+              // Fetch on first render of this tab
+              if (adminReports.length === 0 && !adminReportsLoading) fetchAdminReports();
+              return (
+                <div className="space-y-6 animate-fade-in-up">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                      <h2 className="text-2xl font-black tracking-tight">Generated Reports</h2>
+                      <p className="text-xs text-slate-500 mt-1">
+                        University-wide visibility of all clinical reports, sessions, and
+                        prescriptions across counselors.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={fetchAdminReports}
+                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+                    >
+                      <RefreshCw size={14} className={adminReportsLoading ? 'animate-spin' : ''} />
+                      Refresh
+                    </button>
+                  </div>
+
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-2xl shadow-sm overflow-hidden">
+                    <table className="w-full text-left text-xs text-slate-600 dark:text-slate-400">
+                      <thead className="bg-slate-50 dark:bg-slate-950 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                        <tr>
+                          <th className="px-5 py-4 font-bold border-b border-slate-100 dark:border-slate-800">
+                            Date
+                          </th>
+                          <th className="px-5 py-4 font-bold border-b border-slate-100 dark:border-slate-800">
+                            Student
+                          </th>
+                          <th className="px-5 py-4 font-bold border-b border-slate-100 dark:border-slate-800">
+                            Type
+                          </th>
+                          <th className="px-5 py-4 font-bold border-b border-slate-100 dark:border-slate-800">
+                            Report/Desc
+                          </th>
+                          <th className="px-5 py-4 font-bold border-b border-slate-100 dark:border-slate-800">
+                            Counselor
+                          </th>
+                          <th className="px-5 py-4 font-bold border-b border-slate-100 dark:border-slate-800">
+                            Visibility
+                          </th>
+                          <th className="px-5 py-4 font-bold border-b border-slate-100 dark:border-slate-800 text-right">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {adminReportsLoading ? (
+                          <tr>
+                            <td colSpan={7} className="px-5 py-12 text-center">
+                              <div className="flex items-center justify-center gap-2 text-slate-400 font-bold">
+                                <RefreshCw size={16} className="animate-spin" />
+                                Loading reports...
+                              </div>
+                            </td>
+                          </tr>
+                        ) : adminReports.length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={7}
+                              className="px-5 py-12 text-center text-slate-400 font-medium"
+                            >
+                              No reports generated yet.
+                            </td>
+                          </tr>
+                        ) : (
+                          adminReports.map((report: any, idx: number) => (
+                            <tr
+                              key={`admin-rpt-${report.type}-${report.id}-${idx}`}
+                              className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition group"
+                            >
+                              <td className="px-5 py-4 font-semibold text-slate-700 dark:text-slate-300">
+                                {new Date(report.generated_date).toLocaleDateString()}
+                              </td>
+                              <td className="px-5 py-4">
+                                <div className="font-bold text-slate-800 dark:text-white">
+                                  {report.student_name}
+                                </div>
+                                <div className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400">
+                                  {report.student_id}
+                                </div>
+                              </td>
+                              <td className="px-5 py-4">
+                                <span
+                                  className={`inline-block px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                                    report.type === 'prescription'
+                                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                      : report.type === 'session'
+                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                        : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                  }`}
+                                >
+                                  {report.type}
+                                </span>
+                              </td>
+                              <td className="px-5 py-4 font-medium text-slate-600 dark:text-slate-400">
+                                {report.report_type}
+                              </td>
+                              <td className="px-5 py-4 font-semibold">
+                                Dr. {report.counselor_name}
+                              </td>
+                              <td className="px-5 py-4">
+                                <label className="flex items-center gap-2 cursor-pointer group/toggle">
+                                  <div className="relative">
+                                    <input
+                                      type="checkbox"
+                                      className="sr-only"
+                                      checked={!!report.is_released}
+                                      onChange={async (e) => {
+                                        const newVal = e.target.checked;
+                                        try {
+                                          await api.clinical.toggleReportVisibility(
+                                            report.type,
+                                            report.id,
+                                            newVal,
+                                          );
+                                          fetchAdminReports();
+                                          showToast(
+                                            `Report visibility updated to: ${newVal ? 'Released' : 'Hidden'}.`,
+                                            'success',
+                                          );
+                                        } catch (err) {
+                                          showToast('Failed to update visibility', 'error');
+                                        }
+                                      }}
+                                    />
+                                    <div
+                                      className={`block w-10 h-6 rounded-full transition ${report.is_released ? 'bg-blue-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+                                    ></div>
+                                    <div
+                                      className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition transform ${report.is_released ? 'translate-x-4' : ''}`}
+                                    ></div>
+                                  </div>
+                                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide group-hover/toggle:text-slate-700">
+                                    {report.is_released ? 'Released' : 'Hidden'}
+                                  </span>
+                                </label>
+                              </td>
+                              <td className="px-5 py-4 text-right">
+                                <div className="flex justify-end items-center gap-2">
+                                  <button
+                                    onClick={() => {
+                                      if (report.type === 'prescription') {
+                                        window.open(api.clinical.getPrintUrl(report.id), '_blank');
+                                      } else if (report.type === 'session') {
+                                        window.open(
+                                          api.clinical.getCompiledReportUrl(report.id),
+                                          '_blank',
+                                        );
+                                      } else {
+                                        const base = (
+                                          process.env.NEXT_PUBLIC_API_URL ||
+                                          'http://localhost:5000/api'
+                                        ).replace(/\/api$/, '');
+                                        const token =
+                                          typeof window !== 'undefined'
+                                            ? localStorage.getItem('cuap_wccms_token')
+                                            : '';
+                                        window.open(
+                                          `${base}/api/clinical/mse/${report.id}/print${token ? `?token=${token}` : ''}`,
+                                          '_blank',
+                                        );
+                                      }
+                                    }}
+                                    className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition cursor-pointer"
+                                    title="Print Report"
+                                  >
+                                    <Printer size={14} />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (report.type === 'session') {
+                                        window.open(
+                                          api.clinical.getCompiledReportUrl(report.id),
+                                          '_blank',
+                                        );
+                                      } else if (report.type === 'prescription') {
+                                        window.open(api.clinical.getPrintUrl(report.id), '_blank');
+                                      } else {
+                                        showToast(
+                                          'Direct download not available for assessments. Use Print.',
+                                          'error',
+                                        );
+                                      }
+                                    }}
+                                    className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition cursor-pointer"
+                                    title="Download Report"
+                                  >
+                                    <Download size={14} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
+
           {/* TAB 6: AUDIT TRAIL LOGS */}
+
           {activeTab === 'audits' && (
             <div className="space-y-8 animate-fade-in-up">
               <div>
@@ -3392,7 +4172,7 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
 
               {/* Details Modal */}
               {selectedRepoSession && (
-                <div className="fixed inset-0 bg-black/60 backdrop-filter blur-sm z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto flex flex-col shadow-2xl animate-fade-in-up">
                     {/* Modal Header */}
                     <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
@@ -4032,6 +4812,399 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
           )}
         </div>
       </main>
+
+      {/* Sliding side drawer for stats card details */}
+      {drawerType && (
+        <div className="fixed inset-0 z-[9999] overflow-hidden">
+          {/* Backdrop overlay */}
+          <div
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity cursor-pointer animate-fade-in"
+            onClick={() => setDrawerType(null)}
+          />
+          <div className="absolute inset-y-0 right-0 max-w-full flex">
+            <div className="w-screen max-w-md bg-white dark:bg-slate-900 shadow-xl flex flex-col h-full border-l border-slate-200 dark:border-slate-800 transition-all duration-300 transform translate-x-0 animate-slide-in-right">
+              {/* Header */}
+              <div className="p-5 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-wide">
+                    {drawerType === 'patients' && 'Registered Students'}
+                    {drawerType === 'active_cases' && 'Active Case Repository'}
+                    {drawerType === 'high_severity' && 'High Severity Registry'}
+                    {drawerType === 'counselors' && 'Wellness Specialists & Counselors'}
+                    {drawerType === 'perf_score' && 'Specialist Workload & Performance'}
+                  </h2>
+                  <p className="text-[10px] text-slate-500 font-extrabold uppercase mt-0.5">
+                    {drawerType === 'patients' && `${students.length} Registered Students`}
+                    {drawerType === 'active_cases' && `${repository.length} Active Clinical Files`}
+                    {drawerType === 'high_severity' &&
+                      `${repository.filter((r) => r.severity === 'High' || r.severity === 'Critical').length} Critical Warnings`}
+                    {drawerType === 'counselors' && `${providers.length} Active Providers`}
+                    {drawerType === 'perf_score' && 'Counselor metrics and workload balance'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setDrawerType(null)}
+                  className="p-1.5 text-slate-400 hover:text-slate-650 dark:hover:text-slate-250 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-850 cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Search Box */}
+              <div className="p-4 bg-slate-50/50 dark:bg-slate-950/20 border-b border-slate-100 dark:border-slate-800/60">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={drawerSearch}
+                    onChange={(e) => setDrawerSearch(e.target.value)}
+                    placeholder={
+                      drawerType === 'patients'
+                        ? 'Search registered students...'
+                        : drawerType === 'active_cases'
+                          ? 'Search active cases...'
+                          : drawerType === 'high_severity'
+                            ? 'Search high severity alerts...'
+                            : drawerType === 'counselors'
+                              ? 'Search specialists & counselors...'
+                              : 'Search performance details...'
+                    }
+                    className="w-full text-xs py-2 px-3 pl-9 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-slate-800 dark:text-slate-100"
+                  />
+                  <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
+                </div>
+              </div>
+
+              {/* List Body */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {(() => {
+                  const query = drawerSearch.toLowerCase().trim();
+
+                  if (drawerType === 'patients') {
+                    const filtered = students.filter((s) => {
+                      const name = (s.name || s.display_name || '').toLowerCase();
+                      const regNo = (s.registration_number || s.username || '').toLowerCase();
+                      const dept = (s.department || '').toLowerCase();
+                      const phone = (s.phone || '').toLowerCase();
+                      return (
+                        name.includes(query) ||
+                        regNo.includes(query) ||
+                        dept.includes(query) ||
+                        phone.includes(query)
+                      );
+                    });
+
+                    if (filtered.length === 0) {
+                      return (
+                        <p className="text-xs text-slate-400 text-center py-8">
+                          No matching students found.
+                        </p>
+                      );
+                    }
+
+                    return filtered.map((stud) => {
+                      const nameText = stud.name || stud.display_name || 'Student';
+                      const initials = nameText
+                        .split(' ')
+                        .map((n: string) => n[0])
+                        .join('')
+                        .substring(0, 2)
+                        .toUpperCase();
+
+                      return (
+                        <div
+                          key={stud.id}
+                          onClick={() => {
+                            setDrawerType(null);
+                            handleOpenStudentProfile(stud);
+                          }}
+                          className="p-3 bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-850 rounded-xl flex items-center justify-between cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-850/60 transition shadow-xs hover:shadow-sm animate-fade-in-up"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center font-bold text-xs shadow-xs">
+                              {initials}
+                            </div>
+                            <div>
+                              <p className="font-bold text-xs text-slate-800 dark:text-white leading-snug">
+                                {nameText}
+                              </p>
+                              <p className="text-[10px] text-blue-600 dark:text-blue-400 font-mono mt-0.5 font-bold tracking-wider">
+                                {(stud.registration_number || stud.username || '').toUpperCase()}
+                              </p>
+                              <p className="text-[10px] text-slate-455 mt-0.5">
+                                {stud.department || 'General Dept'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[9px] text-slate-400 font-bold block">
+                              Sem {stud.semester || 'N/A'}
+                            </span>
+                            <span className="text-[9px] text-slate-400 block mt-0.5">
+                              {stud.hostel_scholar || 'Day Scholar'}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    });
+                  }
+
+                  if (drawerType === 'active_cases') {
+                    const filtered = repository.filter((r) => {
+                      const name = (r.student_name || '').toLowerCase();
+                      const regNo = (r.registration_number || '').toLowerCase();
+                      const sev = (r.severity || '').toLowerCase();
+                      return name.includes(query) || regNo.includes(query) || sev.includes(query);
+                    });
+
+                    if (filtered.length === 0) {
+                      return (
+                        <p className="text-xs text-slate-400 text-center py-8">
+                          No active cases found.
+                        </p>
+                      );
+                    }
+
+                    return filtered.map((item, idx) => {
+                      const initials = (item.student_name || 'ST')
+                        .split(' ')
+                        .map((n: string) => n[0])
+                        .join('')
+                        .substring(0, 2)
+                        .toUpperCase();
+
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            setDrawerType(null);
+                            const stud = students.find((s) => s.id === item.student_id);
+                            if (stud) handleOpenStudentProfile(stud);
+                            else showToast('Student profile not found in directory.', 'error');
+                          }}
+                          className="p-3 bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-850 rounded-xl flex items-center justify-between cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-850/60 transition shadow-xs hover:shadow-sm animate-fade-in-up"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 rounded-xl flex items-center justify-center font-bold text-xs shadow-xs">
+                              {initials}
+                            </div>
+                            <div>
+                              <p className="font-bold text-xs text-slate-800 dark:text-white leading-snug">
+                                {item.student_name || 'Anonymous'}
+                              </p>
+                              <p className="text-[10px] text-slate-450 mt-0.5">
+                                {item.report_type || 'Clinical Report'} •{' '}
+                                {new Date(item.generated_date).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                          <span
+                            className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
+                              item.severity === 'Critical' || item.severity === 'High'
+                                ? 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/20'
+                                : item.severity === 'Moderate'
+                                  ? 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/20'
+                                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/20'
+                            }`}
+                          >
+                            {item.severity || 'Mild'}
+                          </span>
+                        </div>
+                      );
+                    });
+                  }
+
+                  if (drawerType === 'high_severity') {
+                    const highRisk = repository.filter(
+                      (r) => r.severity === 'High' || r.severity === 'Critical',
+                    );
+                    const filtered = highRisk.filter((r) => {
+                      const name = (r.student_name || '').toLowerCase();
+                      const reg = (r.registration_number || '').toLowerCase();
+                      return name.includes(query) || reg.includes(query);
+                    });
+
+                    if (filtered.length === 0) {
+                      return (
+                        <p className="text-xs text-slate-400 text-center py-8">
+                          No high severity logs found.
+                        </p>
+                      );
+                    }
+
+                    return filtered.map((item, idx) => {
+                      const initials = (item.student_name || 'ST')
+                        .split(' ')
+                        .map((n: string) => n[0])
+                        .join('')
+                        .substring(0, 2)
+                        .toUpperCase();
+
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            setDrawerType(null);
+                            const stud = students.find((s) => s.id === item.student_id);
+                            if (stud) handleOpenStudentProfile(stud);
+                            else showToast('Student profile not found in directory.', 'error');
+                          }}
+                          className="p-3 bg-red-50/20 dark:bg-rose-950/10 border border-red-150 dark:border-rose-900/30 rounded-xl flex items-center justify-between cursor-pointer hover:bg-red-50/40 dark:hover:bg-rose-950/20 transition shadow-xs hover:shadow-sm animate-fade-in-up"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 bg-rose-100 dark:bg-rose-955/20 text-rose-600 rounded-xl flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
+                              {initials}
+                            </div>
+                            <div>
+                              <p className="font-bold text-xs text-slate-800 dark:text-white leading-snug">
+                                {item.student_name || 'Anonymous'}
+                              </p>
+                              <p className="text-[10px] text-red-650 dark:text-red-400 font-extrabold mt-0.5">
+                                ⚠️ {item.severity.toUpperCase()} RISK
+                              </p>
+                              <p className="text-[9px] text-slate-400 font-mono mt-0.5">
+                                {(item.registration_number || '').toUpperCase()}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-[9px] text-slate-400 shrink-0 font-bold">
+                            {new Date(item.generated_date).toLocaleDateString()}
+                          </span>
+                        </div>
+                      );
+                    });
+                  }
+
+                  if (drawerType === 'counselors') {
+                    const filtered = providers.filter((p) => {
+                      const name = (p.name || '').toLowerCase();
+                      const qual = (p.qualification || '').toLowerCase();
+                      const spec = (p.specialization || '').toLowerCase();
+                      const email = (p.email || '').toLowerCase();
+                      return (
+                        name.includes(query) ||
+                        qual.includes(query) ||
+                        spec.includes(query) ||
+                        email.includes(query)
+                      );
+                    });
+
+                    if (filtered.length === 0) {
+                      return (
+                        <p className="text-xs text-slate-400 text-center py-8">
+                          No providers found.
+                        </p>
+                      );
+                    }
+
+                    return filtered.map((prov) => {
+                      const nameText = prov.name || 'Specialist';
+                      const initials = nameText
+                        .split(' ')
+                        .map((n: string) => n[0])
+                        .join('')
+                        .substring(0, 2)
+                        .toUpperCase();
+
+                      return (
+                        <div
+                          key={prov.id}
+                          className="p-3 bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-850 rounded-xl flex items-center justify-between shadow-xs hover:shadow-sm"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-650 dark:text-indigo-400 rounded-xl flex items-center justify-center font-bold text-xs shadow-xs">
+                              {initials}
+                            </div>
+                            <div>
+                              <p className="font-bold text-xs text-slate-800 dark:text-white leading-snug">
+                                {nameText}
+                              </p>
+                              <p className="text-[10px] text-indigo-655 dark:text-indigo-400 font-semibold mt-0.5">
+                                {prov.qualification} • {prov.specialization}
+                              </p>
+                              <p className="text-[9px] text-slate-400 font-mono mt-0.5">
+                                Emp ID: {prov.employee_id.toUpperCase()}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="relative flex h-2 w-2 mr-2 shrink-0">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                          </span>
+                        </div>
+                      );
+                    });
+                  }
+
+                  if (drawerType === 'perf_score') {
+                    const filtered = providers.filter((p) =>
+                      (p.name || '').toLowerCase().includes(query),
+                    );
+
+                    if (filtered.length === 0) {
+                      return (
+                        <p className="text-xs text-slate-400 text-center py-8">
+                          No providers found.
+                        </p>
+                      );
+                    }
+
+                    return filtered.map((prov) => {
+                      const resolved = appointments.filter(
+                        (a) => a.provider_id === prov.id && a.status === 'completed',
+                      ).length;
+                      const pending = appointments.filter(
+                        (a) => a.provider_id === prov.id && a.status === 'pending',
+                      ).length;
+
+                      return (
+                        <div
+                          key={prov.id}
+                          className="p-4 bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-850 rounded-xl space-y-3 shadow-xs"
+                        >
+                          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-850 pb-2">
+                            <div>
+                              <p className="font-bold text-xs text-slate-850 dark:text-white">
+                                {prov.name}
+                              </p>
+                              <p className="text-[9px] text-slate-400 uppercase font-semibold">
+                                {prov.specialization}
+                              </p>
+                            </div>
+                            <span className="px-2 py-0.5 bg-blue-50 text-blue-750 dark:bg-blue-950/20 dark:text-blue-300 rounded text-[9px] font-black uppercase">
+                              Active Status
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 text-center">
+                            <div className="p-2 bg-slate-50 dark:bg-slate-950/30 rounded-lg">
+                              <span className="text-[10px] text-slate-450 block font-bold uppercase">
+                                Resolved
+                              </span>
+                              <span className="text-sm font-extrabold text-slate-850 dark:text-white">
+                                {resolved} Cases
+                              </span>
+                            </div>
+                            <div className="p-2 bg-slate-50 dark:bg-slate-950/30 rounded-lg">
+                              <span className="text-[10px] text-slate-450 block font-bold uppercase">
+                                Workload
+                              </span>
+                              <span className="text-sm font-extrabold text-slate-855 dark:text-white">
+                                {pending} Pending
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    });
+                  }
+
+                  return null;
+                })()}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Floating Toast Notification */}
       {toast && (

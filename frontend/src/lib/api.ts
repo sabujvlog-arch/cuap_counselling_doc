@@ -5,10 +5,7 @@ const getApiBase = (): string => {
   if (process.env.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL;
   }
-  if (typeof window !== 'undefined') {
-    return `http://${window.location.hostname}:5000/api`;
-  }
-  return 'http://localhost:5000/api';
+  return '/api';
 };
 
 export const API_BASE = getApiBase();
@@ -357,7 +354,7 @@ export const api = {
         /\/api$/,
         '',
       );
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
+      const token = typeof window !== 'undefined' ? localStorage.getItem('cuap_wccms_token') : '';
       return `${base}/api/clinical/prescriptions/${id}/print${token ? `?token=${token}` : ''}`;
     },
 
@@ -379,7 +376,8 @@ export const api = {
         /\/api$/,
         '',
       );
-      return `${base}/api/clinical/sessions/${id}/compiled-report`;
+      const token = typeof window !== 'undefined' ? localStorage.getItem('cuap_wccms_token') : '';
+      return `${base}/api/clinical/sessions/${id}/compiled-report${token ? `?token=${token}` : ''}`;
     },
     cosignSession: (id: number) =>
       request(`/clinical/sessions/${id}/cosign`, {
@@ -431,7 +429,7 @@ export const api = {
       request(`/documents/${id}`, {
         method: 'DELETE',
       }),
-    submitConsent: (payload: { signature: string; date: string }) =>
+    submitConsent: (payload: any) =>
       request('/student/consent', {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -524,6 +522,16 @@ export const api = {
       request(`/admin/providers/${id}`, {
         method: 'DELETE',
       }),
+    listUsers: () => request('/admin/users'),
+    toggleBlockUser: (id: number) =>
+      request(`/admin/users/${id}/toggle-block`, {
+        method: 'POST',
+      }),
+    updateUserRole: (id: number, role: string) =>
+      request(`/admin/users/${id}/role`, {
+        method: 'POST',
+        body: JSON.stringify({ role }),
+      }),
   },
 
   // Notifications Operations
@@ -548,5 +556,6 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(payload),
       }),
+    getByReg: (regNo: string) => request(`/students/by-reg/${regNo}`),
   },
 };

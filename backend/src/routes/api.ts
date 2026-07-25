@@ -57,6 +57,7 @@ import {
   createPrescription,
   getPrescription,
   getPrescriptionPrintLayout,
+  downloadPrescriptionPDF,
   orderTest,
   getPendingTests,
   submitTestResults,
@@ -94,7 +95,7 @@ import {
   submitConsent,
 } from '../controllers/documentController';
 
-import { toggleAssessments } from '../controllers/studentController';
+import { toggleAssessments, getStudentByRegNo } from '../controllers/studentController';
 
 import {
   submitAssessment,
@@ -121,6 +122,9 @@ import {
   getAdminStudents,
   updateAdminStudent,
   deleteAdminStudent,
+  listUsers,
+  toggleBlockUser,
+  updateUserRole,
 } from '../controllers/adminController';
 
 import { aiAssist } from '../controllers/aiController';
@@ -217,6 +221,20 @@ router.delete(
   authenticateToken,
   requireRoles(['admin', 'super-admin']),
   deleteAdminStudent,
+);
+
+router.get('/admin/users', authenticateToken, requireRoles(['admin', 'super-admin']), listUsers);
+router.post(
+  '/admin/users/:id/toggle-block',
+  authenticateToken,
+  requireRoles(['admin', 'super-admin']),
+  toggleBlockUser,
+);
+router.post(
+  '/admin/users/:id/role',
+  authenticateToken,
+  requireRoles(['admin', 'super-admin']),
+  updateUserRole,
 );
 
 // ==========================================
@@ -321,6 +339,12 @@ router.get(
   authenticateToken,
   requireRoles(['provider', 'dept-head', 'admin', 'super-admin', 'student']),
   getPrescriptionPrintLayout,
+);
+router.get(
+  '/clinical/prescriptions/:id/pdf',
+  authenticateToken,
+  requireRoles(['provider', 'dept-head', 'admin', 'super-admin', 'student']),
+  downloadPrescriptionPDF,
 );
 
 // Investigations/Tests and Compiled Report Routes
@@ -434,6 +458,7 @@ router.get('/documents/download/:id', authenticateToken, downloadDocument);
 router.delete('/documents/:id', authenticateToken, requireRoles(['admin']), deleteDocument);
 router.post('/student/consent', authenticateToken, requireRoles(['student']), submitConsent);
 router.post('/student/toggle-assessments', authenticateToken, toggleAssessments);
+router.get('/students/by-reg/:regNo', authenticateToken, getStudentByRegNo);
 
 // ==========================================
 // Assessments Module Routes

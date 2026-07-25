@@ -3,6 +3,7 @@ import { query } from '../config/db';
 import { AuthRequest } from '../middleware/auth';
 import { encrypt, decrypt } from '../utils/crypto';
 import { createNotification } from '../services/notificationService';
+import PDFDocument from 'pdfkit';
 
 // Helper to encrypt session object
 const encryptSessionFields = (data: any) => {
@@ -666,8 +667,17 @@ export const getMSELogs = async (req: AuthRequest, res: Response) => {
 // ----------------------------------------------------
 
 export const createPrescription = async (req: AuthRequest, res: Response) => {
-  const { sessionId, studentId, diagnosis, advice, lifestyleRecommendations, followUpDate, items } =
-    req.body;
+  const {
+    sessionId,
+    studentId,
+    diagnosis,
+    advice,
+    lifestyleRecommendations,
+    followUpDate,
+    items,
+    prescriptionNotes,
+    isReleased,
+  } = req.body;
 
   if (
     !req.user ||
@@ -690,8 +700,8 @@ export const createPrescription = async (req: AuthRequest, res: Response) => {
     const providerId = providerRes.rows[0].id;
 
     await query(
-      `INSERT INTO prescriptions (session_id, student_id, provider_id, diagnosis, advice, lifestyle_recommendations, follow_up_date) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      `INSERT INTO prescriptions (session_id, student_id, provider_id, diagnosis, advice, lifestyle_recommendations, follow_up_date, prescription_notes, is_released) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [
         sessionId || null,
         studentId,
@@ -700,6 +710,8 @@ export const createPrescription = async (req: AuthRequest, res: Response) => {
         advice || '',
         lifestyleRecommendations || '',
         followUpDate || null,
+        prescriptionNotes || '',
+        isReleased !== undefined ? (isReleased ? 1 : 0) : 1,
       ],
     );
 
@@ -782,6 +794,15 @@ export const getPrescription = async (req: AuthRequest, res: Response) => {
 
 export const getPrescriptionPrintLayout = async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
+  const referer = req.headers.referer || '';
+  let origin = 'http://localhost:3000';
+  if (referer) {
+    try {
+      origin = new URL(referer).origin;
+    } catch (e) {
+      // Fallback
+    }
+  }
 
   try {
     const presRes = await query(
@@ -1012,7 +1033,7 @@ export const getPrescriptionPrintLayout = async (req: AuthRequest, res: Response
         <div class="container">
           <div class="header">
             <div class="header-left">
-              <img src="http://localhost:3000/logo.png" style="width: 70px; height: 70px; object-fit: contain;" alt="CUAP Logo" />
+              <img src="${origin}/logo.png" style="width: 70px; height: 70px; object-fit: contain;" alt="CUAP Logo" />
               <div class="title-area">
                 <h1>Student Wellness & Counseling Centre</h1>
                 <p>Central University of Andhra Pradesh</p>
@@ -1200,6 +1221,15 @@ export const getCaseHistories = async (req: AuthRequest, res: Response) => {
 
 export const getMSEPrintLayout = async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
+  const referer = req.headers.referer || '';
+  let origin = 'http://localhost:3000';
+  if (referer) {
+    try {
+      origin = new URL(referer).origin;
+    } catch (e) {
+      // Fallback
+    }
+  }
 
   try {
     const logRes = await query(
@@ -1372,7 +1402,7 @@ export const getMSEPrintLayout = async (req: AuthRequest, res: Response) => {
         <div class="container">
           <div class="header">
             <div class="header-left">
-              <img src="http://localhost:3000/logo.png" style="width: 70px; height: 70px; object-fit: contain;" alt="CUAP Logo" />
+              <img src="${origin}/logo.png" style="width: 70px; height: 70px; object-fit: contain;" alt="CUAP Logo" />
               <div class="title-area">
                 <h1>Student Wellness & Counseling Centre</h1>
                 <p>Central University of Andhra Pradesh</p>
@@ -1899,12 +1929,34 @@ export const getCompiledClientReport = async (req: AuthRequest, res: Response) =
       year: 'numeric',
     });
 
-    // Decrypt presenting complaint if HIPAA encryption is active
-    let complaintText = s.presenting_complaint;
-    try {
-      const { decrypt } = require('../utils/crypto');
-      complaintText = decrypt(s.presenting_complaint);
-    } catch (_) {}
+    // Decrypt clinical fields if HIPAA encryption is active
+    const { decrypt } = require('../utils/crypto');
+    const safeDecrypt = (val: string) => {
+      if (!val) return '';
+      try {
+        return decrypt(val);
+      } catch (_) {
+        return val;
+      }
+    };
+
+    const complaintText = safeDecrypt(s.presenting_complaint);
+    const historyText = safeDecrypt(s.history);
+    const pastPsychiatricText = safeDecrypt(s.past_psychiatric);
+    const pastMedicalText = safeDecrypt(s.past_medical);
+    const familyHistoryText = safeDecrypt(s.family_history);
+    const substanceUseText = safeDecrypt(s.substance_use);
+    const mseText = safeDecrypt(s.mse);
+    const diagnosisText = safeDecrypt(s.diagnosis);
+    const differentialDiagnosisText = safeDecrypt(s.differential_diagnosis);
+    const riskAssessmentText = safeDecrypt(s.risk_assessment);
+    const caseFormulationText = safeDecrypt(s.case_formulation);
+    const interventionUsedText = safeDecrypt(s.intervention_used);
+    const homeworkAssignedText = safeDecrypt(s.homework_assigned);
+    const subjectiveText = safeDecrypt(s.subjective);
+    const objectiveText = safeDecrypt(s.objective);
+    const assessmentText = safeDecrypt(s.assessment);
+    const planText = safeDecrypt(s.plan);
 
     // Retrieve completed test orders
     const testsRes = await query(
@@ -2115,49 +2167,48 @@ export const getCompiledClientReport = async (req: AuthRequest, res: Response) =
             <tr>
               <th>Chief Complaint</th>
               <td>${complaintText || 'No complaint notes logged.'}</td>
-            </tr>
-            <tr>
+                       <tr>
               <th>Present Illness History</th>
-              <td>${s.history || 'No illness history logged.'}</td>
+              <td>${historyText || 'No illness history logged.'}</td>
             </tr>
             <tr>
               <th>Past Psychiatric History</th>
-              <td>${s.past_psychiatric || 'None'}</td>
+              <td>${pastPsychiatricText || 'None'}</td>
             </tr>
             <tr>
               <th>Past Medical/Surgical</th>
-              <td>${s.past_medical || 'None'}</td>
+              <td>${pastMedicalText || 'None'}</td>
             </tr>
             <tr>
               <th>Family & Social History</th>
-              <td>${s.family_history || 'None'}</td>
+              <td>${familyHistoryText || 'None'}</td>
             </tr>
             <tr>
               <th>Substance Use Details</th>
-              <td>${s.substance_use || 'None'}</td>
+              <td>${substanceUseText || 'None'}</td>
             </tr>
           </table>
 
           <div class="section-title">2. Mental Status Examination (MSE)</div>
-          <div class="content-box">${s.mse || 'MSE observation notes not logged.'}</div>
+          <div class="content-box">${mseText || 'MSE observation notes not logged.'}</div>
 
           <div class="section-title">3. Clinical Assessment & Diagnosis</div>
           <table class="details-table">
             <tr>
               <th>Primary Diagnosis</th>
-              <td><strong>${s.diagnosis || 'None'}</strong></td>
+              <td><strong>${diagnosisText || 'None'}</strong></td>
             </tr>
             <tr>
               <th>Differential Diagnoses</th>
-              <td>${s.differential_diagnosis || 'None'}</td>
+              <td>${differentialDiagnosisText || 'None'}</td>
             </tr>
             <tr>
               <th>Risk Assessment</th>
-              <td>${s.risk_assessment || 'Low risk metrics detected.'}</td>
+              <td>${riskAssessmentText || 'Low risk metrics detected.'}</td>
             </tr>
             <tr>
               <th>Case Formulation</th>
-              <td>${s.case_formulation || 'None'}</td>
+              <td>${caseFormulationText || 'None'}</td>
             </tr>
           </table>
 
@@ -2193,11 +2244,11 @@ export const getCompiledClientReport = async (req: AuthRequest, res: Response) =
           <table class="details-table">
             <tr>
               <th>Therapeutic Intervention</th>
-              <td>${s.intervention_used || 'Standard supportive counseling'}</td>
+              <td>${interventionUsedText || 'Standard supportive counseling'}</td>
             </tr>
             <tr>
               <th>Assigned Homework</th>
-              <td>${s.homework_assigned || 'None'}</td>
+              <td>${homeworkAssignedText || 'None'}</td>
             </tr>
             <tr>
               <th>Session Duration</th>
@@ -3051,5 +3102,236 @@ export const getAllAssessments = async (req: AuthRequest, res: Response) => {
   } catch (err) {
     console.error('getAllAssessments error:', err);
     return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const downloadPrescriptionPDF = async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const presRes = await query(
+      `SELECT pr.*, 
+              s.name as student_name, s.registration_number, s.age, s.gender, s.department as student_dept, s.semester as student_semester,
+              p.name as provider_name, p.qualification as provider_qual, p.specialization as provider_spec, p.employee_id as provider_emp_id, p.signature_url
+       FROM prescriptions pr
+       JOIN students s ON pr.student_id = s.id
+       JOIN providers p ON pr.provider_id = p.id
+       WHERE pr.id = $1`,
+      [id],
+    );
+
+    if (presRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Prescription not found' });
+    }
+
+    const prescription = presRes.rows[0];
+
+    // Access check: Students can only download their own released prescriptions
+    if (req.user.role === 'student') {
+      const studentRes = await query('SELECT id FROM students WHERE user_id = $1', [req.user.id]);
+      if (studentRes.rows.length === 0 || studentRes.rows[0].id !== prescription.student_id) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+      if (prescription.is_released === 0 || prescription.is_released === false) {
+        return res.status(403).json({ error: 'This prescription is not released yet.' });
+      }
+    }
+
+    const itemsRes = await query('SELECT * FROM prescription_items WHERE prescription_id = $1', [
+      id,
+    ]);
+    const items = itemsRes.rows || [];
+
+    // 2. Generate PDF document using pdfkit
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="prescription_${prescription.registration_number.toLowerCase()}_${id}.pdf"`,
+    );
+
+    doc.pipe(res);
+
+    // Header Banner
+    doc
+      .fillColor('#1e3a8a')
+      .fontSize(20)
+      .font('Helvetica-Bold')
+      .text('CENTRAL UNIVERSITY OF ANDHRA PRADESH', { align: 'center' });
+
+    doc
+      .fillColor('#475569')
+      .fontSize(11)
+      .font('Helvetica')
+      .text('Student Wellness Counseling Centre', { align: 'center' })
+      .text('Ananthapuramu - 515002, India', { align: 'center' });
+
+    doc.moveDown(1.5);
+
+    // Divider line
+    doc.strokeColor('#1e3a8a').lineWidth(2).moveTo(50, doc.y).lineTo(545, doc.y).stroke();
+
+    doc.moveDown(1);
+
+    // Counselor Info
+    doc
+      .fillColor('#1e293b')
+      .fontSize(13)
+      .font('Helvetica-Bold')
+      .text(`Dr. ${prescription.provider_name}`, 50, doc.y);
+    doc
+      .fontSize(10)
+      .font('Helvetica')
+      .fillColor('#475569')
+      .text(`${prescription.provider_qual} - ${prescription.provider_spec}`)
+      .text(`Employee ID: ${prescription.provider_emp_id}`);
+
+    doc.moveDown(1.5);
+
+    // Student/Patient Info Block
+    const startY = doc.y;
+    doc.rect(50, startY, 495, 80).fillColor('#f8fafc').fill();
+
+    doc
+      .fillColor('#1e293b')
+      .fontSize(10)
+      .font('Helvetica-Bold')
+      .text('CLIENT DETAILS', 65, startY + 12);
+
+    doc
+      .font('Helvetica')
+      .text(`Name: ${prescription.student_name}`, 65, startY + 30)
+      .text(`Reg No: ${prescription.registration_number.toUpperCase()}`, 65, startY + 45)
+      .text(
+        `Department: ${prescription.student_dept} (Sem ${prescription.student_semester})`,
+        65,
+        startY + 60,
+      );
+
+    doc
+      .text(`Age/Gender: ${prescription.age} Y / ${prescription.gender}`, 320, startY + 30)
+      .text(`Date: ${new Date(prescription.created_at).toLocaleDateString()}`, 320, startY + 45)
+      .text(`Presenting Issue: ${prescription.diagnosis}`, 320, startY + 60);
+
+    doc.y = startY + 95;
+
+    // Psi Symbol
+    doc.fillColor('#1e3a8a').fontSize(22).font('Helvetica-Bold').text('Psi (Psi/Ψ)', 50, doc.y);
+
+    doc.moveDown(0.5);
+
+    // Interventions List
+    if (items.length > 0) {
+      doc
+        .fillColor('#1e293b')
+        .fontSize(12)
+        .font('Helvetica-Bold')
+        .text('Active Interventions & Exercises:', 50, doc.y);
+
+      doc.moveDown(0.5);
+
+      items.forEach((item: any, index: number) => {
+        const itemY = doc.y;
+        doc
+          .fillColor('#334155')
+          .fontSize(10)
+          .font('Helvetica-Bold')
+          .text(`${index + 1}. ${item.medicine_name}`, 65, itemY);
+
+        doc
+          .font('Helvetica')
+          .text(
+            `Details: ${item.dose}  |  Frequency: ${item.frequency}  |  Duration: ${item.duration}`,
+            80,
+            itemY + 15,
+          );
+
+        doc.moveDown(1.5);
+      });
+    } else {
+      doc
+        .fillColor('#64748b')
+        .fontSize(10)
+        .font('Helvetica-Oblique')
+        .text('No active therapeutic interventions logged.', 65, doc.y);
+      doc.moveDown(1.5);
+    }
+
+    // Advice & Lifestyle recommendations
+    if (prescription.advice) {
+      doc
+        .fillColor('#1e293b')
+        .fontSize(11)
+        .font('Helvetica-Bold')
+        .text('Clinical Advice / Counseling Intervention:');
+      doc
+        .fillColor('#475569')
+        .fontSize(10)
+        .font('Helvetica')
+        .text(prescription.advice, { width: 495 });
+      doc.moveDown(1);
+    }
+
+    if (prescription.lifestyle_recommendations) {
+      doc
+        .fillColor('#1e293b')
+        .fontSize(11)
+        .font('Helvetica-Bold')
+        .text('Lifestyle Recommendations:');
+      doc
+        .fillColor('#475569')
+        .fontSize(10)
+        .font('Helvetica')
+        .text(prescription.lifestyle_recommendations, { width: 495 });
+      doc.moveDown(1);
+    }
+
+    if (prescription.prescription_notes) {
+      doc.fillColor('#1e293b').fontSize(11).font('Helvetica-Bold').text('Therapeutic Plan Notes:');
+      doc
+        .fillColor('#475569')
+        .fontSize(10)
+        .font('Helvetica')
+        .text(prescription.prescription_notes, { width: 495 });
+      doc.moveDown(1);
+    }
+
+    if (prescription.follow_up_date) {
+      doc
+        .fillColor('#1e293b')
+        .fontSize(10)
+        .font('Helvetica-Bold')
+        .text(`Follow-up Date: ${new Date(prescription.follow_up_date).toLocaleDateString()}`);
+      doc.moveDown(1.5);
+    }
+
+    // Signature Block at the bottom
+    doc.moveDown(2);
+    const signatureY = doc.y;
+    doc
+      .strokeColor('#e2e8f0')
+      .lineWidth(1)
+      .moveTo(350, signatureY)
+      .lineTo(545, signatureY)
+      .stroke();
+
+    doc
+      .fillColor('#475569')
+      .fontSize(9)
+      .font('Helvetica-Bold')
+      .text('Authorized Clinician Signature / Digital Stamp', 350, signatureY + 8, {
+        align: 'center',
+      })
+      .text(`Dr. ${prescription.provider_name}`, 350, signatureY + 22, { align: 'center' });
+
+    doc.end();
+  } catch (err: any) {
+    console.error('Download prescription PDF error:', err);
+    return res.status(500).json({ error: 'Internal server error generating PDF' });
   }
 };

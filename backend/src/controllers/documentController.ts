@@ -217,7 +217,7 @@ export const submitConsent = async (req: AuthRequest, res: Response) => {
     return res.status(403).json({ error: 'Only students can sign consent forms.' });
   }
 
-  const { signature, date } = req.body;
+  const { signature, date, parentEmail, parentPhone, parentConsentSharing, majorIssues } = req.body;
   if (!signature) {
     return res.status(400).json({ error: 'Digital signature is required.' });
   }
@@ -231,8 +231,22 @@ export const submitConsent = async (req: AuthRequest, res: Response) => {
 
     // Update informed_consent_signed in database
     await query(
-      'UPDATE students SET informed_consent_signed = TRUE, consent_date = $1 WHERE id = $2',
-      [date || new Date().toISOString(), studentId],
+      `UPDATE students 
+       SET informed_consent_signed = TRUE, 
+           consent_date = $1,
+           parent_email = $2,
+           parent_phone = $3,
+           parent_consent_sharing = $4,
+           major_issues = $5
+       WHERE id = $6`,
+      [
+        date || new Date().toISOString(),
+        parentEmail || null,
+        parentPhone || null,
+        parentConsentSharing ? 1 : 0,
+        majorIssues ? JSON.stringify(majorIssues) : null,
+        studentId,
+      ],
     );
 
     await query(

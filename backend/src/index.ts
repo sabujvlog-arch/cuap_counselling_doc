@@ -178,7 +178,7 @@ const startServer = async () => {
   try {
     await initDb();
 
-    app.listen(PORT, () => {
+    app.listen(Number(PORT), '0.0.0.0', () => {
       console.log(`================================================`);
       console.log(` WCCMS Express Backend running on port ${PORT}`); // reload-trigger
       console.log(` Health check: http://localhost:${PORT}/health   `);

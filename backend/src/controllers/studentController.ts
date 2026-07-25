@@ -16,3 +16,29 @@ export const toggleAssessments = async (req: AuthRequest, res: Response) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+export const getStudentByRegNo = async (req: AuthRequest, res: Response) => {
+  const { regNo } = req.params;
+  if (!regNo) {
+    return res.status(400).json({ error: 'Registration number is required.' });
+  }
+
+  try {
+    const regNorm = regNo.toLowerCase().trim();
+    const studentRes = await query(
+      `SELECT id, name, phone, email, emergency_contact, emergency_phone, hostel_scholar, address 
+       FROM students 
+       WHERE LOWER(registration_number) = $1`,
+      [regNorm],
+    );
+
+    if (studentRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Student profile not found.' });
+    }
+
+    return res.json(studentRes.rows[0]);
+  } catch (err) {
+    console.error('Get student by reg number error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};

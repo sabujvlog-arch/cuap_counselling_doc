@@ -145,13 +145,13 @@ function SecurityLoginCard() {
           />
           <div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-none mb-0.5">
-              ಕೇಂದ್ರ ವಿಶ್ವವಿದ್ಯಾಲಯ · ಆಂಧ್ರ ಪ್ರದೇಶ
+              ఆంధ్రప్రదేశ్ కేంద్ర విశ్వవిద్యాలయం
             </p>
             <p className="text-[11px] font-black text-blue-700 uppercase tracking-wide leading-tight">
               Central University of Andhra Pradesh
             </p>
             <p className="text-[9px] text-slate-400 mt-0.5">
-              Established by an act of Parliament in 2009.
+              Established by an Act of Parliament in 2018.
             </p>
           </div>
         </div>
@@ -401,13 +401,13 @@ export default function Home() {
           />
           <div>
             <p className="text-[10px] font-black text-blue-200 uppercase tracking-widest leading-none mb-0.5">
-              ಕೇಂದ್ರ ವಿಶ್ವವಿದ್ಯಾಲಯ · ಆಂಧ್ರ ಪ್ರದೇಶ
+              ఆంధ్రప్రదేశ్ కేంద్ర విశ్వవిద్యాలయం
             </p>
             <p className="text-sm font-extrabold text-white leading-tight">
               Central University of Andhra Pradesh
             </p>
             <p className="text-[9.5px] text-blue-200/70">
-              Established by an Act of Parliament in 2009.
+              Established by an Act of Parliament in 2018.
             </p>
           </div>
         </div>

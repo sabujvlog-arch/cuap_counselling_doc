@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, Pin, PinOff, LogOut, LucideIcon, Search } from 'lucide-react';
+import { ChevronLeft, LogOut, LucideIcon, Search } from 'lucide-react';
 import SidebarItem from './SidebarItem';
 
 interface NavigationItem {
@@ -148,26 +148,6 @@ export default function Sidebar({
                   {userRoleLabel}
                 </p>
               </div>
-            </div>
-
-            {/* Pin/Unpin Mode Icon Switch (Desktop only) */}
-            <div className={`hidden lg:block ${sidebarCollapsed ? 'lg:hidden' : ''}`}>
-              <button
-                onClick={togglePin}
-                className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
-                  sidebarPinned
-                    ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-slate-800 dark:border-slate-700 dark:text-blue-400'
-                    : 'border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-650 dark:hover:text-slate-200'
-                }`}
-                title={
-                  sidebarPinned
-                    ? 'Sidebar pinned: Unpin to allow auto-collapse'
-                    : 'Sidebar unpinned: Pin to lock expanded'
-                }
-                aria-label={sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar'}
-              >
-                {sidebarPinned ? <Pin size={13} /> : <PinOff size={13} />}
-              </button>
             </div>
           </div>
 
