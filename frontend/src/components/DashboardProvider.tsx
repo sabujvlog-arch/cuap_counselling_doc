@@ -426,6 +426,23 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
     }
   };
 
+  const handleDragReschedule = async (appointmentId: number, targetTime: string) => {
+    setActionLoading(true);
+    try {
+      await api.appointments.updateStatus(appointmentId, {
+        status: 'rescheduled',
+        date: scheduleSelectedDate,
+        timeSlot: targetTime,
+      });
+      alert('Appointment rescheduled successfully via drag-and-drop.');
+      fetchAppointments();
+    } catch (err: any) {
+      alert(err.message || 'Failed to reschedule appointment via drag-and-drop.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const fetchNotifications = async () => {
     try {
       const res = await api.admin.announcements(); // Gets announcements
@@ -1368,7 +1385,20 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                             {h.label}
                           </div>
 
-                          <div className="flex-1 min-h-[50px] border border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-1 bg-slate-50/20 dark:bg-slate-900/10 flex flex-col gap-2">
+                          <div
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={async (e) => {
+                              e.preventDefault();
+                              const appointmentIdStr = e.dataTransfer.getData('text/plain');
+                              if (appointmentIdStr) {
+                                const appId = parseInt(appointmentIdStr);
+                                if (!isNaN(appId)) {
+                                  await handleDragReschedule(appId, h.time);
+                                }
+                              }
+                            }}
+                            className="flex-1 min-h-[50px] border border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-1 bg-slate-50/20 dark:bg-slate-900/10 flex flex-col gap-2"
+                          >
                             {dayApps.length === 0 ? (
                               <div className="py-2.5 px-4 text-[10px] text-slate-400 dark:text-slate-600 font-semibold italic">
                                 Free Slot (No Bookings scheduled)
@@ -1388,10 +1418,20 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                                     'border-slate-350 bg-slate-50/30 text-slate-550 dark:bg-slate-950/10 dark:text-slate-500';
                                 }
 
+                                const isDraggable =
+                                  a.status !== 'completed' && a.status !== 'cancelled';
                                 return (
                                   <div
                                     key={aIdx}
-                                    className={`p-3 border-l-4 rounded-lg flex flex-col sm:flex-row justify-between sm:items-center gap-3 transition shadow-sm ${statusColor}`}
+                                    draggable={isDraggable}
+                                    onDragStart={(e) => {
+                                      e.dataTransfer.setData('text/plain', a.id.toString());
+                                    }}
+                                    className={`p-3 border-l-4 rounded-lg flex flex-col sm:flex-row justify-between sm:items-center gap-3 transition shadow-sm ${statusColor} ${
+                                      isDraggable
+                                        ? 'cursor-grab active:cursor-grabbing hover:border-l-8'
+                                        : ''
+                                    }`}
                                   >
                                     <div>
                                       <div className="flex items-center gap-2">

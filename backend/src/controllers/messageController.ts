@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { query } from '../config/db';
 import { AuthRequest } from '../middleware/auth';
+import { createNotification } from '../services/notificationService';
 
 export const sendMessage = async (req: AuthRequest, res: Response) => {
   const { receiverId, content, attachmentUrl } = req.body;
@@ -44,11 +45,11 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
     );
 
     // Notify the receiver
-    await query('INSERT INTO notifications (user_id, type, message) VALUES ($1, $2, $3)', [
+    await createNotification(
       receiverId,
       'message',
       `New message from ${req.user.username}: "${content.substring(0, 30)}${content.length > 30 ? '...' : ''}"`,
-    ]);
+    );
 
     return res.status(201).json({ message: 'Message sent successfully' });
   } catch (err) {

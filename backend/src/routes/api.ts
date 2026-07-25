@@ -20,6 +20,7 @@ import {
   resetPassword,
   getNotifications,
   markNotificationsRead,
+  streamNotifications,
 } from '../controllers/authController';
 
 import {
@@ -165,6 +166,7 @@ router.post(
 router.post('/auth/forgot-password', authRateLimiter, forgotPassword);
 router.post('/auth/reset-password', authRateLimiter, resetPassword);
 router.get('/notifications', authenticateToken, getNotifications);
+router.get('/notifications/stream', authenticateToken, streamNotifications);
 router.post('/notifications/read', authenticateToken, markNotificationsRead);
 
 // Provider and Student registrations (Admin & Front-desk)

@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { query } from '../config/db';
 import { AuthRequest } from '../middleware/auth';
+import { createNotification } from '../services/notificationService';
 import fs from 'fs';
 import path from 'path';
 import jwt from 'jsonwebtoken';
@@ -777,18 +778,12 @@ export const createAnnouncement = async (req: AuthRequest, res: Response) => {
 
   try {
     // Insert into notifications as 'system' type for user_id = admin's user_id
-    await query("INSERT INTO notifications (user_id, type, message) VALUES ($1, 'system', $2)", [
-      req.user.id,
-      message,
-    ]);
+    await createNotification(req.user.id, 'system', message);
 
     // Create notifications for all students and providers so it shows in their dashboard feeds
     const usersRes = await query("SELECT id FROM users WHERE role IN ('student', 'provider')");
     for (const u of usersRes.rows) {
-      await query("INSERT INTO notifications (user_id, type, message) VALUES ($1, 'system', $2)", [
-        u.id,
-        `CUAP Announcement: ${message}`,
-      ]);
+      await createNotification(u.id, 'system', `CUAP Announcement: ${message}`);
     }
 
     return res.status(201).json({ message: 'Announcement published successfully to all users.' });

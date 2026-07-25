@@ -534,6 +534,11 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ id }),
       }),
+    streamUrl: () => {
+      const base = API_BASE.replace(/\/api$/, '');
+      const token = getToken();
+      return `${base}/api/notifications/stream?token=${token || ''}`;
+    },
   },
 
   // Student specific simulator operations

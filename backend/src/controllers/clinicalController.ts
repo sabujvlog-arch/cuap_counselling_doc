@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { query } from '../config/db';
 import { AuthRequest } from '../middleware/auth';
 import { encrypt, decrypt } from '../utils/crypto';
+import { createNotification } from '../services/notificationService';
 
 // Helper to encrypt session object
 const encryptSessionFields = (data: any) => {
@@ -718,11 +719,11 @@ export const createPrescription = async (req: AuthRequest, res: Response) => {
 
     const studentUser = await query('SELECT user_id FROM students WHERE id = $1', [studentId]);
     if (studentUser.rows.length > 0) {
-      await query('INSERT INTO notifications (user_id, type, message) VALUES ($1, $2, $3)', [
+      await createNotification(
         studentUser.rows[0].user_id,
         'prescription',
         `A new prescription from Dr. ${req.user.username} is now ready for view.`,
-      ]);
+      );
     }
 
     return res

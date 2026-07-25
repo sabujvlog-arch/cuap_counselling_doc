@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { query } from '../config/db';
 import { AuthRequest } from '../middleware/auth';
+import { createNotification } from '../services/notificationService';
 
 export interface ConflictCheckResult {
   conflict: boolean;
@@ -303,11 +304,11 @@ export const bookAppointment = async (req: AuthRequest, res: Response) => {
     );
 
     // Create notifications for Student and Provider
-    await query('INSERT INTO notifications (user_id, type, message) VALUES ($1, $2, $3)', [
+    await createNotification(
       req.user.id,
       'appointment',
       `Your appointment request for ${date} at ${timeSlot} is now ${status}.`,
-    ]);
+    );
 
     // Get Provider's user ID to notify them
     const providerUserRes = await query('SELECT user_id, name FROM providers WHERE id = $1', [
@@ -315,11 +316,11 @@ export const bookAppointment = async (req: AuthRequest, res: Response) => {
     ]);
     if (providerUserRes.rows.length > 0) {
       const pUser = providerUserRes.rows[0];
-      await query('INSERT INTO notifications (user_id, type, message) VALUES ($1, $2, $3)', [
+      await createNotification(
         pUser.user_id,
         'appointment',
         `New appointment request from student ${studentName} for ${date} at ${timeSlot}.`,
-      ]);
+      );
     }
 
     await query('COMMIT');
@@ -461,11 +462,11 @@ export const updateAppointmentStatus = async (req: AuthRequest, res: Response) =
           firstWait.student_id,
         ]);
         if (waitStudentUserRes.rows.length > 0) {
-          await query('INSERT INTO notifications (user_id, type, message) VALUES ($1, $2, $3)', [
+          await createNotification(
             waitStudentUserRes.rows[0].user_id,
             'appointment',
             `Your waitlist appointment for ${app.slot_date} at ${app.slot_time} has been approved!`,
-          ]);
+          );
         }
 
         // Shift remaining waitlist positions down
@@ -480,17 +481,17 @@ export const updateAppointmentStatus = async (req: AuthRequest, res: Response) =
 
     // Notify user
     const actionText = status === 'rescheduled' ? 'rescheduled (needs approval)' : status;
-    await query('INSERT INTO notifications (user_id, type, message) VALUES ($1, $2, $3)', [
+    await createNotification(
       app.student_user_id,
       'appointment',
       `Your appointment with ${app.provider_name} has been ${actionText}.`,
-    ]);
+    );
 
-    await query('INSERT INTO notifications (user_id, type, message) VALUES ($1, $2, $3)', [
+    await createNotification(
       app.provider_user_id,
       'appointment',
       `Appointment with student ${app.student_name} updated to ${status}.`,
-    ]);
+    );
 
     await query(
       'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',

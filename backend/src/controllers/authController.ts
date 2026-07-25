@@ -881,3 +881,36 @@ export const markNotificationsRead = async (req: AuthRequest, res: Response) => 
     return res.status(500).json({ error: 'Failed to update notifications status' });
   }
 };
+
+import { registerClient, unregisterClient } from '../services/notificationService';
+
+export const streamNotifications = async (req: AuthRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const userId = req.user.id;
+
+  // Configure response headers for Server-Sent Events
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+    'Content-Encoding': 'none',
+  });
+
+  // Write initial connection success payload
+  res.write('retry: 5000\n\n');
+
+  // Keep connection alive with 20-second comments heartbeats
+  const keepAlive = setInterval(() => {
+    res.write(':\n\n');
+  }, 20000);
+
+  registerClient(userId, res);
+
+  req.on('close', () => {
+    clearInterval(keepAlive);
+    unregisterClient(userId, res);
+  });
+};

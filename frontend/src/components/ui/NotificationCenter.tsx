@@ -43,27 +43,68 @@ export default function NotificationCenter({
     }
   };
 
-  // Load initially & poll for unread count in background
+  const [toasts, setToasts] = useState<{ id: number; message: string; type: string }[]>([]);
+
+  const triggerToast = (message: string, type: string) => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type }]);
+
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.3);
+      osc.start(audioCtx.currentTime);
+      osc.stop(audioCtx.currentTime + 0.3);
+    } catch (e) {
+      // Audio failed due to autoplay permissions block
+    }
+
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4000);
+  };
+
+  // Load initially & subscribe to SSE real-time stream
   useEffect(() => {
     fetchNotifications();
 
-    const interval = setInterval(() => {
-      // Background poll (silent fetch)
-      api.notifications
-        .list()
-        .then((res) => {
-          if (Array.isArray(res)) {
-            setNotifications(res);
-            const unreadCount = res.filter((n) => n.is_read === 0).length;
-            if (onUpdateCount) onUpdateCount(unreadCount);
-          }
-        })
-        .catch((err) => {
-          console.error('Silent notification poll failed:', err);
-        });
-    }, 10000); // Check every 10 seconds
+    const url = api.notifications.streamUrl();
+    const eventSource = new EventSource(url);
 
-    return () => clearInterval(interval);
+    eventSource.onmessage = (event) => {
+      try {
+        const notif = JSON.parse(event.data) as Notification;
+
+        setNotifications((prev) => {
+          const exists = prev.some((p) => p.id === notif.id);
+          if (exists) return prev;
+
+          const updated = [notif, ...prev];
+          const unreadCount = updated.filter((n) => n.is_read === 0).length;
+          if (onUpdateCount) onUpdateCount(unreadCount);
+          return updated;
+        });
+
+        triggerToast(notif.message, notif.type);
+      } catch (err) {
+        console.error('Failed to parse SSE notification payload:', err);
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.warn('[SSE] EventSource connection encountered error. Reconnecting...', err);
+    };
+
+    return () => {
+      eventSource.close();
+    };
   }, [onUpdateCount]);
 
   useEffect(() => {
@@ -235,6 +276,25 @@ export default function NotificationCenter({
             ))
           )}
         </div>
+      </div>
+
+      {/* Real-time Toast Alerts Stack */}
+      <div className="fixed top-5 right-5 z-[9999] flex flex-col gap-3 max-w-sm pointer-events-none select-none">
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            className="flex items-center gap-3 p-4 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl animate-fade-in-left pointer-events-auto max-w-[320px] backdrop-blur-md"
+          >
+            <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+              <Bell size={16} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-extrabold text-slate-850 dark:text-white leading-snug">
+                {t.message}
+              </p>
+            </div>
+          </div>
+        ))}
       </div>
     </>
   );
