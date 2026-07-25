@@ -40,6 +40,10 @@ import {
   getSpotRegistrations,
   updateEmergencyCase,
   updateSpotRegistrationStatus,
+  submitSessionFeedback,
+  getSessionFeedback,
+  globalSearch,
+  toggleAvailabilitySlot,
 } from '../controllers/appointmentController';
 
 import {
@@ -259,6 +263,10 @@ router.patch('/appointments/:id/status', authenticateToken, updateAppointmentSta
 router.get('/appointments/available-slots', authenticateToken, getAvailableSlots);
 router.get('/counselor/settings', authenticateToken, getCounselorSettings);
 router.post('/counselor/settings', authenticateToken, updateCounselorSettings);
+router.post('/appointments/feedback', authenticateToken, submitSessionFeedback);
+router.get('/appointments/feedback', authenticateToken, getSessionFeedback);
+router.get('/global-search', authenticateToken, globalSearch);
+router.post('/counselor/availability-slot', authenticateToken, toggleAvailabilitySlot);
 router.post(
   '/appointments/verify-qr',
   authenticateToken,

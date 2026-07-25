@@ -1447,3 +1447,157 @@ export const updateSpotRegistrationStatus = async (req: AuthRequest, res: Respon
     return res.status(500).json({ error: err.message || 'Internal server error' });
   }
 };
+
+export const submitSessionFeedback = async (req: AuthRequest, res: Response) => {
+  if (!req.user || req.user.role !== 'student') {
+    return res.status(403).json({ error: 'Only logged in students can submit feedback' });
+  }
+
+  const { appointmentId, rating, feedbackText } = req.body;
+  if (!appointmentId || !rating) {
+    return res.status(400).json({ error: 'appointmentId and rating are required' });
+  }
+
+  try {
+    const stuRes = await query('SELECT id FROM students WHERE user_id = $1', [req.user.id]);
+    if (stuRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Student record not found' });
+    }
+    const studentId = stuRes.rows[0].id;
+
+    await query(
+      `INSERT INTO session_feedback (appointment_id, student_id, rating, feedback_text) VALUES ($1, $2, $3, $4)`,
+      [appointmentId, studentId, rating, feedbackText || ''],
+    );
+
+    return res.json({ message: 'Feedback submitted successfully! Thank you.' });
+  } catch (err: any) {
+    console.error('submitSessionFeedback error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+};
+
+export const getSessionFeedback = async (req: AuthRequest, res: Response) => {
+  if (
+    !req.user ||
+    (req.user.role !== 'admin' && req.user.role !== 'super-admin' && req.user.role !== 'provider')
+  ) {
+    return res.status(403).json({ error: 'Unauthorized access' });
+  }
+
+  try {
+    const resList = await query(`
+      SELECT sf.id, sf.appointment_id, sf.rating, sf.feedback_text, sf.created_at,
+             st.name as student_name, st.registration_number,
+             p.name as provider_name
+      FROM session_feedback sf
+      JOIN students st ON sf.student_id = st.id
+      JOIN appointments a ON sf.appointment_id = a.id
+      LEFT JOIN providers p ON a.provider_id = p.id
+      ORDER BY sf.created_at DESC
+    `);
+    return res.json(resList.rows || resList);
+  } catch (err: any) {
+    console.error('getSessionFeedback error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+};
+
+export const globalSearch = async (req: AuthRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  const q = String(req.query.q || '').trim();
+  if (!q || q.length < 2) {
+    return res.json({ students: [], providers: [], appointments: [] });
+  }
+
+  const searchPattern = `%${q}%`;
+
+  try {
+    const studentsRes = await query(
+      `SELECT id, name, registration_number, department, gender, contact_number, user_id 
+       FROM students 
+       WHERE name LIKE $1 OR registration_number LIKE $1 OR department LIKE $1
+       LIMIT 10`,
+      [searchPattern],
+    );
+
+    const providersRes = await query(
+      `SELECT id, name, employee_id, specialization, room_number 
+       FROM providers 
+       WHERE name LIKE $1 OR employee_id LIKE $1 OR specialization LIKE $1
+       LIMIT 10`,
+      [searchPattern],
+    );
+
+    const apptsRes = await query(
+      `SELECT a.id, a.slot_date, a.time_slot, a.status, st.name as student_name, st.registration_number, p.name as provider_name
+       FROM appointments a
+       JOIN students st ON a.student_id = st.id
+       LEFT JOIN providers p ON a.provider_id = p.id
+       WHERE st.name LIKE $1 OR st.registration_number LIKE $1 OR p.name LIKE $1
+       LIMIT 10`,
+      [searchPattern],
+    );
+
+    return res.json({
+      students: studentsRes.rows || studentsRes,
+      providers: providersRes.rows || providersRes,
+      appointments: apptsRes.rows || apptsRes,
+    });
+  } catch (err: any) {
+    console.error('globalSearch error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+};
+
+export const toggleAvailabilitySlot = async (req: AuthRequest, res: Response) => {
+  if (!req.user || req.user.role !== 'provider') {
+    return res.status(403).json({ error: 'Only counselors can manage availability slots' });
+  }
+
+  const { dayOfWeek, timeSlot, isAvailable } = req.body;
+  if (dayOfWeek === undefined || !timeSlot) {
+    return res.status(400).json({ error: 'dayOfWeek and timeSlot required' });
+  }
+
+  try {
+    const provRes = await query('SELECT id FROM providers WHERE user_id = $1', [req.user.id]);
+    if (provRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Provider record not found' });
+    }
+    const providerId = provRes.rows[0].id;
+
+    if (isAvailable) {
+      // Delete from availability block (unblock)
+      await query(
+        `DELETE FROM availability WHERE provider_id = $1 AND day_of_week = $2 AND start_time = $3`,
+        [providerId, dayOfWeek, timeSlot],
+      );
+    } else {
+      // Add block row if not existing
+      const checkRes = await query(
+        `SELECT id FROM availability WHERE provider_id = $1 AND day_of_week = $2 AND start_time = $3`,
+        [providerId, dayOfWeek, timeSlot],
+      );
+      if (checkRes.rows.length === 0) {
+        await query(
+          `INSERT INTO availability (provider_id, day_of_week, start_time, end_time, is_available) VALUES ($1, $2, $3, $3, $4)`,
+          [providerId, dayOfWeek, timeSlot, isAvailable ? 1 : 0],
+        );
+      } else {
+        await query(
+          `UPDATE availability SET is_available = $1 WHERE provider_id = $2 AND day_of_week = $3 AND start_time = $4`,
+          [isAvailable ? 1 : 0, providerId, dayOfWeek, timeSlot],
+        );
+      }
+    }
+
+    return res.json({ message: 'Slot availability updated successfully' });
+  } catch (err: any) {
+    console.error('toggleAvailabilitySlot error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+};

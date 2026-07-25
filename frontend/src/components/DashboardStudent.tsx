@@ -30,6 +30,9 @@ import {
   X,
   LayoutDashboard,
   Volume2,
+  Star,
+  Siren,
+  Search,
 } from 'lucide-react';
 import {
   LineChart,
@@ -50,6 +53,7 @@ import Sidebar from './ui/Sidebar';
 import Breadcrumbs from './ui/Breadcrumbs';
 import NotificationCenter from './ui/NotificationCenter';
 import { printPrescriptionReport, downloadPrescriptionPDF } from '@/utils/print';
+import { calculateWellbeingScore } from '@/utils/wellbeing';
 
 interface StudentProps {
   onLogout: () => void;
@@ -118,6 +122,57 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
   const [isStatusAccordionOpen, setIsStatusAccordionOpen] = useState(false);
   const [notifCenterOpen, setNotifCenterOpen] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+  // Emergency SOS & Post-Session Feedback states
+  const [sosModalOpen, setSosModalOpen] = useState(false);
+  const [sosNotes, setSosNotes] = useState('');
+  const [sosSubmitting, setSosSubmitting] = useState(false);
+
+  const [feedbackModalAppt, setFeedbackModalAppt] = useState<any>(null);
+  const [feedbackRating, setFeedbackRating] = useState(5);
+  const [feedbackText, setFeedbackText] = useState('');
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+
+  const handleTriggerSOS = async () => {
+    setSosSubmitting(true);
+    try {
+      await api.appointments.registerEmergency({
+        crisis_notes: sosNotes || 'Emergency SOS trigger from Student Portal',
+        priority: 'critical',
+        emergency_contact: studentProfile?.student_phone || 'Immediate Helpline Required',
+      });
+      showToast(
+        'Emergency SOS alert sent! Duty counselor and campus security notified.',
+        'success',
+      );
+      setSosModalOpen(false);
+      setSosNotes('');
+    } catch (err: any) {
+      showToast('Failed to trigger emergency alert: ' + (err.message || 'Error'), 'error');
+    } finally {
+      setSosSubmitting(false);
+    }
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (!feedbackModalAppt) return;
+    setFeedbackSubmitting(true);
+    try {
+      await api.appointments.submitFeedback({
+        appointmentId: feedbackModalAppt.appointment_id || feedbackModalAppt.id,
+        rating: feedbackRating,
+        feedbackText,
+      });
+      showToast('Thank you! Your feedback has been submitted.', 'success');
+      setFeedbackModalAppt(null);
+      setFeedbackRating(5);
+      setFeedbackText('');
+    } catch (err: any) {
+      showToast('Failed to submit feedback: ' + (err.message || 'Error'), 'error');
+    } finally {
+      setFeedbackSubmitting(false);
+    }
+  };
 
   const tabLabels: Record<string, string> = {
     overview: 'Dashboard Overview',
@@ -339,7 +394,6 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
   // Feedback states
-  const [feedbackRating, setFeedbackRating] = useState(5);
   const [feedbackComments, setFeedbackComments] = useState('');
 
   // Notifications feed
@@ -888,6 +942,53 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                       Track Severity
                     </span>
                   </div>
+
+                  {/* KPI 4: Student Wellbeing & Risk Score */}
+                  {(() => {
+                    const wb = calculateWellbeingScore({
+                      assessments: historicalAssessments,
+                      sessionsCount: appointments.length,
+                    });
+                    return (
+                      <div
+                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-855 p-5 rounded-2xl shadow-sm flex flex-col justify-between stat-card"
+                        style={
+                          {
+                            '--gradient-start': '#10b981',
+                            '--gradient-end': '#34d399',
+                          } as React.CSSProperties
+                        }
+                      >
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase text-slate-450 tracking-wider">
+                              Wellbeing Index
+                            </span>
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase ${wb.badgeClass}`}
+                            >
+                              {wb.tier}
+                            </span>
+                          </div>
+                          <div className="flex items-baseline gap-2 mt-2">
+                            <span className="text-2xl font-black text-slate-900 dark:text-white">
+                              {wb.score}
+                            </span>
+                            <span className="text-xs text-slate-400 font-bold">/ 100</span>
+                          </div>
+                          <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full mt-2 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${wb.progressColor}`}
+                              style={{ width: `${wb.score}%` }}
+                            />
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-3">
+                          💚 Mental Health Health Score
+                        </span>
+                      </div>
+                    );
+                  })()}
 
                   {/* KPI 4: Unread messages */}
                   <div
@@ -2801,6 +2902,171 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
         onClose={() => setNotifCenterOpen(false)}
         onUpdateCount={setUnreadNotifications}
       />
+
+      {/* Floating Emergency SOS Trigger Button */}
+      <button
+        type="button"
+        onClick={() => setSosModalOpen(true)}
+        className="fixed bottom-6 left-6 z-50 flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white rounded-full font-black text-xs shadow-2xl shadow-rose-600/40 hover:scale-105 transition-all duration-200 cursor-pointer border border-rose-400/30 animate-pulse"
+        title="Emergency Crisis Escalation SOS"
+      >
+        <Siren size={18} className="animate-bounce" />
+        <span>EMERGENCY SOS</span>
+      </button>
+
+      {/* Emergency SOS Modal */}
+      {sosModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-[9999] flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border-2 border-red-500/50 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 animate-scale-in">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-red-100 dark:bg-red-950/50 text-red-600 rounded-2xl">
+                  <Siren size={24} />
+                </div>
+                <div>
+                  <h3 className="font-black text-base text-slate-900 dark:text-white">
+                    Emergency SOS Dispatch
+                  </h3>
+                  <p className="text-[11px] text-slate-500 font-semibold">
+                    Immediate campus helpline & duty counselor alert
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSosModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-3.5 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-2xl space-y-2 text-xs">
+              <div className="flex items-center gap-2 text-red-700 dark:text-red-400 font-extrabold">
+                <PhoneCall size={15} /> 24/7 Helpline Hotlines:
+              </div>
+              <div className="grid grid-cols-1 gap-1 text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                <div>
+                  • CUAP Health Centre:{' '}
+                  <span className="text-red-600 font-black">+91 9849891226</span>
+                </div>
+                <div>
+                  • Tele-MANAS Mental Health: <span className="text-red-600 font-black">14416</span>{' '}
+                  (Toll-Free)
+                </div>
+                <div>
+                  • National Emergency Desk: <span className="text-red-600 font-black">112</span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase">
+                Describe your situation / location (Optional):
+              </label>
+              <textarea
+                rows={3}
+                value={sosNotes}
+                onChange={(e) => setSosNotes(e.target.value)}
+                placeholder="e.g., Extreme panic attack, Hostel Block A Room 204..."
+                className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-bold bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-red-500 text-slate-800 dark:text-slate-100"
+              />
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setSosModalOpen(false)}
+                className="flex-1 py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-bold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={sosSubmitting}
+                onClick={handleTriggerSOS}
+                className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-black text-xs shadow-lg shadow-red-600/30 transition disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2"
+              >
+                {sosSubmitting ? 'Sending Alert...' : '🚀 SEND CRISIS ALERT'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Post-Session Feedback Modal */}
+      {feedbackModalAppt && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 animate-scale-in">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Award size={20} className="text-amber-500" />
+                <h3 className="font-black text-base text-slate-900 dark:text-white">
+                  Session Feedback
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFeedbackModalAppt(null)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 font-medium">
+              How was your counseling session with{' '}
+              <strong className="text-slate-800 dark:text-white">
+                Dr. {feedbackModalAppt.provider_name || 'Specialist'}
+              </strong>
+              ?
+            </p>
+
+            {/* Star Rating */}
+            <div className="flex items-center justify-center gap-2 py-2">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setFeedbackRating(star)}
+                  className="p-1 hover:scale-125 transition cursor-pointer"
+                >
+                  <Star
+                    size={28}
+                    className={
+                      star <= feedbackRating
+                        ? 'fill-amber-400 text-amber-400'
+                        : 'text-slate-300 dark:text-slate-700'
+                    }
+                  />
+                </button>
+              ))}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
+                Feedback / Comments (Optional):
+              </label>
+              <textarea
+                rows={3}
+                value={feedbackText}
+                onChange={(e) => setFeedbackText(e.target.value)}
+                placeholder="Share any thoughts or suggestions about your experience..."
+                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs bg-slate-50 dark:bg-slate-950 font-bold focus:outline-none text-slate-800 dark:text-slate-100"
+              />
+            </div>
+
+            <button
+              type="button"
+              disabled={feedbackSubmitting}
+              onClick={handleSubmitFeedback}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-xs shadow-md transition disabled:opacity-60 cursor-pointer"
+            >
+              {feedbackSubmitting ? 'Submitting...' : 'Submit Feedback'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

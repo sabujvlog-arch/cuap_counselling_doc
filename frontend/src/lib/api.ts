@@ -278,6 +278,18 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify(payload),
       }),
+    submitFeedback: (payload: any) =>
+      request('/appointments/feedback', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    getFeedback: () => request('/appointments/feedback'),
+    globalSearch: (q: string) => request(`/global-search?q=${encodeURIComponent(q)}`),
+    toggleAvailabilitySlot: (payload: any) =>
+      request('/counselor/availability-slot', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
   },
 
   // Providers list (for student booking)

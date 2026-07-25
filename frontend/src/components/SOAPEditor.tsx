@@ -121,6 +121,7 @@ export default function SOAPEditor({
   }, [forcedMode]);
   const [studentProfile, setStudentProfile] = useState<any>(null);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error' | 'idle'>('idle');
+  const [lastAutoSavedTime, setLastAutoSavedTime] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [pastSessions, setPastSessions] = useState<any[]>([]);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['section-1']));
@@ -419,9 +420,10 @@ export default function SOAPEditor({
 
   const triggerAutoSave = useCallback(() => {
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    autoSaveTimerRef.current = setTimeout(() => {
-      saveSession(true);
-    }, 3000);
+    autoSaveTimerRef.current = setTimeout(async () => {
+      await saveSession(true);
+      setLastAutoSavedTime(new Date().toLocaleTimeString());
+    }, 30000); // 30-second interval auto-save
   }, [
     sessionId,
     clinicianMode,
@@ -1119,7 +1121,8 @@ export default function SOAPEditor({
           <div className={`emr-save-status ${saveStatus}`}>
             {saveStatus === 'saved' && (
               <>
-                <CheckCircle size={13} /> Auto-saved
+                <CheckCircle size={13} /> Auto-saved{' '}
+                {lastAutoSavedTime ? `at ${lastAutoSavedTime}` : ''}
               </>
             )}
             {saveStatus === 'saving' && (

@@ -420,6 +420,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
 
   // Availability schedule states
   const [availabilityDays, setAvailabilityDays] = useState<any[]>([]);
+  const [blockedSlotsMap, setBlockedSlotsMap] = useState<Record<string, boolean>>({});
   const [allStudents, setAllStudents] = useState<any[]>([]);
 
   // Assigned students search/filters
@@ -1789,8 +1790,47 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                             className="flex-1 min-h-[50px] border border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-1 bg-slate-50/20 dark:bg-slate-900/10 flex flex-col gap-2"
                           >
                             {dayApps.length === 0 ? (
-                              <div className="py-2.5 px-4 text-[10px] text-slate-400 dark:text-slate-600 font-semibold italic">
-                                Free Slot (No Bookings scheduled)
+                              <div className="py-2 px-4 flex items-center justify-between gap-2">
+                                <span
+                                  className={`text-[10px] font-semibold italic ${blockedSlotsMap[`${scheduleSelectedDate}-${h.label}`] ? 'text-rose-500 font-bold' : 'text-slate-400 dark:text-slate-600'}`}
+                                >
+                                  {blockedSlotsMap[`${scheduleSelectedDate}-${h.label}`]
+                                    ? '🚫 Slot Blocked'
+                                    : 'Free Slot (No Bookings scheduled)'}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    const key = `${scheduleSelectedDate}-${h.label}`;
+                                    const isBlocked = !!blockedSlotsMap[key];
+                                    try {
+                                      await api.appointments.toggleAvailabilitySlot({
+                                        dayOfWeek: new Date(scheduleSelectedDate).getDay(),
+                                        timeSlot: h.label,
+                                        isAvailable: isBlocked,
+                                      });
+                                      setBlockedSlotsMap((prev) => ({
+                                        ...prev,
+                                        [key]: !isBlocked,
+                                      }));
+                                      showToast(
+                                        `Slot ${h.label} marked as ${isBlocked ? 'Available' : 'Blocked'}.`,
+                                        'success',
+                                      );
+                                    } catch (err: any) {
+                                      showToast('Failed to update slot status', 'error');
+                                    }
+                                  }}
+                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase transition cursor-pointer ${
+                                    blockedSlotsMap[`${scheduleSelectedDate}-${h.label}`]
+                                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 hover:bg-emerald-200'
+                                      : 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400 hover:bg-rose-100'
+                                  }`}
+                                >
+                                  {blockedSlotsMap[`${scheduleSelectedDate}-${h.label}`]
+                                    ? '✅ Unblock Slot'
+                                    : '🚫 Block Slot'}
+                                </button>
                               </div>
                             ) : (
                               dayApps.map((a, aIdx) => {

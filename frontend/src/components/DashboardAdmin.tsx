@@ -54,6 +54,7 @@ import Sidebar from './ui/Sidebar';
 import Breadcrumbs from './ui/Breadcrumbs';
 import NotificationCenter from './ui/NotificationCenter';
 import EnterpriseTable from './ui/EnterpriseTable';
+import GlobalSearchModal from './ui/GlobalSearchModal';
 import { BookOpen, Clipboard, Heart } from 'lucide-react';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
@@ -123,6 +124,7 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
 
   const [notifCenterOpen, setNotifCenterOpen] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
 
   const tabLabels: Record<string, string> = {
     overview: 'Overview & Charts',
@@ -789,6 +791,18 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               Live Synced
             </div>
+            {/* Global Search Button */}
+            <button
+              onClick={() => setGlobalSearchOpen(true)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer border border-slate-200 dark:border-slate-700"
+              title="Global Search (Ctrl+K)"
+            >
+              <Search size={14} className="text-blue-500" />
+              <span className="hidden md:inline">Search...</span>
+              <kbd className="hidden md:inline px-1.5 py-0.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-[9px] font-mono text-slate-400">
+                Ctrl+K
+              </kbd>
+            </button>
             <ThemeToggle />
 
             {/* Notification Bell */}
@@ -3251,14 +3265,62 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                         prescriptions across counselors.
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={fetchAdminReports}
-                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition cursor-pointer"
-                    >
-                      <RefreshCw size={14} className={adminReportsLoading ? 'animate-spin' : ''} />
-                      Refresh
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!adminReports || adminReports.length === 0) return;
+                          const headers = [
+                            'Date',
+                            'Student Name',
+                            'Student Reg No',
+                            'Report Type',
+                            'Description',
+                            'Counselor Name',
+                            'Visibility Status',
+                          ];
+                          const rows = adminReports.map((r) => [
+                            new Date(r.generated_date).toLocaleDateString(),
+                            `"${(r.student_name || '').replace(/"/g, '""')}"`,
+                            `"${(r.student_id || '').replace(/"/g, '""')}"`,
+                            `"${(r.type || '').replace(/"/g, '""')}"`,
+                            `"${(r.report_type || '').replace(/"/g, '""')}"`,
+                            `"${(r.counselor_name || '').replace(/"/g, '""')}"`,
+                            r.is_released ? 'Released' : 'Hidden',
+                          ]);
+                          const csvContent = [
+                            headers.join(','),
+                            ...rows.map((row) => row.join(',')),
+                          ].join('\n');
+                          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.href = url;
+                          link.setAttribute(
+                            'download',
+                            `CUAP_Generated_Reports_${new Date().toISOString().slice(0, 10)}.csv`,
+                          );
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-sm"
+                      >
+                        <Download size={14} />
+                        Export Excel / CSV
+                      </button>
+                      <button
+                        type="button"
+                        onClick={fetchAdminReports}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-sm"
+                      >
+                        <RefreshCw
+                          size={14}
+                          className={adminReportsLoading ? 'animate-spin' : ''}
+                        />
+                        Refresh
+                      </button>
+                    </div>
                   </div>
 
                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-2xl shadow-sm overflow-hidden">
@@ -5242,6 +5304,9 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
         onClose={() => setNotifCenterOpen(false)}
         onUpdateCount={setUnreadNotifications}
       />
+
+      {/* Global Search Modal */}
+      <GlobalSearchModal isOpen={globalSearchOpen} onClose={() => setGlobalSearchOpen(false)} />
     </div>
   );
 }

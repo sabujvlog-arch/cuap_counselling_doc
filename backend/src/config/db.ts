@@ -452,6 +452,37 @@ const upgradeDatabaseSchema = async (): Promise<void> => {
     }
   }
 
+  // Session Feedback Table
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS session_feedback (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        appointment_id INTEGER REFERENCES appointments(id) ON DELETE CASCADE,
+        student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
+        rating INTEGER NOT NULL,
+        feedback_text TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('Checked/Created session_feedback table (SQLite).');
+  } catch (e) {
+    try {
+      await query(`
+        CREATE TABLE IF NOT EXISTS session_feedback (
+          id SERIAL PRIMARY KEY,
+          appointment_id INTEGER REFERENCES appointments(id) ON DELETE CASCADE,
+          student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
+          rating INTEGER NOT NULL,
+          feedback_text TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('Checked/Created session_feedback table (PostgreSQL).');
+    } catch (e2) {
+      console.error('Error creating session_feedback table:', e2);
+    }
+  }
+
   // Follow Ups Table
   try {
     await query(`
