@@ -787,11 +787,7 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
               </span>
               <span className="text-[10px] text-slate-400 font-mono block">{adminUsername}</span>
             </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 rounded-xl text-[10px] font-extrabold tracking-wider uppercase border border-emerald-250 dark:border-emerald-900/30">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              Live Synced
-            </div>
-            {/* Global Search Button */}
+            {/* 1st: Global Search Button */}
             <button
               onClick={() => setGlobalSearchOpen(true)}
               className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer border border-slate-200 dark:border-slate-700"
@@ -803,6 +799,11 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                 Ctrl+K
               </kbd>
             </button>
+            {/* 2nd: LIVE SYNCED Badge */}
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 rounded-xl text-[10px] font-extrabold tracking-wider uppercase border border-emerald-250 dark:border-emerald-900/30">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Live Synced
+            </div>
             <ThemeToggle />
 
             {/* Notification Bell */}

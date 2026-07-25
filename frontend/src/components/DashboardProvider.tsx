@@ -50,6 +50,7 @@ import Sidebar from './ui/Sidebar';
 import Breadcrumbs from './ui/Breadcrumbs';
 import NotificationCenter from './ui/NotificationCenter';
 import EnterpriseTable from './ui/EnterpriseTable';
+import GlobalSearchModal from './ui/GlobalSearchModal';
 import {
   printSessionReport,
   printPrescriptionReport,
@@ -133,6 +134,8 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
   // Sidebar state hook
   const sidebar = useSidebar();
   const { sidebarCollapsed } = sidebar;
+
+  const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
 
   // EMR Repository states
   const [repository, setRepository] = useState<any[]>([]);
@@ -916,6 +919,19 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                 {providerProfile?.specialization || 'Clinical Psychologist'}
               </span>
             </div>
+            {/* 1st: Global Search Button */}
+            <button
+              onClick={() => setGlobalSearchOpen(true)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer border border-slate-200 dark:border-slate-700"
+              title="Global Search (Ctrl+K)"
+            >
+              <Search size={14} className="text-blue-500" />
+              <span className="hidden md:inline">Search...</span>
+              <kbd className="hidden md:inline px-1.5 py-0.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-[9px] font-mono text-slate-400">
+                Ctrl+K
+              </kbd>
+            </button>
+            {/* 2nd: LIVE SYNCED Badge */}
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 rounded-xl text-[10px] font-extrabold tracking-wider uppercase border border-emerald-250 dark:border-emerald-900/30">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               Live Synced
@@ -5385,6 +5401,15 @@ HANDOFF & REFERRALS: ${safetyFormData.referral_details || 'N/A'}`;
           </div>
         </div>
       )}
+      {/* Slide-over Notification Center panel */}
+      <NotificationCenter
+        isOpen={notifCenterOpen}
+        onClose={() => setNotifCenterOpen(false)}
+        onUpdateCount={setUnreadNotifications}
+      />
+
+      {/* Global Search Modal */}
+      <GlobalSearchModal isOpen={globalSearchOpen} onClose={() => setGlobalSearchOpen(false)} />
     </div>
   );
 }
