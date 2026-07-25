@@ -243,7 +243,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         >
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl max-w-sm w-full text-center">
             <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/20 text-amber-500 rounded-full flex items-center justify-center text-xl mx-auto mb-4">
-              ⚠️
+              ️
             </div>
             <h3
               id="idle-warning-title"

@@ -282,7 +282,7 @@ export default function DashboardDeptHead({
                           Clinician: Dr. {s.provider_name}
                         </p>
                         <p className="text-[10px] text-red-600 font-semibold bg-red-50 dark:bg-red-950/20 px-2 py-0.5 rounded-lg inline-block">
-                          ⚠️ Elevated Crisis Indicator
+                          ️ Elevated Crisis Indicator
                         </p>
                       </div>
                       <span className="text-[10px] text-slate-450 font-bold">

@@ -14,12 +14,12 @@ export default function MoodDialWidget({ title, subtitle, properties }: MoodDial
   const scaleType = properties.scaleType || 'emoji';
 
   const moods = [
-    { emoji: '😊', label: 'Joyful' },
-    { emoji: '😌', label: 'Peaceful' },
-    { emoji: '😐', label: 'Okay' },
-    { emoji: '🤯', label: 'Stressed' },
-    { emoji: '😰', label: 'Anxious' },
-    { emoji: '😢', label: 'Sad' },
+    { emoji: '', label: 'Joyful' },
+    { emoji: '', label: 'Peaceful' },
+    { emoji: '', label: 'Okay' },
+    { emoji: '', label: 'Stressed' },
+    { emoji: '', label: 'Anxious' },
+    { emoji: '', label: 'Sad' },
   ];
 
   return (

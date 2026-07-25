@@ -177,7 +177,7 @@ export default function AssessmentModule({ studentId, onSuccess }: AssessmentPro
               onClick={() => handleDownloadPDF(result.id)}
               className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold transition shadow-sm text-sm flex items-center justify-center gap-2 cursor-pointer"
             >
-              📥 Download Wellness Path (PDF)
+              Download Wellness Path (PDF)
             </button>
           </div>
         </div>

@@ -181,7 +181,7 @@ export default function ChatbotWidget() {
               }
               className="mt-2 block w-full text-center py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[11px] font-bold shadow-sm transition hover:scale-[1.02] cursor-pointer"
             >
-              📅 Confirm Appointment Slot
+              Confirm Appointment Slot
             </button>,
           );
         }
@@ -470,7 +470,7 @@ export default function ChatbotWidget() {
 
                 {bookingSuccess ? (
                   <div className="space-y-4 py-2 text-center">
-                    <span className="text-3xl">🎉</span>
+                    <span className="text-3xl"></span>
                     <p className="text-xs font-bold text-slate-800 dark:text-white">
                       {bookingSuccess}
                     </p>

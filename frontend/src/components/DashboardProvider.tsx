@@ -31,6 +31,7 @@ import {
   TrendingUp,
   Check,
   AlertCircle,
+  Ban,
 } from 'lucide-react';
 import {
   BarChart,
@@ -1070,16 +1071,14 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                         setDrawerSearch('');
                       }}
                     >
-                      <div className="w-12 h-12 bg-blue-50 dark:bg-blue-950/20 text-blue-600 rounded-xl flex items-center justify-center text-lg shrink-0">
-                        👥
-                      </div>
+                      <div className="w-12 h-12 bg-blue-50 dark:bg-blue-950/20 text-blue-600 rounded-xl flex items-center justify-center text-lg shrink-0"></div>
                       <div>
                         <span className="text-xs font-bold text-slate-400 block">
                           Total Patients
                         </span>
                         <span className="text-2xl font-extrabold">{totalStudentsCount}</span>
                         <span className="text-[10px] text-slate-450 dark:text-slate-400 block mt-1 font-bold">
-                          ♂ {allStudents.filter((s) => s.student_gender === 'Male').length} Male | ♀{' '}
+                          {allStudents.filter((s) => s.student_gender === 'Male').length} Male |{' '}
                           {allStudents.filter((s) => s.student_gender === 'Female').length} Female
                         </span>
                       </div>
@@ -1097,16 +1096,14 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                         setDrawerSearch('');
                       }}
                     >
-                      <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/20 text-amber-600 rounded-xl flex items-center justify-center text-lg shrink-0">
-                        📅
-                      </div>
+                      <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/20 text-amber-600 rounded-xl flex items-center justify-center text-lg shrink-0"></div>
                       <div>
                         <span className="text-xs font-bold text-slate-400 block">
                           Today's Sessions
                         </span>
                         <span className="text-2xl font-extrabold">{todayAppts.length}</span>
                         <span className="text-[10px] text-slate-450 dark:text-slate-400 block mt-1 font-bold">
-                          ♂ {todayAppts.filter((a) => a.student_gender === 'Male').length} Male | ♀{' '}
+                          {todayAppts.filter((a) => a.student_gender === 'Male').length} Male |{' '}
                           {todayAppts.filter((a) => a.student_gender === 'Female').length} Female
                         </span>
                       </div>
@@ -1124,16 +1121,13 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                         setDrawerSearch('');
                       }}
                     >
-                      <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 rounded-xl flex items-center justify-center text-lg shrink-0">
-                        ✓
-                      </div>
+                      <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 rounded-xl flex items-center justify-center text-lg shrink-0"></div>
                       <div>
                         <span className="text-xs font-bold text-slate-400 block">Completed</span>
                         <span className="text-2xl font-extrabold">{completedSessions.length}</span>
                         <span className="text-[10px] text-slate-450 dark:text-slate-400 block mt-1 font-bold">
-                          ♂ {completedSessions.filter((a) => a.student_gender === 'Male').length}{' '}
-                          Male | ♀{' '}
-                          {completedSessions.filter((a) => a.student_gender === 'Female').length}{' '}
+                          {completedSessions.filter((a) => a.student_gender === 'Male').length} Male
+                          | {completedSessions.filter((a) => a.student_gender === 'Female').length}{' '}
                           Female
                         </span>
                       </div>
@@ -1152,7 +1146,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                       }}
                     >
                       <div className="w-12 h-12 bg-red-50 dark:bg-red-950/20 text-red-650 rounded-xl flex items-center justify-center text-lg shrink-0">
-                        ⚠️
+                        ️
                       </div>
                       <div>
                         <span className="text-xs font-bold text-slate-400 block">Urgent Cases</span>
@@ -1160,7 +1154,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                           {urgentAppts.length}
                         </span>
                         <span className="text-[10px] text-slate-450 dark:text-slate-400 block mt-1 font-bold">
-                          ♂ {urgentAppts.filter((a) => a.student_gender === 'Male').length} Male | ♀{' '}
+                          {urgentAppts.filter((a) => a.student_gender === 'Male').length} Male |{' '}
                           {urgentAppts.filter((a) => a.student_gender === 'Female').length} Female
                         </span>
                       </div>
@@ -1335,7 +1329,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl shadow-sm flex flex-col justify-between">
                       <div>
                         <h3 className="text-sm font-bold text-slate-850 dark:text-white mb-4 flex items-center gap-2">
-                          🚨 Urgent Priority Cases
+                          Urgent Priority Cases
                         </h3>
                         {urgentAppts.length === 0 ? (
                           <div className="py-8 text-center text-slate-400 text-xs">
@@ -1553,7 +1547,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                           : 'text-slate-500 hover:text-slate-850 dark:hover:text-slate-200'
                       }`}
                     >
-                      📅 Calendar Grid
+                      Calendar Grid
                     </button>
                     <button
                       onClick={() => setScheduleViewMode('list')}
@@ -1563,7 +1557,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                           : 'text-slate-500 hover:text-slate-850 dark:hover:text-slate-200'
                       }`}
                     >
-                      📋 List View
+                      List View
                     </button>
                   </div>
 
@@ -1661,7 +1655,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                                   }}
                                   className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-xl transition cursor-pointer disabled:opacity-50"
                                 >
-                                  ✓ Approve
+                                  Approve
                                 </button>
                               )}
 
@@ -1683,7 +1677,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                                   }}
                                   className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold rounded-xl border border-red-200 transition cursor-pointer disabled:opacity-50"
                                 >
-                                  ✕ Cancel
+                                  Cancel
                                 </button>
                               )}
 
@@ -1756,7 +1750,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                         time: '13:00',
                         label: '01:00 PM',
                         isBreak: true,
-                        labelBreak: '🍱 Lunch Break (Clinic Closed)',
+                        labelBreak: ' Lunch Break (Clinic Closed)',
                       },
                       { time: '14:00', label: '02:00 PM' },
                       { time: '15:00', label: '03:00 PM' },
@@ -1811,9 +1805,13 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                                 <span
                                   className={`text-[10px] font-semibold italic ${blockedSlotsMap[`${scheduleSelectedDate}-${h.label}`] ? 'text-rose-500 font-bold' : 'text-slate-400 dark:text-slate-600'}`}
                                 >
-                                  {blockedSlotsMap[`${scheduleSelectedDate}-${h.label}`]
-                                    ? '🚫 Slot Blocked'
-                                    : 'Free Slot (No Bookings scheduled)'}
+                                  {blockedSlotsMap[`${scheduleSelectedDate}-${h.label}`] ? (
+                                    <span className="flex items-center gap-1 text-rose-500 font-bold">
+                                      <Ban size={11} /> Slot Blocked
+                                    </span>
+                                  ) : (
+                                    'Free Slot (No Bookings scheduled)'
+                                  )}
                                 </span>
                                 <button
                                   type="button"
@@ -1840,15 +1838,21 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                                       showToast('Failed to update slot status', 'error');
                                     }
                                   }}
-                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase transition cursor-pointer ${
+                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase transition cursor-pointer flex items-center gap-1 ${
                                     blockedSlotsMap[`${scheduleSelectedDate}-${h.label}`]
                                       ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 hover:bg-emerald-200'
                                       : 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400 hover:bg-rose-100'
                                   }`}
                                 >
-                                  {blockedSlotsMap[`${scheduleSelectedDate}-${h.label}`]
-                                    ? '✅ Unblock Slot'
-                                    : '🚫 Block Slot'}
+                                  {blockedSlotsMap[`${scheduleSelectedDate}-${h.label}`] ? (
+                                    <>
+                                      <CheckCircle size={11} /> Unblock Slot
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Ban size={11} /> Block Slot
+                                    </>
+                                  )}
                                 </button>
                               </div>
                             ) : (
@@ -1891,7 +1895,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                                         </span>
                                       </div>
                                       <div className="text-[10px] opacity-90 mt-0.5 font-medium">
-                                        ⏱️ {a.slot_time} &nbsp;|&nbsp; 📋 Reason: {a.reason}
+                                        ⏱️ {a.slot_time} &nbsp;|&nbsp; Reason: {a.reason}
                                       </div>
                                     </div>
                                     <div className="flex gap-2 shrink-0 select-none">
@@ -2393,7 +2397,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                               Suggesting...
                             </>
                           ) : (
-                            '✨ Ask AI Helper'
+                            ' Ask AI Helper'
                           )}
                         </button>
                       </div>
@@ -2794,7 +2798,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                   {/* Days Selector */}
                   <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
                     <h3 className="text-sm font-bold text-slate-850 dark:text-white">
-                      📆 Active Counseling Days
+                      Active Counseling Days
                     </h3>
                     <div className="flex flex-wrap gap-2">
                       {[
@@ -3354,7 +3358,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                       : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                   }`}
                 >
-                  🚨 Emergency Cases ({emergencyCases.filter((c) => c.status === 'active').length}{' '}
+                  Emergency Cases ({emergencyCases.filter((c) => c.status === 'active').length}{' '}
                   Active)
                 </button>
                 <button
@@ -3418,7 +3422,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                               </div>
                               <div className="text-[10px] text-slate-500 space-y-1">
                                 <div>
-                                  📞 Contact:{' '}
+                                  Contact:{' '}
                                   <span className="font-semibold text-slate-655 dark:text-slate-300">
                                     {ec.emergency_contact}
                                   </span>
@@ -3650,7 +3654,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                                       </span>
                                     </td>
                                     <td className="p-4 text-emerald-600 dark:text-emerald-400 font-bold">
-                                      ✓ Session Completed
+                                      Session Completed
                                     </td>
                                   </tr>
                                 ))}
@@ -5211,7 +5215,7 @@ HANDOFF & REFERRALS: ${safetyFormData.referral_details || 'N/A'}`;
                               {stud.status}
                             </span>
                             <p className="text-[10px] text-slate-500 font-bold flex items-center gap-1 justify-end">
-                              📞 {stud.student_phone || 'N/A'}
+                              {stud.student_phone || 'N/A'}
                             </p>
                           </div>
                         </div>
@@ -5245,7 +5249,7 @@ HANDOFF & REFERRALS: ${safetyFormData.referral_details || 'N/A'}`;
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="px-2 py-0.5 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300 rounded font-mono text-[9px] font-extrabold">
-                              🕒 {app.slot_time}
+                              {app.slot_time}
                             </span>
                             <span
                               className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
@@ -5315,7 +5319,7 @@ HANDOFF & REFERRALS: ${safetyFormData.referral_details || 'N/A'}`;
                             {app.registration_number.toUpperCase()}
                           </p>
                           <p className="text-[10px] text-slate-450 mt-1 font-semibold">
-                            🗓️ {new Date(app.slot_date).toLocaleDateString()} at {app.slot_time}
+                            ️ {new Date(app.slot_date).toLocaleDateString()} at {app.slot_time}
                           </p>
                         </div>
                         <div className="flex gap-1">
@@ -5376,8 +5380,9 @@ HANDOFF & REFERRALS: ${safetyFormData.referral_details || 'N/A'}`;
                           <p className="text-[9px] text-slate-500 font-mono mt-0.5">
                             {app.registration_number.toUpperCase()}
                           </p>
-                          <p className="text-[10px] text-red-650 dark:text-red-400 font-extrabold mt-1 leading-snug">
-                            ⚠️ "{app.chief_complaint}"
+                          <p className="text-[10px] text-red-650 dark:text-red-400 font-extrabold mt-1 leading-snug flex items-center gap-1">
+                            <AlertTriangle size={11} className="shrink-0 text-red-500" /> "
+                            {app.chief_complaint}"
                           </p>
                         </div>
                         <button

@@ -745,14 +745,14 @@ export default function SOAPEditor({
   const phqTotal = phqResponses.reduce((a, b) => a + b, 0);
   const phqSeverity =
     phqTotal >= 20
-      ? '🔴 Severe'
+      ? ' Severe'
       : phqTotal >= 15
-        ? '🟠 Moderately Severe'
+        ? ' Moderately Severe'
         : phqTotal >= 10
-          ? '🟡 Moderate'
+          ? ' Moderate'
           : phqTotal >= 5
-            ? '🔵 Mild'
-            : '🟢 Minimal/None';
+            ? ' Mild'
+            : ' Minimal/None';
 
   // ============================================================
   // Drug interaction checker
@@ -772,7 +772,7 @@ export default function SOAPEditor({
         if (med.includes(drug)) {
           interactions.forEach((inter) => {
             if (medicines.some((m, j) => j !== i && m.includes(inter))) {
-              warnings.push(`⚠️ Interaction: ${presItems[i].medicineName} + ${inter}`);
+              warnings.push(`️ Interaction: ${presItems[i].medicineName} + ${inter}`);
             }
           });
         }
@@ -2799,7 +2799,7 @@ export default function SOAPEditor({
                     ))}
                   </div>
                   <div style={{ fontSize: '0.75rem', color: '#d97706', marginTop: 8 }}>
-                    ⚠️ AI-generated draft. Review and edit before applying to the official record.
+                    ️ AI-generated draft. Review and edit before applying to the official record.
                   </div>
                 </div>
               ) : (
@@ -2870,7 +2870,7 @@ export default function SOAPEditor({
                     ['continue_treatment', 'Continue Treatment'],
                     ['follow_up_required', 'Follow-up Required'],
                     ['referred', 'Referred to Another Counselor'],
-                    ['emergency_escalation', '🔴 Emergency Escalation'],
+                    ['emergency_escalation', ' Emergency Escalation'],
                     ['rescheduled', 'Session Rescheduled'],
                     ['no_show', 'No Show'],
                     ['administrative_closure', 'Administrative Closure'],
@@ -2936,7 +2936,7 @@ export default function SOAPEditor({
                 {sessionStatus === 'discharged' &&
                   'Ensure discharge summary covers goals achieved, ongoing self-care plan, and any emergency contact information shared.'}
                 {sessionStatus === 'emergency_escalation' &&
-                  '🔴 Emergency protocol activated. Ensure immediate safety plan is in place and emergency contacts notified.'}
+                  ' Emergency protocol activated. Ensure immediate safety plan is in place and emergency contacts notified.'}
                 {![
                   'follow_up_required',
                   'completed',

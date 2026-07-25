@@ -33,6 +33,15 @@ import {
   Star,
   Siren,
   Search,
+  Smile,
+  Meh,
+  Frown,
+  Lightbulb,
+  Users as UsersIcon,
+  Megaphone,
+  Folder,
+  Upload,
+  Image as ImageIcon,
 } from 'lucide-react';
 import {
   LineChart,
@@ -91,7 +100,7 @@ function ComingSoonCard({
       <h4 className="font-black text-slate-900 mb-1">{title}</h4>
       <p className="text-xs text-slate-500 leading-relaxed mb-3">{desc}</p>
       <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full text-[10px] font-bold">
-        🕐 Coming Soon
+        Coming Soon
       </span>
     </div>
   );
@@ -722,7 +731,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
         ...prev,
         {
           sender: 'ai',
-          text: "⚠️ I'm having trouble connecting right now. Please try again in a moment.",
+          text: " I'm having trouble connecting right now. Please try again in a moment.",
         },
       ]);
     } finally {
@@ -841,7 +850,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
             <div className="space-y-8 animate-fade-in-up">
               <div>
                 <h2 className="text-2xl font-black tracking-tight font-sans">
-                  Welcome to Student Wellness Hub 👋
+                  Welcome to Student Wellness Hub
                 </h2>
                 <p className="text-xs text-slate-500 mt-1">
                   Access counseling schedules, EMR summaries, self-screenings, and AI helpers in one
@@ -876,7 +885,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                     </div>
                     {appointments.find((a) => a.status === 'approved') && (
                       <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider mt-4">
-                        ✓ Confirmed
+                        Confirmed
                       </span>
                     )}
                   </div>
@@ -913,7 +922,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                           : 'text-amber-500 animate-pulse'
                       }`}
                     >
-                      {studentProfile?.informed_consent_signed ? '✓ Compliant' : '⚠️ Unsigned'}
+                      {studentProfile?.informed_consent_signed ? ' Compliant' : ' Unsigned'}
                     </span>
                   </div>
 
@@ -984,7 +993,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                           </div>
                         </div>
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-3">
-                          💚 Mental Health Health Score
+                          Mental Health Health Score
                         </span>
                       </div>
                     );
@@ -1088,37 +1097,37 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                     {[
                       {
                         label: 'Joyful',
-                        emoji: '😊',
+                        emoji: '',
                         color:
                           'bg-emerald-50 text-emerald-650 dark:bg-emerald-950/20 dark:text-emerald-450 border-emerald-100 dark:border-emerald-900/30',
                       },
                       {
                         label: 'Peaceful',
-                        emoji: '🙂',
+                        emoji: '',
                         color:
                           'bg-blue-50 text-blue-650 dark:bg-blue-950/20 dark:text-blue-450 border-blue-100 dark:border-blue-900/30',
                       },
                       {
                         label: 'Okay',
-                        emoji: '😐',
+                        emoji: '',
                         color:
                           'bg-slate-50 text-slate-600 dark:bg-slate-950/20 dark:text-slate-450 border-slate-200 dark:border-slate-800',
                       },
                       {
                         label: 'Stressed',
-                        emoji: '😰',
+                        emoji: '',
                         color:
                           'bg-amber-50 text-amber-650 dark:bg-amber-950/20 dark:text-amber-450 border-amber-100 dark:border-amber-900/30',
                       },
                       {
                         label: 'Anxious',
-                        emoji: '🥺',
+                        emoji: '',
                         color:
                           'bg-indigo-50 text-indigo-655 dark:bg-indigo-950/20 dark:text-indigo-450 border-indigo-100 dark:border-indigo-900/30',
                       },
                       {
                         label: 'Sad',
-                        emoji: '😢',
+                        emoji: '',
                         color:
                           'bg-rose-50 text-rose-650 dark:bg-rose-950/20 dark:text-rose-450 border-rose-100 dark:border-rose-900/30',
                       },
@@ -1403,7 +1412,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                       className="p-3.5 flex items-center justify-between border-b border-slate-100 dark:border-slate-800/60 lg:cursor-default cursor-pointer bg-slate-50/50 dark:bg-slate-950/20"
                     >
                       <h3 className="text-xs font-black uppercase text-slate-800 dark:text-white tracking-wider flex items-center gap-1.5">
-                        <span>🗓️ Session Statuses</span>
+                        <span> Session Statuses</span>
                       </h3>
                       <span className="lg:hidden text-slate-400 font-bold text-xs">
                         {isStatusAccordionOpen ? '▲' : '▼'}
@@ -1590,7 +1599,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                       >
                         <div>
                           <span className="font-bold text-sm block text-slate-900 dark:text-white">
-                            {p.masked ? '🔒 Prescription Not Yet Released' : p.diagnosis}
+                            {p.masked ? ' Prescription Not Yet Released' : p.diagnosis}
                           </span>
                           <span className="text-xs text-slate-500">
                             {p.masked
@@ -1643,16 +1652,14 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl shadow-sm h-fit">
                   <div className="flex justify-between items-center mb-5">
                     <div className="flex items-center gap-2">
-                      <span className="w-8 h-8 bg-blue-50 dark:bg-blue-950/30 rounded-lg flex items-center justify-center text-base">
-                        📋
-                      </span>
+                      <span className="w-8 h-8 bg-blue-50 dark:bg-blue-950/30 rounded-lg flex items-center justify-center text-base"></span>
                       <h3 className="text-sm font-bold text-slate-800 dark:text-white">
                         Digital Counseling Consent
                       </h3>
                     </div>
                     {studentProfile?.informed_consent_signed ? (
                       <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300 text-[10px] font-black rounded-full uppercase tracking-wide border border-emerald-200 dark:border-emerald-900/40">
-                        ✓ Submitted
+                        Submitted
                       </span>
                     ) : (
                       <span className="px-2.5 py-1 bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300 text-[10px] font-black rounded-full uppercase tracking-wide border border-amber-200 dark:border-amber-900/40">
@@ -1665,7 +1672,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                     <div className="space-y-4 text-xs">
                       <div className="p-4 bg-emerald-50/60 dark:bg-emerald-950/10 border border-emerald-200 dark:border-emerald-900/30 rounded-xl">
                         <p className="text-emerald-700 dark:text-emerald-400 font-bold text-sm mb-1">
-                          ✅ Consent Submitted
+                          Consent Submitted
                         </p>
                         <p className="text-emerald-600 dark:text-emerald-400/80 leading-relaxed">
                           Your digital counseling consent has been successfully recorded.
@@ -1929,9 +1936,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                 {/* Upload Document */}
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl shadow-sm h-fit">
                   <div className="flex items-center gap-2 mb-5">
-                    <span className="w-8 h-8 bg-violet-50 dark:bg-violet-950/30 rounded-lg flex items-center justify-center text-base">
-                      📤
-                    </span>
+                    <span className="w-8 h-8 bg-violet-50 dark:bg-violet-950/30 rounded-lg flex items-center justify-center text-base"></span>
                     <h3 className="text-sm font-bold text-slate-800 dark:text-white">
                       Upload Document
                     </h3>
@@ -1983,14 +1988,14 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                       />
                       {uploadFile ? (
                         <div className="space-y-1">
-                          <p className="text-sm font-bold text-blue-600">📄 {uploadFile.name}</p>
+                          <p className="text-sm font-bold text-blue-600"> {uploadFile.name}</p>
                           <p className="text-[10px] text-slate-400">
                             {(uploadFile.size / 1024).toFixed(1)} KB · Click to change
                           </p>
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          <p className="text-2xl">📁</p>
+                          <p className="text-2xl"></p>
                           <p className="text-xs font-semibold text-slate-500">
                             Drop file here or{' '}
                             <span className="text-blue-600 font-bold">browse</span>
@@ -2033,9 +2038,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-2xl shadow-sm overflow-hidden">
                 <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="w-8 h-8 bg-slate-50 dark:bg-slate-800 rounded-lg flex items-center justify-center text-base">
-                      🗂️
-                    </span>
+                    <span className="w-8 h-8 bg-slate-50 dark:bg-slate-800 rounded-lg flex items-center justify-center text-base"></span>
                     <div>
                       <h3 className="text-sm font-bold text-slate-800 dark:text-white">
                         Active Documents
@@ -2049,7 +2052,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
 
                 {documents.length === 0 ? (
                   <div className="py-16 text-center space-y-3">
-                    <div className="text-4xl">📂</div>
+                    <div className="text-4xl"></div>
                     <p className="font-bold text-slate-500 text-sm">No documents uploaded yet</p>
                     <p className="text-[11px] text-slate-400 max-w-xs mx-auto leading-relaxed">
                       Use the upload panel above to attach consent forms, medical reports, or
@@ -2065,7 +2068,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-9 h-9 bg-blue-50 dark:bg-slate-800 rounded-lg flex items-center justify-center text-base shrink-0">
-                            {d.file_name?.endsWith('.pdf') ? '📄' : '🖼️'}
+                            {d.file_name?.endsWith('.pdf') ? '' : ''}
                           </div>
                           <div className="min-w-0">
                             <p className="font-bold text-sm text-slate-900 dark:text-white truncate max-w-[200px] md:max-w-xs">
@@ -2084,7 +2087,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                                 </span>
                               )}
                               <span className="text-[9px] font-bold px-1.5 py-0.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded border border-emerald-100 dark:border-emerald-900/30">
-                                ✓ Uploaded
+                                Uploaded
                               </span>
                             </div>
                           </div>
@@ -2137,9 +2140,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
 
                   {!isAssessmentsUnlocked ? (
                     <div className="border border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-900 rounded-2xl p-10 text-center shadow-sm max-w-xl mx-auto space-y-4">
-                      <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center text-2xl mx-auto">
-                        🔒
-                      </div>
+                      <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center text-2xl mx-auto"></div>
                       <h3 className="font-bold text-slate-800 dark:text-white">
                         Assessments Locked
                       </h3>
@@ -2242,9 +2243,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
 
                   {allowedContacts.length === 0 ? (
                     <div className="border border-slate-200 dark:border-slate-855 bg-white dark:bg-slate-900 rounded-2xl p-10 text-center shadow-sm max-w-xl mx-auto space-y-4">
-                      <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center text-2xl mx-auto">
-                        💬
-                      </div>
+                      <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center text-2xl mx-auto"></div>
                       <h3 className="font-bold text-slate-800 dark:text-white">
                         Secure Messenger Locked
                       </h3>
@@ -2497,7 +2496,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
 
                   <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-850 text-[11px] leading-relaxed text-slate-550 dark:text-slate-400">
                     <strong className="text-slate-700 dark:text-slate-350 block mb-1">
-                      💡 Quick Tip:
+                      Quick Tip:
                     </strong>
                     Sit comfortably with a straight spine. Inhale quietly through your nose, and
                     exhale with a gentle whoosh sound through your mouth. Keep the audio sound
@@ -2584,7 +2583,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                     {/* Section 1: Mental Health Tips */}
                     <div className="p-4 bg-emerald-50/40 dark:bg-emerald-950/10 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl">
                       <h4 className="font-bold text-emerald-900 dark:text-emerald-400 mb-2">
-                        💡 Daily Mental Health Tips
+                        Daily Mental Health Tips
                       </h4>
                       <ul className="list-disc pl-4 space-y-1.5 text-slate-655 dark:text-slate-400 font-medium">
                         <li>
@@ -2605,7 +2604,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                     {/* Section 2: Wellness Resources */}
                     <div>
                       <h4 className="font-bold text-slate-900 dark:text-white mb-2">
-                        📚 Wellness Resources & Guides
+                        Wellness Resources & Guides
                       </h4>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <a
@@ -2628,7 +2627,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                     {/* Section 3: Counseling Process */}
                     <div className="p-3 bg-slate-50 dark:bg-slate-955 rounded-xl border border-slate-200 dark:border-slate-800">
                       <h4 className="font-bold text-slate-900 dark:text-white mb-1.5">
-                        🤝 The Counseling Process
+                        The Counseling Process
                       </h4>
                       <p className="text-slate-500">
                         Counseling starts with an intake assessment to understand your chief
@@ -2640,7 +2639,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                     {/* Section 4: FAQ */}
                     <div>
                       <h4 className="font-bold text-slate-900 dark:text-white mb-2">
-                        ❓ Frequently Asked Questions (FAQ)
+                        Frequently Asked Questions (FAQ)
                       </h4>
                       <div className="space-y-2">
                         <div>
@@ -2667,7 +2666,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                     {/* Section 5: Appointment Guidelines */}
                     <div>
                       <h4 className="font-bold text-slate-900 dark:text-white mb-1.5">
-                        📅 Appointment Guidelines
+                        Appointment Guidelines
                       </h4>
                       <p className="text-slate-500">
                         Please arrive 5 minutes early for scheduled sessions. If you need to
@@ -2679,7 +2678,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                     {/* Section 6: Privacy & Confidentiality Notice */}
                     <div className="p-3 bg-slate-100/50 dark:bg-slate-800/30 rounded-xl border">
                       <h4 className="font-bold text-slate-900 dark:text-white mb-1">
-                        🔒 Privacy & Confidentiality Notice
+                        Privacy & Confidentiality Notice
                       </h4>
                       <p className="text-slate-500">
                         Your trust is our priority. Counseling notes and files are encrypted and
@@ -2691,7 +2690,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                     {/* Section 7: University Wellness Announcements */}
                     <div>
                       <h4 className="font-bold text-slate-900 dark:text-white mb-2">
-                        📢 Wellness Announcements
+                        Wellness Announcements
                       </h4>
                       <div className="p-3 bg-blue-50/50 dark:bg-blue-950/10 text-blue-700 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30 rounded-xl">
                         <p className="font-bold">Yoga & Meditation Bootcamp next Wednesday!</p>
@@ -2761,7 +2760,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                     </div>
                     <div>
                       <p className="font-bold text-slate-600 dark:text-slate-300 text-sm">
-                        Hello, I\'m UniMind 👋
+                        Hello, I\'m UniMind
                       </p>
                       <p className="text-xs mt-1 max-w-xs">
                         Your private AI wellbeing companion. Start a conversation or pick a topic
@@ -2987,7 +2986,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                 onClick={handleTriggerSOS}
                 className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-black text-xs shadow-lg shadow-red-600/30 transition disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2"
               >
-                {sosSubmitting ? 'Sending Alert...' : '🚀 SEND CRISIS ALERT'}
+                {sosSubmitting ? 'Sending Alert...' : ' SEND CRISIS ALERT'}
               </button>
             </div>
           </div>

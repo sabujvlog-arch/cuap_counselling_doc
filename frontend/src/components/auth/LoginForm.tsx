@@ -92,7 +92,7 @@ export default function LoginForm({ portalId, onBack }: LoginFormProps) {
     setLoading(true);
     try {
       await api.auth.verify2FA(otpUser, otpCode);
-      await refreshSession(); // refreshSession is already destructured at top level ✓
+      await refreshSession(); // refreshSession is already destructured at top level
 
       // Save username if rememberMe was checked
       if (rememberMe) {

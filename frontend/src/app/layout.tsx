@@ -1,9 +1,10 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { APP } from '@/constants/app';
+import PWAInstallBanner from '@/components/ui/PWAInstallBanner';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -14,13 +15,29 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: `${APP.name} — ${APP.university}`,
   description: `${APP.systemFull} (${APP.system}) — ${APP.university}`,
-  keywords: ['CUAP', 'counselling', 'student wellness', 'mental health', 'EMR'],
+  keywords: ['CUAP', 'counselling', 'student wellness', 'mental health', 'EMR', 'PWA'],
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: APP.name,
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#0f172a',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} h-full`} suppressHydrationWarning>
       <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -37,6 +54,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     document.documentElement.setAttribute('data-theme', 'light');
                   }
                 } catch (e) {}
+
+                if ('serviceWorker' in navigator) {
+                  window.addEventListener('load', function() {
+                    navigator.serviceWorker.register('/sw.js').catch(function(err) {
+                      console.log('ServiceWorker registration failed: ', err);
+                    });
+                  });
+                }
               })();
             `,
           }}
@@ -44,7 +69,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-full flex flex-col">
         <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            {children}
+            <PWAInstallBanner />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

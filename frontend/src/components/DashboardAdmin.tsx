@@ -874,7 +874,7 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] font-black uppercase text-rose-600 tracking-wider">
-                              🚨 Emergency Alert Status (Highest Priority)
+                              Emergency Alert Status (Highest Priority)
                             </span>
                             <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping"></span>
                           </div>
@@ -925,7 +925,7 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                       {
                         label: 'Total Patients',
                         desc: 'Registered Student Patients',
-                        breakdown: `♂ ${patientMale} Male · ♀ ${patientFemale} Female`,
+                        breakdown: `${patientMale} Male · ${patientFemale} Female`,
                         value: stats.summary.totalPatients,
                         icon: Users,
                         onClick: () => {
@@ -939,7 +939,7 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                       {
                         label: 'Active Cases',
                         desc: 'Active Clinical Cases',
-                        breakdown: `♂ ${activeMale} Male · ♀ ${activeFemale} Female`,
+                        breakdown: `${activeMale} Male · ${activeFemale} Female`,
                         value: stats.summary.activeCases,
                         icon: Activity,
                         onClick: () => {
@@ -953,7 +953,7 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                       {
                         label: 'High Severity Cases',
                         desc: 'Critical Emergency Cases',
-                        breakdown: '♂ 0 Male · ♀ 0 Female',
+                        breakdown: '0 Male · 0 Female',
                         value: stats.summary.highSeverityCases,
                         icon: ShieldAlert,
                         onClick: () => {
@@ -967,7 +967,7 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                       {
                         label: 'Total Counselors',
                         desc: 'On-Duty Clinical Specialists',
-                        breakdown: `♂ ${counselorMale} Male · ♀ ${counselorFemale} Female`,
+                        breakdown: `${counselorMale} Male · ${counselorFemale} Female`,
                         value: stats.summary.totalProviders,
                         icon: Users,
                         onClick: () => {
@@ -981,7 +981,7 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                       {
                         label: 'Dept Perf Score',
                         desc: 'Clinical Resolution Quality',
-                        breakdown: '♂ 94% Male · ♀ 90% Female',
+                        breakdown: '94% Male · 90% Female',
                         value: `${stats.summary.departmentPerformanceScore}%`,
                         icon: Activity,
                         onClick: () => {
@@ -5053,7 +5053,7 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                                 {item.student_name || 'Anonymous'}
                               </p>
                               <p className="text-[10px] text-red-650 dark:text-red-400 font-extrabold mt-0.5">
-                                ⚠️ {item.severity.toUpperCase()} RISK
+                                ️ {item.severity.toUpperCase()} RISK
                               </p>
                               <p className="text-[9px] text-slate-400 font-mono mt-0.5">
                                 {(item.registration_number || '').toUpperCase()}

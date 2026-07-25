@@ -186,7 +186,7 @@ export const REFERRAL_SOURCES = [
 // Chatbot Initial Message
 // ─────────────────────────────────────────────────────────────────
 export const CHATBOT_WELCOME =
-  "Hello! I'm your CUAP Wellness Assistant. Ask me about counselling slots, WCCMS, or mental health tips! 😊";
+  "Hello! I'm your CUAP Wellness Assistant. Ask me about counselling slots, WCCMS, or mental health tips!";
 
 export const CHATBOT_QUICK_PROMPTS = [
   'How to book a slot?',
