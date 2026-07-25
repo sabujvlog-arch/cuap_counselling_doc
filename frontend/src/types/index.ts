@@ -237,3 +237,49 @@ export interface TabItem {
   label: string;
   icon?: React.ComponentType<{ size?: number; className?: string }>;
 }
+
+// ─────────────────────────────────────────────────────────────────
+// Dynamic Dashboard Configuration Schema
+// ─────────────────────────────────────────────────────────────────
+
+export type WidgetType =
+  'STATS_GRID' | 'MOOD_DIAL' | 'BREATHING_BUBBLE' | 'DATA_TABLE' | 'FORM_GENERATOR';
+
+export interface RBACRules {
+  allowedRoles: ('student' | 'provider' | 'admin' | 'dept-head')[];
+  requiredPermissions?: string[];
+}
+
+export interface WidgetDataFeed {
+  endpoint: string; // API route (e.g. '/api/student/mood-logs')
+  method: 'GET' | 'POST';
+  queryParams?: Record<string, string>;
+  pollIntervalMs?: number; // Silent refresh interval
+}
+
+export interface WidgetLayout {
+  id: string;
+  type: WidgetType;
+  title: string;
+  subtitle?: string;
+  width: 'full' | 'half' | 'third' | 'two-thirds'; // Maps to Tailwind col-span classes
+  order: number;
+  dataFeed?: WidgetDataFeed;
+  properties?: Record<string, any>; // Arbitrary widget customizations (colors, limits, labels)
+  rbac?: RBACRules;
+}
+
+export interface DashboardSection {
+  id: string;
+  sectionTitle: string;
+  sectionSubtitle?: string;
+  layoutGridCols: 12 | 6 | 4;
+  widgets: WidgetLayout[];
+}
+
+export interface DashboardConfigSchema {
+  dashboardId: string;
+  roleContext: string;
+  globalFeatureFlags: Record<string, boolean>;
+  sections: DashboardSection[];
+}
