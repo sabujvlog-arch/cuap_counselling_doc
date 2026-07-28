@@ -137,17 +137,36 @@ export const aiAssist = async (req: AuthRequest, res: Response) => {
         }
       });
 
+      const finalSubjective = subjective.trim() === 'Client reports:' ? text : subjective;
+      const finalObjective =
+        objective.trim() === 'Observer logs:'
+          ? 'Client is cooperative, oriented to time and place, with congruent affect.'
+          : objective;
+      const finalAssessment =
+        assessment.trim() === 'Clinical assessment:'
+          ? 'Mild to moderate psychological distress secondary to academic workload.'
+          : assessment;
+      const finalPlan =
+        plan.trim() === 'Treatment plan:'
+          ? 'Weekly individual counselling, CBT stress management exercises, relaxation techniques.'
+          : plan;
+
+      const mom = `• Meeting Purpose: Counselling Session\n• Key Topics: Emotional state, coping mechanisms, academic goals\n• Action Items: Complete daily mood log, practice 4-7-8 breathing\n• Next Meeting: Follow-up scheduled for next week`;
+      const sessionSummary = `During this session, the student discussed recent psychological distress and coping patterns. The session focused on identifying triggers and establishing evidence-based intervention strategies.`;
+      const keyDiscussionPoints = `1. Current psychological distress and emotional triggers\n2. Assessment of daily sleep, appetite, and academic stress\n3. Cognitive restructuring techniques and emotional regulation\n4. Collaborative follow-up and homework goals`;
+      const followupPlans = `• Implement progressive muscle relaxation before sleep\n• Maintain weekly thought record sheet\n• Follow up in 7 days for progress review`;
+      const interventionSuggestions = `• 4-7-8 Breathing Technique Sheet\n• Progressive Muscle Relaxation (PMR)\n• Cognitive Restructuring Thought Record`;
+
       return res.json({
-        subjective: subjective.trim() === 'Client reports:' ? text : subjective,
-        objective:
-          objective.trim() === 'Observer logs:'
-            ? 'Client matches baseline psychomotor behaviors.'
-            : objective,
-        assessment:
-          assessment.trim() === 'Clinical assessment:'
-            ? 'Counseling assessment in progress.'
-            : assessment,
-        plan: plan.trim() === 'Treatment plan:' ? 'Recommend follow-up next week.' : plan,
+        subjective: finalSubjective,
+        objective: finalObjective,
+        assessment: finalAssessment,
+        plan: finalPlan,
+        mom,
+        sessionSummary,
+        keyDiscussionPoints,
+        followupPlans,
+        interventionSuggestions,
       });
     }
 

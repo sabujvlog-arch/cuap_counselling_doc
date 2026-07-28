@@ -168,8 +168,8 @@ export const api = {
             emergency_phone: '+919999999999',
             blood_group: 'O+',
             address: 'CUAP Campus',
-            informed_consent_signed: true,
-            consent_date: new Date().toISOString(),
+            informed_consent_signed: false,
+            consent_date: null,
           },
         };
       }
@@ -495,10 +495,22 @@ export const api = {
     },
     sanitizeDatabase: () => request('/admin/sanitize', { method: 'POST' }),
     announcements: () => request('/admin/announcements'),
-    createAnnouncement: (message: string) =>
+    createAnnouncement: (
+      payload:
+        | string
+        | {
+            title?: string;
+            message?: string;
+            content?: string;
+            targetAudience?: string;
+            priority?: string;
+            expiryDate?: string;
+            attachmentUrl?: string;
+          },
+    ) =>
       request('/admin/announcements', {
         method: 'POST',
-        body: JSON.stringify({ message }),
+        body: JSON.stringify(typeof payload === 'string' ? { message: payload } : payload),
       }),
     updateAnnouncement: (id: number, message: string) =>
       request(`/admin/announcements/${id}`, {

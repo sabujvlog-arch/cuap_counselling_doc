@@ -138,7 +138,8 @@
 }
 
 /* ── Dark Mode ──────────────────────────────────────────────────── */
-[data-theme='dark'] {
+[data-theme='dark'],
+.dark {
   /* Backgrounds */
   --bg: #0f172a;
   --surface: #1e293b;

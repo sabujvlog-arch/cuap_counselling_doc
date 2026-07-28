@@ -42,6 +42,7 @@ import {
   Folder,
   Upload,
   Image as ImageIcon,
+  LogOut,
 } from 'lucide-react';
 import {
   LineChart,
@@ -754,8 +755,264 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
     (a) => a.status === 'cancelled' || a.status === 'rejected',
   ).length;
 
+  if (studentProfile && !studentProfile.informed_consent_signed) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4 md:p-8 font-sans">
+        <div className="max-w-2xl w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-5">
+            <div className="flex items-center gap-3">
+              <img
+                src="/logo.png"
+                className="w-12 h-12 object-contain rounded-full"
+                alt="CUAP Logo"
+              />
+              <div>
+                <h2 className="text-sm md:text-base font-black tracking-wide uppercase text-white">
+                  CUAP Student Wellness Hub
+                </h2>
+                <p className="text-[10px] text-blue-400 font-extrabold tracking-wider uppercase">
+                  Digital Counselling Consent Required
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onLogout}
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-800 hover:bg-red-955/20 hover:border-red-900/40 hover:text-red-400 text-slate-400 text-xs font-bold rounded-xl transition cursor-pointer"
+            >
+              <LogOut size={13} />
+              Sign Out
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmitConsent} className="space-y-5 text-xs leading-relaxed">
+            <p className="text-slate-300 leading-relaxed text-[13px]">
+              Welcome, <strong className="text-white">{studentProfile.name}</strong> (
+              {studentProfile.registration_number?.toUpperCase()}). Before using the portal features
+              or scheduling a session, you must review and accept the Counseling Consent and Privacy
+              Policy.
+            </p>
+
+            <div className="max-h-48 overflow-y-auto p-4 bg-slate-950 border border-slate-850 rounded-2xl space-y-3 text-[11px] text-slate-400 leading-relaxed custom-scrollbar">
+              <p>
+                <strong className="text-slate-200">Consent for Counseling:</strong> I voluntarily
+                consent to participate in psychological counseling services at CUAP. I understand
+                that counseling involves discussing personal matters and working toward mental
+                health goals.
+              </p>
+              <p>
+                <strong className="text-slate-200">Confidentiality:</strong> All discussions remain
+                strictly confidential except as required by law (e.g., risk of harm to self or
+                others).
+              </p>
+              <p>
+                <strong className="text-slate-200">Electronic Records:</strong> I consent to CUAP
+                WCCMS storing encrypted counseling records and assessment notes securely.
+              </p>
+            </div>
+
+            <label className="flex items-start gap-3 cursor-pointer group p-1.5 hover:bg-slate-850/30 rounded-xl transition">
+              <input
+                type="checkbox"
+                required
+                checked={consentAccepted}
+                onChange={(e) => setConsentAccepted(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-700 bg-slate-950"
+              />
+              <span className="text-slate-350 group-hover:text-slate-200 font-semibold leading-relaxed text-xs select-none">
+                I have read, understood, and voluntarily agree to the Counseling Consent and Privacy
+                Policy.
+              </span>
+            </label>
+
+            {/* MAJOR ISSUES SELECTION (BRANCHING) */}
+            <div className="space-y-3">
+              <label className="block text-slate-400 font-bold mb-1 uppercase tracking-wide text-[10px]">
+                Primary Areas of Concern / Major Issues (Select all that apply) *
+              </label>
+              <div className="space-y-2 border border-slate-800 rounded-2xl p-3 bg-slate-950/20">
+                {[
+                  {
+                    id: 'academic',
+                    label: 'Academic / Educational',
+                    issues: [
+                      'Exam Stress',
+                      'Lack of Concentration',
+                      'Time Management',
+                      'Grade Anxiety',
+                      'Procrastination',
+                    ],
+                  },
+                  {
+                    id: 'emotional',
+                    label: 'Emotional / Mental Health',
+                    issues: [
+                      'Anxiety',
+                      'Depression',
+                      'Mood Swings',
+                      'Grief / Loss',
+                      'Stress / Overwhelm',
+                    ],
+                  },
+                  {
+                    id: 'social',
+                    label: 'Social / Relationships',
+                    issues: [
+                      'Family Problems',
+                      'Relationship Conflict',
+                      'Peer Pressure',
+                      'Loneliness / Isolation',
+                      'Social Anxiety',
+                    ],
+                  },
+                  {
+                    id: 'physical',
+                    label: 'Physical / Health',
+                    issues: [
+                      'Insomnia / Sleep Issues',
+                      'Chronic Fatigue',
+                      'Appetite Changes',
+                      'Physical Illness Recovery',
+                    ],
+                  },
+                  {
+                    id: 'career',
+                    label: 'Career / Future Planning',
+                    issues: [
+                      'Career Direction Uncertainty',
+                      'Job Search Stress',
+                      'Interview Anxiety',
+                    ],
+                  },
+                ].map((cat) => {
+                  const isExpanded = expandedCategories.includes(cat.id);
+                  return (
+                    <div
+                      key={cat.id}
+                      className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isExpanded) {
+                            setExpandedCategories(expandedCategories.filter((id) => id !== cat.id));
+                          } else {
+                            setExpandedCategories([...expandedCategories, cat.id]);
+                          }
+                        }}
+                        className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold text-slate-350 hover:bg-slate-850 cursor-pointer"
+                      >
+                        <span>{cat.label}</span>
+                        <span className="text-slate-500">{isExpanded ? '▼' : '▶'}</span>
+                      </button>
+                      {isExpanded && (
+                        <div className="p-3 bg-slate-900 border-t border-slate-800 grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {cat.issues.map((issue) => {
+                            const isChecked = selectedIssues.includes(issue);
+                            return (
+                              <label
+                                key={issue}
+                                className="flex items-center gap-2 text-[11px] font-medium text-slate-455 cursor-pointer select-none"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedIssues([...selectedIssues, issue]);
+                                    } else {
+                                      setSelectedIssues(selectedIssues.filter((i) => i !== issue));
+                                    }
+                                  }}
+                                  className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 border-slate-700 bg-slate-950"
+                                />
+                                <span>{issue}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* PARENTAL LINKAGE DETAILS */}
+            <div className="space-y-4 border border-slate-800 rounded-2xl p-4 bg-slate-950">
+              <h4 className="text-slate-400 font-bold uppercase tracking-wide text-[10px] mb-1">
+                Parent / Guardian Linkage Information *
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-400 font-semibold mb-1 text-[10px]">
+                    Parents Email ID *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={parentEmail}
+                    onChange={(e) => setParentEmail(e.target.value)}
+                    placeholder="parent@example.com"
+                    className="w-full px-3 py-2 border border-slate-750 rounded-xl bg-slate-900 text-white font-medium text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 font-semibold mb-1 text-[10px]">
+                    Parents Phone Number *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={parentPhone}
+                    onChange={(e) => setParentPhone(e.target.value)}
+                    placeholder="e.g. +919876543210"
+                    className="w-full px-3 py-2 border border-slate-750 rounded-xl bg-slate-900 text-white font-medium text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <label className="flex items-start gap-2.5 cursor-pointer group mt-2">
+                <input
+                  type="checkbox"
+                  checked={parentConsentSharing}
+                  onChange={(e) => setParentConsentSharing(e.target.checked)}
+                  className="mt-0.5 w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 border-slate-750 bg-slate-900"
+                />
+                <span className="text-slate-400 font-medium text-[11px] leading-relaxed select-none">
+                  I explicitly authorize the Student Wellness Center to share severity reports with
+                  my parents in case of psychological crisis or severe concern.
+                </span>
+              </label>
+            </div>
+
+            <div>
+              <label className="block text-slate-400 font-bold mb-1.5 uppercase tracking-wide text-[10px]">
+                Digital Signature (Type Full Name) *
+              </label>
+              <input
+                type="text"
+                required
+                value={signatureName}
+                onChange={(e) => setSignatureName(e.target.value)}
+                placeholder="Your full official name"
+                className="w-full px-4 py-2.5 border border-slate-750 rounded-2xl bg-slate-955 font-medium text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={!consentAccepted || !signatureName.trim()}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white rounded-2xl font-bold text-sm transition shadow-lg cursor-pointer"
+            >
+              Submit Consent & Unlock Portal
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col lg:flex-row min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200">
+    <div className="flex flex-col lg:flex-row min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       {/* Backdrop overlay for mobile drawer */}
       {!sidebarCollapsed && isMobile && (
         <div
@@ -773,7 +1030,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
           { id: 'assessment', label: 'Assessments Desk', icon: Clipboard },
           { id: 'chat', label: 'Secure Messenger', icon: MessageSquare },
           { id: 'breathing', label: 'Breathing Exercises', icon: Activity },
-          { id: 'feedback', label: 'Feedback & Emergency', icon: Heart },
+          { id: 'feedback', label: 'Feedback & Wellness Support', icon: Heart },
         ]}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -784,9 +1041,9 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
         {...sidebar}
       />
 
-      <main className="flex-1 min-w-0 overflow-y-auto max-h-screen flex flex-col">
+      <main className="flex-1 min-w-0 overflow-y-auto max-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
         {/* Top Navbar */}
-        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-850 h-16 flex justify-between items-center px-6 lg:px-10 shrink-0 z-40 sticky top-0">
+        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 h-16 flex justify-between items-center px-6 lg:px-10 shrink-0 z-40 sticky top-0">
           <div className="flex items-center gap-4">
             {isMobile && (
               <button
@@ -849,232 +1106,248 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
           {activeTab === 'overview' && (
             <div className="space-y-8 animate-fade-in-up">
               <div>
-                <h2 className="text-2xl font-black tracking-tight font-sans">
+                <h2 className="text-2xl font-black tracking-tight font-sans text-slate-900 dark:text-white">
                   Welcome to Student Wellness Hub
                 </h2>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-1">
                   Access counseling schedules, EMR summaries, self-screenings, and AI helpers in one
                   workspace
                 </p>
-                {/* KPI Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {/* KPI 1: Next Session */}
-                  <div
-                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-855 p-5 rounded-2xl shadow-sm flex flex-col justify-between stat-card"
-                    style={
-                      {
-                        '--gradient-start': '#3b82f6',
-                        '--gradient-end': '#60a5fa',
-                      } as React.CSSProperties
-                    }
-                  >
-                    <div>
-                      <span className="text-[10px] font-black uppercase text-slate-450 tracking-wider">
-                        Next Appointment
-                      </span>
-                      <h3 className="text-base font-extrabold text-slate-855 dark:text-slate-100 mt-2 leading-snug">
-                        {appointments.find((a) => a.status === 'approved')
-                          ? `Dr. ${appointments.find((a) => a.status === 'approved').provider_name}`
-                          : 'No active session'}
-                      </h3>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {appointments.find((a) => a.status === 'approved')
-                          ? `${appointments.find((a) => a.status === 'approved').slot_date} at ${appointments.find((a) => a.status === 'approved').slot_time}`
-                          : 'Schedule a session below'}
-                      </p>
-                    </div>
-                    {appointments.find((a) => a.status === 'approved') && (
-                      <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider mt-4">
-                        Confirmed
-                      </span>
-                    )}
-                  </div>
+              </div>
 
-                  {/* KPI 2: Consent */}
-                  <div
-                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-855 p-5 rounded-2xl shadow-sm flex flex-col justify-between stat-card"
-                    style={
-                      {
-                        '--gradient-start': '#10b981',
-                        '--gradient-end': '#34d399',
-                      } as React.CSSProperties
-                    }
-                  >
-                    <div>
-                      <span className="text-[10px] font-black uppercase text-slate-450 tracking-wider">
-                        Counseling Consent
-                      </span>
-                      <h3 className="text-base font-extrabold text-slate-855 dark:text-slate-100 mt-2 leading-snug">
-                        {studentProfile?.informed_consent_signed
-                          ? 'Signed & Submitted'
-                          : 'Pending signature'}
-                      </h3>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {studentProfile?.informed_consent_signed
-                          ? `Consent date: ${new Date(studentProfile.consent_date).toLocaleDateString()}`
-                          : 'Action required in Document Centre'}
-                      </p>
-                    </div>
-                    <span
-                      className={`text-[10px] font-bold uppercase tracking-wider mt-4 ${
-                        studentProfile?.informed_consent_signed
-                          ? 'text-emerald-600'
-                          : 'text-amber-500 animate-pulse'
-                      }`}
-                    >
-                      {studentProfile?.informed_consent_signed ? ' Compliant' : ' Unsigned'}
+              {/* KPI Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                {/* KPI 1: Next Session */}
+                <div
+                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm flex flex-col justify-between stat-card"
+                  style={
+                    {
+                      '--gradient-start': '#3b82f6',
+                      '--gradient-end': '#60a5fa',
+                    } as React.CSSProperties
+                  }
+                >
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">
+                      Next Appointment
                     </span>
+                    <h3 className="text-base font-black text-slate-900 dark:text-slate-100 mt-2 leading-snug">
+                      {appointments.find((a) => a.status === 'approved')
+                        ? `Dr. ${appointments.find((a) => a.status === 'approved').provider_name}`
+                        : 'No active session'}
+                    </h3>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                      {appointments.find((a) => a.status === 'approved')
+                        ? `${appointments.find((a) => a.status === 'approved').slot_date} at ${appointments.find((a) => a.status === 'approved').slot_time}`
+                        : 'Schedule a session below'}
+                    </p>
                   </div>
-
-                  {/* KPI 3: Screenings */}
-                  <div
-                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-855 p-5 rounded-2xl shadow-sm flex flex-col justify-between stat-card"
-                    style={
-                      {
-                        '--gradient-start': '#ec4899',
-                        '--gradient-end': '#f472b6',
-                      } as React.CSSProperties
-                    }
-                  >
-                    <div>
-                      <span className="text-[10px] font-black uppercase text-slate-450 tracking-wider">
-                        Self-Assessments
-                      </span>
-                      <h3 className="text-base font-extrabold text-slate-855 dark:text-slate-100 mt-2 leading-snug">
-                        {historicalAssessments.length} Completed
-                      </h3>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Take mental health quizzes (PHQ-9, GAD-7)
-                      </p>
-                    </div>
+                  {appointments.find((a) => a.status === 'approved') && (
                     <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider mt-4">
-                      Track Severity
+                      Confirmed
                     </span>
+                  )}
+                </div>
+
+                {/* KPI 2: Consent */}
+                <div
+                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm flex flex-col justify-between stat-card"
+                  style={
+                    {
+                      '--gradient-start': '#10b981',
+                      '--gradient-end': '#34d399',
+                    } as React.CSSProperties
+                  }
+                >
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">
+                      Counseling Consent
+                    </span>
+                    <h3 className="text-base font-black text-slate-900 dark:text-slate-100 mt-2 leading-snug">
+                      {studentProfile?.informed_consent_signed
+                        ? 'Signed & Submitted'
+                        : 'Pending signature'}
+                    </h3>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                      {studentProfile?.informed_consent_signed
+                        ? `Consent date: ${new Date(studentProfile.consent_date).toLocaleDateString()}`
+                        : 'Action required in Document Centre'}
+                    </p>
                   </div>
-
-                  {/* KPI 4: Student Wellbeing & Risk Score */}
-                  {(() => {
-                    const wb = calculateWellbeingScore({
-                      assessments: historicalAssessments,
-                      sessionsCount: appointments.length,
-                    });
-                    return (
-                      <div
-                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-855 p-5 rounded-2xl shadow-sm flex flex-col justify-between stat-card"
-                        style={
-                          {
-                            '--gradient-start': '#10b981',
-                            '--gradient-end': '#34d399',
-                          } as React.CSSProperties
-                        }
-                      >
-                        <div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-black uppercase text-slate-450 tracking-wider">
-                              Wellbeing Index
-                            </span>
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase ${wb.badgeClass}`}
-                            >
-                              {wb.tier}
-                            </span>
-                          </div>
-                          <div className="flex items-baseline gap-2 mt-2">
-                            <span className="text-2xl font-black text-slate-900 dark:text-white">
-                              {wb.score}
-                            </span>
-                            <span className="text-xs text-slate-400 font-bold">/ 100</span>
-                          </div>
-                          <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full mt-2 overflow-hidden">
-                            <div
-                              className={`h-full rounded-full ${wb.progressColor}`}
-                              style={{ width: `${wb.score}%` }}
-                            />
-                          </div>
-                        </div>
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-3">
-                          Mental Health Health Score
-                        </span>
-                      </div>
-                    );
-                  })()}
-
-                  {/* KPI 4: Unread messages */}
-                  <div
-                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-855 p-5 rounded-2xl shadow-sm flex flex-col justify-between stat-card"
-                    style={
-                      {
-                        '--gradient-start': '#6366f1',
-                        '--gradient-end': '#818cf8',
-                      } as React.CSSProperties
-                    }
+                  <span
+                    className={`text-[10px] font-bold uppercase tracking-wider mt-4 ${
+                      studentProfile?.informed_consent_signed
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-amber-500 dark:text-amber-400 animate-pulse'
+                    }`}
                   >
-                    <div>
-                      <span className="text-[10px] font-black uppercase text-slate-450 tracking-wider">
-                        Announcements
-                      </span>
-                      <h3 className="text-base font-extrabold text-slate-855 dark:text-slate-100 mt-2 leading-snug">
-                        {announcements.length} Published
-                      </h3>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Latest:{' '}
-                        {announcements[0]
-                          ? announcements[0].message.substring(0, 30) + '...'
-                          : 'None'}
-                      </p>
-                    </div>
-                    <span className="text-[10px] text-indigo-650 dark:text-indigo-400 font-bold uppercase tracking-wider mt-4">
-                      Central Bulletins
+                    {studentProfile?.informed_consent_signed ? 'Compliant' : 'Unsigned'}
+                  </span>
+                </div>
+
+                {/* KPI 3: Screenings */}
+                <div
+                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm flex flex-col justify-between stat-card"
+                  style={
+                    {
+                      '--gradient-start': '#ec4899',
+                      '--gradient-end': '#f472b6',
+                    } as React.CSSProperties
+                  }
+                >
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">
+                      Self-Assessments
                     </span>
+                    <h3 className="text-base font-black text-slate-900 dark:text-slate-100 mt-2 leading-snug">
+                      {historicalAssessments.length} Completed
+                    </h3>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                      Take mental health quizzes (PHQ-9, GAD-7)
+                    </p>
                   </div>
-                </div>{' '}
+                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider mt-4">
+                    Track Severity
+                  </span>
+                </div>
+
+                {/* KPI 4: Student Wellbeing & Risk Score */}
+                {(() => {
+                  const wb = calculateWellbeingScore({
+                    assessments: historicalAssessments,
+                    sessionsCount: appointments.length,
+                  });
+                  return (
+                    <div
+                      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm flex flex-col justify-between stat-card"
+                      style={
+                        {
+                          '--gradient-start': '#10b981',
+                          '--gradient-end': '#34d399',
+                        } as React.CSSProperties
+                      }
+                    >
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">
+                            Wellbeing Index
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase ${wb.badgeClass}`}
+                          >
+                            {wb.tier}
+                          </span>
+                        </div>
+                        <div className="flex items-baseline gap-2 mt-2">
+                          <span className="text-2xl font-black text-slate-900 dark:text-slate-100">
+                            {wb.score}
+                          </span>
+                          <span className="text-xs text-slate-500 dark:text-slate-400 font-bold">
+                            / 100
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full mt-2 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${wb.progressColor}`}
+                            style={{ width: `${wb.score}%` }}
+                          />
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-3">
+                        Mental Health Health Score
+                      </span>
+                    </div>
+                  );
+                })()}
+
+                {/* KPI 5: Announcements */}
+                <div
+                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm flex flex-col justify-between stat-card"
+                  style={
+                    {
+                      '--gradient-start': '#6366f1',
+                      '--gradient-end': '#818cf8',
+                    } as React.CSSProperties
+                  }
+                >
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">
+                      Announcements
+                    </span>
+                    <h3 className="text-base font-black text-slate-900 dark:text-slate-100 mt-2 leading-snug">
+                      {announcements.length} Published
+                    </h3>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                      Latest:{' '}
+                      {announcements[0]
+                        ? ((announcements[0].content || announcements[0].message || '').substring(
+                            0,
+                            30,
+                          ) || 'Bulletin posted') + '...'
+                        : 'None'}
+                    </p>
+                  </div>
+                  <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider mt-4">
+                    Central Bulletins
+                  </span>
+                </div>
               </div>
 
               {/* Quick Actions Grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <button
                   onClick={() => setActiveTab('appointments')}
-                  className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/20 dark:to-slate-900 border border-blue-200/50 dark:border-slate-800 rounded-2xl text-left cursor-pointer transition hover:-translate-y-0.5 hover:shadow-sm"
+                  className="p-5 bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-slate-50 dark:from-blue-600/30 dark:via-blue-950/50 dark:to-slate-900 border border-blue-300/80 dark:border-blue-700/60 rounded-2xl text-left cursor-pointer transition-all hover:-translate-y-1 hover:shadow-lg dark:hover:border-blue-500 group"
                 >
-                  <Calendar className="text-blue-600 dark:text-blue-400 mb-3" size={20} />
-                  <h4 className="font-bold text-xs text-slate-800 dark:text-white">Book Session</h4>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/60 text-blue-600 dark:text-blue-300 flex items-center justify-center mb-3.5 group-hover:scale-105 transition-transform">
+                    <Calendar size={20} />
+                  </div>
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-300 transition-colors">
+                    Book Session
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 font-medium leading-relaxed">
                     Find an available slot
                   </p>
                 </button>
                 <button
                   onClick={() => setActiveTab('documents')}
-                  className="p-4 bg-gradient-to-br from-violet-50 to-violet-100 dark:from-violet-950/20 dark:to-slate-900 border border-violet-200/50 dark:border-slate-800 rounded-2xl text-left cursor-pointer transition hover:-translate-y-0.5 hover:shadow-sm"
+                  className="p-5 bg-gradient-to-br from-violet-500/10 via-violet-500/5 to-slate-50 dark:from-violet-600/30 dark:via-violet-950/50 dark:to-slate-900 border border-violet-300/80 dark:border-violet-700/60 rounded-2xl text-left cursor-pointer transition-all hover:-translate-y-1 hover:shadow-lg dark:hover:border-violet-500 group"
                 >
-                  <FileText className="text-violet-600 dark:text-violet-400 mb-3" size={20} />
-                  <h4 className="font-bold text-xs text-slate-800 dark:text-white">
+                  <div className="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-900/60 text-violet-600 dark:text-violet-300 flex items-center justify-center mb-3.5 group-hover:scale-105 transition-transform">
+                    <FileText size={20} />
+                  </div>
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100 group-hover:text-violet-600 dark:group-hover:text-violet-300 transition-colors">
                     Consent & Files
                   </h4>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 font-medium leading-relaxed">
                     Upload history records
                   </p>
                 </button>
                 <button
                   onClick={() => setActiveTab('assessment')}
-                  className="p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/20 dark:to-slate-900 border border-emerald-200/50 dark:border-slate-800 rounded-2xl text-left cursor-pointer transition hover:-translate-y-0.5 hover:shadow-sm"
+                  className="p-5 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-slate-50 dark:from-emerald-600/30 dark:via-emerald-950/50 dark:to-slate-900 border border-emerald-300/80 dark:border-emerald-700/60 rounded-2xl text-left cursor-pointer transition-all hover:-translate-y-1 hover:shadow-lg dark:hover:border-emerald-500 group"
                 >
-                  <Clipboard className="text-emerald-600 dark:text-emerald-400 mb-3" size={20} />
-                  <h4 className="font-bold text-xs text-slate-800 dark:text-white">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-300 flex items-center justify-center mb-3.5 group-hover:scale-105 transition-transform">
+                    <Clipboard size={20} />
+                  </div>
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-300 transition-colors">
                     Start Screening
                   </h4>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 font-medium leading-relaxed">
                     Analyze mood patterns
                   </p>
                 </button>
                 <button
                   onClick={() => setActiveTab('feedback')}
-                  className="p-4 bg-gradient-to-br from-rose-50 to-rose-100 dark:from-rose-950/20 dark:to-slate-900 border border-rose-200/50 dark:border-slate-800 rounded-2xl text-left cursor-pointer transition hover:-translate-y-0.5 hover:shadow-sm"
+                  className="p-5 bg-gradient-to-br from-rose-500/10 via-rose-500/5 to-slate-50 dark:from-rose-600/30 dark:via-rose-950/50 dark:to-slate-900 border border-rose-300/80 dark:border-rose-700/60 rounded-2xl text-left cursor-pointer transition-all hover:-translate-y-1 hover:shadow-lg dark:hover:border-rose-500 group"
                 >
-                  <Heart className="text-rose-600 dark:text-rose-400 mb-3" size={20} />
-                  <h4 className="font-bold text-xs text-slate-800 dark:text-white">
+                  <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/60 text-rose-600 dark:text-rose-300 flex items-center justify-center mb-3.5 group-hover:scale-105 transition-transform">
+                    <Heart size={20} />
+                  </div>
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100 group-hover:text-rose-600 dark:group-hover:text-rose-300 transition-colors">
                     Crisis Support
                   </h4>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 font-medium leading-relaxed">
                     Emergency direct numbers
                   </p>
                 </button>
@@ -1545,12 +1818,24 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                   {announcements.length > 0 &&
                     !dismissedAnnouncements.includes(announcements[0].id) && (
                       <div className="bg-blue-50 dark:bg-slate-900 border border-blue-100 dark:border-slate-800 p-4 rounded-xl shadow-sm text-xs relative pr-8">
-                        <div className="flex items-center gap-2 mb-2 text-blue-800 dark:text-blue-300 font-bold">
-                          <Bell size={16} className="shrink-0" />
-                          <span>Central Announcement</span>
+                        <div className="flex items-center justify-between gap-2 mb-2 text-blue-800 dark:text-blue-300 font-bold">
+                          <div className="flex items-center gap-2">
+                            <Bell size={16} className="shrink-0" />
+                            <span>{announcements[0]?.title || 'Central Announcement'}</span>
+                          </div>
+                          {announcements[0]?.author_name && (
+                            <span className="text-[10px] font-medium text-blue-600 dark:text-blue-400">
+                              By {announcements[0]?.author_name} (
+                              {announcements[0]?.author_role === 'provider' ? 'Counselor' : 'Admin'}
+                              )
+                            </span>
+                          )}
                         </div>
                         <p className="text-blue-900 dark:text-blue-400 leading-relaxed font-semibold">
-                          {announcements[0]?.message.replace(/^CUAP Announcement:\s*/, '')}
+                          {(announcements[0]?.content || announcements[0]?.message || '').replace(
+                            /^CUAP Announcement:\s*/,
+                            '',
+                          )}
                         </p>
                         <button
                           onClick={() =>
@@ -2901,97 +3186,6 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
         onClose={() => setNotifCenterOpen(false)}
         onUpdateCount={setUnreadNotifications}
       />
-
-      {/* Floating Emergency SOS Trigger Button */}
-      <button
-        type="button"
-        onClick={() => setSosModalOpen(true)}
-        className="fixed bottom-6 left-6 z-50 flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white rounded-full font-black text-xs shadow-2xl shadow-rose-600/40 hover:scale-105 transition-all duration-200 cursor-pointer border border-rose-400/30 animate-pulse"
-        title="Emergency Crisis Escalation SOS"
-      >
-        <Siren size={18} className="animate-bounce" />
-        <span>EMERGENCY SOS</span>
-      </button>
-
-      {/* Emergency SOS Modal */}
-      {sosModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-[9999] flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 border-2 border-red-500/50 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 animate-scale-in">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-red-100 dark:bg-red-950/50 text-red-600 rounded-2xl">
-                  <Siren size={24} />
-                </div>
-                <div>
-                  <h3 className="font-black text-base text-slate-900 dark:text-white">
-                    Emergency SOS Dispatch
-                  </h3>
-                  <p className="text-[11px] text-slate-500 font-semibold">
-                    Immediate campus helpline & duty counselor alert
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSosModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="p-3.5 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-2xl space-y-2 text-xs">
-              <div className="flex items-center gap-2 text-red-700 dark:text-red-400 font-extrabold">
-                <PhoneCall size={15} /> 24/7 Helpline Hotlines:
-              </div>
-              <div className="grid grid-cols-1 gap-1 text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                <div>
-                  • CUAP Health Centre:{' '}
-                  <span className="text-red-600 font-black">+91 9849891226</span>
-                </div>
-                <div>
-                  • Tele-MANAS Mental Health: <span className="text-red-600 font-black">14416</span>{' '}
-                  (Toll-Free)
-                </div>
-                <div>
-                  • National Emergency Desk: <span className="text-red-600 font-black">112</span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase">
-                Describe your situation / location (Optional):
-              </label>
-              <textarea
-                rows={3}
-                value={sosNotes}
-                onChange={(e) => setSosNotes(e.target.value)}
-                placeholder="e.g., Extreme panic attack, Hostel Block A Room 204..."
-                className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-bold bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-red-500 text-slate-800 dark:text-slate-100"
-              />
-            </div>
-
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setSosModalOpen(false)}
-                className="flex-1 py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-bold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={sosSubmitting}
-                onClick={handleTriggerSOS}
-                className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-black text-xs shadow-lg shadow-red-600/30 transition disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2"
-              >
-                {sosSubmitting ? 'Sending Alert...' : ' SEND CRISIS ALERT'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Post-Session Feedback Modal */}
       {feedbackModalAppt && (

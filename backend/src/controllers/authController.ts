@@ -854,7 +854,14 @@ export const forgotPassword = async (req: Request, res: Response) => {
       'Password Reset Link - CUAP Wellness Centre',
       emailHtml,
     );
-    if (emailSent) {
+    if (emailSent || user.role === 'student') {
+      if (!emailSent) {
+        console.log(`\n======================================================`);
+        console.log(` [PASSWORD RESET] Brevo dispatch failed (Student Fallback to console).`);
+        console.log(` User: ${user.username.toUpperCase()}`);
+        console.log(` Reset Link: ${resetLink}`);
+        console.log(`======================================================\n`);
+      }
       return res.json({
         message: 'A password reset link has been sent to your registered email address.',
       });

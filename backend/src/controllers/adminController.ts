@@ -747,97 +747,176 @@ export const sanitizeDatabase = async (req: AuthRequest, res: Response) => {
 
 // ----------------------------------------------------
 // Manage Announcements
-// ----------------------------------------------------
 export const getAnnouncements = async (req: AuthRequest, res: Response) => {
   try {
-    // Announcements are special messages from system administrator to everyone
-    const sysAnnRes = await query(
-      `SELECT n.*, u.username as author 
-       FROM notifications n
-       JOIN users u ON n.user_id = u.id
-       WHERE n.type = 'system' AND u.role = 'admin'
-       ORDER BY n.created_at DESC LIMIT 20`,
-    );
-    return res.json(sysAnnRes.rows);
+    const userId = req.user?.id;
+    const userRole = req.user?.role || 'student';
+
+    try {
+      let querySql = `
+        SELECT a.id, a.title, a.content, a.target_audience, a.priority, a.expiry_date, a.attachment_url, a.created_at,
+               u.username as author_name, a.author_role
+        FROM announcements a
+        LEFT JOIN users u ON a.author_id = u.id
+        WHERE 1=1
+      `;
+
+      // Filter by target audience for users
+      if (userRole === 'student') {
+        querySql += ` AND (a.target_audience = 'all_students' OR a.target_audience = 'all' OR a.target_audience = 'role_group' OR a.target_audience = 'assigned_students')`;
+      } else if (userRole === 'provider' || userRole === 'clinician') {
+        querySql += ` AND (a.target_audience = 'all' OR a.target_audience = 'all_students' OR a.target_audience = 'counselors' OR a.target_audience = 'role_group' OR a.author_id = ${userId || 0})`;
+      }
+
+      querySql += ` ORDER BY a.created_at DESC LIMIT 50`;
+
+      const annRes = await query(querySql);
+
+      if (annRes.rows && annRes.rows.length > 0) {
+        return res.json(annRes.rows);
+      }
+    } catch (tblErr) {
+      console.warn('Announcements table query warning, falling back to notifications:', tblErr);
+    }
+
+    // Fallback to notifications table
+    try {
+      const sysAnnRes = await query(
+        `SELECT n.id, 'System Announcement' as title, n.message as content, 'all_students' as target_audience,
+                'medium' as priority, n.created_at, u.username as author_name, u.role as author_role
+         FROM notifications n
+         JOIN users u ON n.user_id = u.id
+         WHERE n.type = 'system'
+         ORDER BY n.created_at DESC LIMIT 20`,
+      );
+      return res.json(sysAnnRes.rows || []);
+    } catch (notifErr) {
+      return res.json([]);
+    }
   } catch (err) {
     console.error('Get announcements error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.json([]);
   }
 };
 
 export const createAnnouncement = async (req: AuthRequest, res: Response) => {
-  const { message } = req.body;
+  const { title, message, content, targetAudience, priority, expiryDate, attachmentUrl } = req.body;
 
-  if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Admin permissions required' });
+  if (
+    !req.user ||
+    (req.user.role !== 'admin' &&
+      req.user.role !== 'super-admin' &&
+      req.user.role !== 'provider' &&
+      req.user.role !== 'dept-head' &&
+      req.user.role !== 'clinician')
+  ) {
+    return res
+      .status(403)
+      .json({ error: 'Counselor or Admin permissions required to publish announcements' });
   }
 
-  if (!message) {
-    return res.status(400).json({ error: 'Announcement message is required' });
+  const textContent = content || message;
+  if (!textContent) {
+    return res.status(400).json({ error: 'Announcement title and content are required' });
   }
+
+  const annTitle =
+    title ||
+    'Announcement from ' +
+      (req.user.role === 'provider' || req.user.role === 'clinician'
+        ? 'Counselor Office'
+        : 'System Administration');
+  const target = targetAudience || 'all_students';
+  const prio = priority || 'medium';
 
   try {
-    // Insert into notifications as 'system' type for user_id = admin's user_id
-    await createNotification(req.user.id, 'system', message);
+    // Insert into announcements table
+    const result = await query(
+      `INSERT INTO announcements (title, content, target_audience, priority, expiry_date, attachment_url, author_id, author_role)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING id, title, content, target_audience, priority, created_at, author_role`,
+      [
+        annTitle,
+        textContent,
+        target,
+        prio,
+        expiryDate || null,
+        attachmentUrl || null,
+        req.user.id,
+        req.user.role,
+      ],
+    );
 
-    // Create notifications for all students and providers so it shows in their dashboard feeds
-    const usersRes = await query("SELECT id FROM users WHERE role IN ('student', 'provider')");
-    for (const u of usersRes.rows) {
-      await createNotification(u.id, 'system', `CUAP Announcement: ${message}`);
+    // Notify target audience
+    let userQuery = "SELECT id FROM users WHERE role = 'student'";
+    if (target === 'counselors') {
+      userQuery = "SELECT id FROM users WHERE role IN ('provider', 'clinician')";
+    } else if (target === 'all') {
+      userQuery = 'SELECT id FROM users';
     }
 
-    return res.status(201).json({ message: 'Announcement published successfully to all users.' });
-  } catch (err) {
+    const usersRes = await query(userQuery);
+    for (const u of usersRes.rows || []) {
+      await createNotification(
+        u.id,
+        'system',
+        `[${prio.toUpperCase()}] ${annTitle}: ${textContent.substring(0, 50)}...`,
+      );
+    }
+
+    return res.status(201).json({
+      message: 'Announcement published successfully.',
+      announcement: result.rows[0],
+    });
+  } catch (err: any) {
     console.error('Create announcement error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: err.message || 'Internal server error' });
   }
 };
 
 export const updateAnnouncement = async (req: AuthRequest, res: Response) => {
-  if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Admin permissions required' });
+  if (
+    !req.user ||
+    (req.user.role !== 'admin' && req.user.role !== 'super-admin' && req.user.role !== 'provider')
+  ) {
+    return res.status(403).json({ error: 'Permissions required' });
   }
   const { id } = req.params;
-  const { message } = req.body;
-  if (!message) {
-    return res.status(400).json({ error: 'Message is required' });
-  }
+  const { title, content, message, targetAudience, priority, expiryDate, attachmentUrl } = req.body;
+
+  const textContent = content || message;
   try {
-    const getMsgRes = await query('SELECT message FROM notifications WHERE id = $1', [id]);
-    if (getMsgRes.rows.length === 0) {
-      return res.status(404).json({ error: 'Announcement not found' });
-    }
-    const originalMsg = getMsgRes.rows[0].message;
-    await query('UPDATE notifications SET message = $1 WHERE id = $2', [message, id]);
-    await query('UPDATE notifications SET message = $1 WHERE message = $2', [
-      `CUAP Announcement: ${message}`,
-      `CUAP Announcement: ${originalMsg}`,
-    ]);
+    await query(
+      `UPDATE announcements
+       SET title = COALESCE($1, title),
+           content = COALESCE($2, content),
+           target_audience = COALESCE($3, target_audience),
+           priority = COALESCE($4, priority),
+           expiry_date = COALESCE($5, expiry_date),
+           attachment_url = COALESCE($6, attachment_url)
+       WHERE id = $7`,
+      [title, textContent, targetAudience, priority, expiryDate, attachmentUrl, id],
+    );
     return res.json({ message: 'Announcement updated successfully.' });
-  } catch (err) {
+  } catch (err: any) {
     console.error('Update announcement error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: err.message || 'Internal server error' });
   }
 };
 
 export const deleteAnnouncement = async (req: AuthRequest, res: Response) => {
-  if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Admin permissions required' });
+  if (
+    !req.user ||
+    (req.user.role !== 'admin' && req.user.role !== 'super-admin' && req.user.role !== 'provider')
+  ) {
+    return res.status(403).json({ error: 'Permissions required' });
   }
   const { id } = req.params;
   try {
-    const getMsgRes = await query('SELECT message FROM notifications WHERE id = $1', [id]);
-    if (getMsgRes.rows.length === 0) {
-      return res.status(404).json({ error: 'Announcement not found' });
-    }
-    const originalMsg = getMsgRes.rows[0].message;
+    await query('DELETE FROM announcements WHERE id = $1', [id]);
     await query('DELETE FROM notifications WHERE id = $1', [id]);
-    await query('DELETE FROM notifications WHERE message = $1 OR message = $2', [
-      originalMsg,
-      `CUAP Announcement: ${originalMsg}`,
-    ]);
     return res.json({ message: 'Announcement deleted successfully.' });
-  } catch (err) {
+  } catch (err: any) {
     console.error('Delete announcement error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
@@ -1096,5 +1175,55 @@ export const updateUserRole = async (req: AuthRequest, res: Response) => {
   } catch (err) {
     console.error('Update user role error:', err);
     return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const getMessengerStatus = async (req: AuthRequest, res: Response) => {
+  try {
+    const settingRes = await query(
+      "SELECT value FROM system_settings WHERE key_name = 'messenger_enabled'",
+    );
+    const messengerEnabled =
+      settingRes.rows.length > 0 ? settingRes.rows[0].value === 'true' : false;
+    return res.json({ messengerEnabled });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to retrieve messenger status' });
+  }
+};
+
+export const toggleMessengerLock = async (req: AuthRequest, res: Response) => {
+  if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'super-admin')) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  const { enabled } = req.body;
+  const strValue = enabled ? 'true' : 'false';
+
+  try {
+    const existing = await query(
+      "SELECT id FROM system_settings WHERE key_name = 'messenger_enabled'",
+    );
+    if (existing.rows.length === 0) {
+      await query(
+        "INSERT INTO system_settings (key_name, value, description) VALUES ('messenger_enabled', $1, 'Lock/unlock state for Secure Messenger')",
+        [strValue],
+      );
+    } else {
+      await query("UPDATE system_settings SET value = $1 WHERE key_name = 'messenger_enabled'", [
+        strValue,
+      ]);
+    }
+
+    await query(
+      'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
+      [req.user.id, 'TOGGLE_MESSENGER_LOCK', `Admin set messenger_enabled to ${strValue}`, req.ip],
+    );
+
+    return res.json({
+      message: `Messenger ${enabled ? 'unlocked' : 'locked'} successfully`,
+      messengerEnabled: enabled,
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to toggle messenger status' });
   }
 };

@@ -97,7 +97,7 @@ export const publicChat = async (req: Request, res: Response) => {
       If the user asks questions about WCCMS:
       - Explain that WCCMS is the Wellness Counseling Centre Management System of CUAP.
       - Students can sign in using their University Registration Number to book slots, take screenings, or download documents.
-      - The lead psychologist/coordinator is Dr. Sabuj Das.
+      - The Associate Professor & Head of the Department is Dr. Akriti Srivastava.
       
       LIVE APPOINTMENT SCHEDULER PROTOCOL:
       ${availabilityText}
@@ -106,7 +106,7 @@ export const publicChat = async (req: Request, res: Response) => {
       - Suggest specific free slots from the live list above.
       - Format the slot choice as a markdown link using our custom booking protocol:
         [Click here to book <Counselor Name> on <YYYY-MM-DD> at <Slot Time>](book://<counselorId>/<YYYY-MM-DD>/<urlencoded slot time>)
-        Example: [Click here to book Dr. Sabuj Das on 2026-07-17 at 10:00 AM](book://1/2026-07-17/10%3A00%20AM)
+        Example: [Click here to book Madhu Giri on 2026-07-17 at 10:00 AM](book://1/2026-07-17/10%3A00%20AM)
       - Tell the user they can just click the link/button to book immediately.
       
       CRITICAL SAFETY POLICY:
@@ -130,7 +130,7 @@ export const publicChat = async (req: Request, res: Response) => {
       reply = await callGeminiAPI(prompt, systemInstruction);
     } catch (e) {
       console.warn('Gemini call failed, using local fallback:', e);
-      reply = `I'm experiencing high traffic right now, but you can book a counseling appointment directly:\n[Click here to book Dr. Sarah Connor on 2026-07-23 at 10:00 AM](book://1/2026-07-23/10%3A00%20AM)\n[Click here to book Dr. Sabuj Das on 2026-07-23 at 11:00 AM](book://2/2026-07-23/11%3A00%20AM)`;
+      reply = `I'm experiencing high traffic right now, but you can book a counseling appointment directly:\n[Click here to book Madhu Giri on 2026-07-23 at 10:00 AM](book://1/2026-07-23/10%3A00%20AM)\n[Click here to book Dr. Chelli Kavya on 2026-07-23 at 11:00 AM](book://2/2026-07-23/11%3A00%20AM)`;
     }
     return res.json({ reply });
   } catch (err: any) {

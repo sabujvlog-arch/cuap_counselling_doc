@@ -524,16 +524,195 @@ const upgradeDatabaseSchema = async (): Promise<void> => {
     }
   }
 
-  // Seed default availability for counselor01 (Dr. Sarah Connor)
+  // ============================================================
+  // WCCMS FEATURE ENHANCEMENTS & SYSTEM IMPROVEMENTS MIGRATIONS
+  // ============================================================
+
+  // 1. Audio Retention & Privacy Tables
   try {
-    const providerRes = await query("SELECT id FROM providers WHERE employee_id = 'EMP103'");
-    if (providerRes.rows.length > 0) {
-      const providerId = providerRes.rows[0].id;
+    await query(`
+      CREATE TABLE IF NOT EXISTS audio_recordings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id INTEGER REFERENCES sessions(id) ON DELETE CASCADE,
+        student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
+        provider_id INTEGER REFERENCES providers(id) ON DELETE SET NULL,
+        file_path VARCHAR(500),
+        duration_seconds INTEGER DEFAULT 0,
+        status VARCHAR(50) DEFAULT 'active',
+        expires_at DATETIME NOT NULL,
+        deleted_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('Checked/Created audio_recordings table (SQLite).');
+  } catch (e) {
+    try {
+      await query(`
+        CREATE TABLE IF NOT EXISTS audio_recordings (
+          id SERIAL PRIMARY KEY,
+          session_id INTEGER REFERENCES sessions(id) ON DELETE CASCADE,
+          student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
+          provider_id INTEGER REFERENCES providers(id) ON DELETE SET NULL,
+          file_path VARCHAR(500),
+          duration_seconds INTEGER DEFAULT 0,
+          status VARCHAR(50) DEFAULT 'active',
+          expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+          deleted_at TIMESTAMP WITH TIME ZONE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('Checked/Created audio_recordings table (PostgreSQL).');
+    } catch (e2) {
+      console.error('Error creating audio_recordings table:', e2);
+    }
+  }
+
+  // 2. Audio Audit Logs Table
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS audio_audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        audio_id INTEGER REFERENCES audio_recordings(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        user_role VARCHAR(50) NOT NULL,
+        reason_for_access TEXT NOT NULL,
+        duration_seconds INTEGER DEFAULT 0,
+        ip_address VARCHAR(100),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('Checked/Created audio_audit_logs table (SQLite).');
+  } catch (e) {
+    try {
+      await query(`
+        CREATE TABLE IF NOT EXISTS audio_audit_logs (
+          id SERIAL PRIMARY KEY,
+          audio_id INTEGER REFERENCES audio_recordings(id) ON DELETE CASCADE,
+          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+          user_role VARCHAR(50) NOT NULL,
+          reason_for_access TEXT NOT NULL,
+          duration_seconds INTEGER DEFAULT 0,
+          ip_address VARCHAR(100),
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('Checked/Created audio_audit_logs table (PostgreSQL).');
+    } catch (e2) {
+      console.error('Error creating audio_audit_logs table:', e2);
+    }
+  }
+
+  // 3. AI Multi-Format Clinical Notes Columns in sessions table
+  const extendedSessionCols: [string, string][] = [
+    ['mom', 'TEXT'],
+    ['session_summary', 'TEXT'],
+    ['key_discussion_points', 'TEXT'],
+    ['followup_plans', 'TEXT'],
+    ['intervention_suggestions', 'TEXT'],
+  ];
+
+  for (const [col, colType] of extendedSessionCols) {
+    try {
+      await query(`ALTER TABLE sessions ADD COLUMN ${col} ${colType}`);
+      console.log(`Added ${col} column to sessions table.`);
+    } catch (e) {
+      // Column already exists
+    }
+  }
+
+  // 4. Announcements Table & Extended Columns
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS announcements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title VARCHAR(255) NOT NULL,
+        content TEXT NOT NULL,
+        author_id INTEGER REFERENCES users(id),
+        author_role VARCHAR(50) DEFAULT 'admin',
+        target_audience VARCHAR(50) DEFAULT 'all_students',
+        target_ids TEXT,
+        priority VARCHAR(20) DEFAULT 'medium',
+        expiry_date DATETIME,
+        attachment_url TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('Checked/Created announcements table (SQLite).');
+  } catch (e) {
+    try {
+      await query(`
+        CREATE TABLE IF NOT EXISTS announcements (
+          id SERIAL PRIMARY KEY,
+          title VARCHAR(255) NOT NULL,
+          content TEXT NOT NULL,
+          author_id INTEGER REFERENCES users(id),
+          author_role VARCHAR(50) DEFAULT 'admin',
+          target_audience VARCHAR(50) DEFAULT 'all_students',
+          target_ids TEXT,
+          priority VARCHAR(20) DEFAULT 'medium',
+          expiry_date TIMESTAMP WITH TIME ZONE,
+          attachment_url TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('Checked/Created announcements table (PostgreSQL).');
+    } catch (e2) {
+      console.error('Error creating announcements table:', e2);
+    }
+  }
+
+  // 5. Announcement Reads Table
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS announcement_reads (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        announcement_id INTEGER REFERENCES announcements(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        read_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('Checked/Created announcement_reads table (SQLite).');
+  } catch (e) {
+    try {
+      await query(`
+        CREATE TABLE IF NOT EXISTS announcement_reads (
+          id SERIAL PRIMARY KEY,
+          announcement_id INTEGER REFERENCES announcements(id) ON DELETE CASCADE,
+          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+          read_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('Checked/Created announcement_reads table (PostgreSQL).');
+    } catch (e2) {
+      console.error('Error creating announcement_reads table:', e2);
+    }
+  }
+
+  // 6. Ensure default system_settings for messenger lock
+  try {
+    const existing = await query(
+      "SELECT * FROM system_settings WHERE key_name = 'messenger_enabled'",
+    );
+    if (existing.rows.length === 0) {
+      await query(
+        "INSERT INTO system_settings (key_name, value, description) VALUES ('messenger_enabled', 'false', 'Lock/unlock state for Secure Messenger')",
+      );
+      console.log('Inserted default messenger_enabled system setting (locked by default).');
+    }
+  } catch (e) {
+    // Ignore error if system_settings not ready
+  }
+
+  // Seed default availability for all providers in the database
+  try {
+    const providersRes = await query('SELECT id, name FROM providers');
+    for (const prov of providersRes.rows) {
+      const providerId = prov.id;
       const checkAvail = await query('SELECT id FROM availability WHERE provider_id = $1', [
         providerId,
       ]);
       if (checkAvail.rows.length === 0) {
-        console.log('Seeding default availability settings for Dr. Sarah Connor...');
+        console.log(`Seeding default availability settings for ${prov.name}...`);
         for (let day = 1; day <= 5; day++) {
           await query(
             'INSERT INTO availability (provider_id, day_of_week, start_time, end_time, break_start, break_end, is_holiday, session_duration, buffer_time, max_appointments_per_day, slot_interval) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)',
@@ -1246,6 +1425,29 @@ const seedDefaultAdmin = async (): Promise<void> => {
     console.warn('Could not load tempCredentials.json, using defaults.');
   }
 
+  // Clean up synthetic providers and their users
+  const syntheticNames = ['Dr. Sarah Connor', 'Dr. Sabuj Das', 'Dept Head Dr. Das'];
+  for (const name of syntheticNames) {
+    try {
+      const prov = await query('SELECT id, user_id FROM providers WHERE name = $1', [name]);
+      if (prov.rows.length > 0) {
+        const { id: providerId, user_id: userId } = prov.rows[0];
+        console.log(
+          `Cleaning up synthetic provider: ${name} (ID: ${providerId}, UserID: ${userId})`,
+        );
+        await query('DELETE FROM availability WHERE provider_id = $1', [providerId]);
+        await query('DELETE FROM sessions WHERE provider_id = $1', [providerId]);
+        await query('DELETE FROM appointments WHERE provider_id = $1', [providerId]);
+        await query('DELETE FROM providers WHERE id = $1', [providerId]);
+        if (userId) {
+          await query('DELETE FROM users WHERE id = $1', [userId]);
+        }
+      }
+    } catch (cleanupErr) {
+      console.warn(`Soft warning: cleanup of ${name} failed or already done.`, cleanupErr);
+    }
+  }
+
   // 1. Seed Admin01 from config
   const adminUsername = tempCreds.admin.username;
   const adminPassword = tempCreds.admin.password;
@@ -1260,7 +1462,7 @@ const seedDefaultAdmin = async (): Promise<void> => {
     console.log(`Admin user successfully seeded (username: ${adminUsername})`);
   }
 
-  // 2. Seed Counselor01 (Provider) from config
+  // 2. Seed Counselor01 (Provider: Madhu Giri) from config
   const providerUsername = tempCreds.counselor.username;
   const providerPassword = tempCreds.counselor.password;
   const providerCheck = await query('SELECT * FROM users WHERE username = $1', [providerUsername]);
@@ -1269,7 +1471,7 @@ const seedDefaultAdmin = async (): Promise<void> => {
     const hashedPassword = await bcrypt.hash(providerPassword, 10);
     await query(
       'INSERT INTO users (username, password_hash, role, phone, email) VALUES ($1, $2, $3, $4, $5)',
-      [providerUsername, hashedPassword, 'provider', defaultPhone, defaultEmail],
+      [providerUsername, hashedPassword, 'provider', defaultPhone, 'madhu.giri@cuap.edu.in'],
     );
 
     const selectUser = await query('SELECT id FROM users WHERE username = $1', [providerUsername]);
@@ -1280,13 +1482,13 @@ const seedDefaultAdmin = async (): Promise<void> => {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         userId,
-        'Dr. Sarah Connor',
+        'Madhu Giri',
         'EMP103',
         'Wellness Centre',
-        'PhD in Clinical Psychology',
-        'Cognitive Behavioral Therapy (CBT)',
+        'M.Phil. in Clinical Psychology (Gautam Buddha University), Ph.D. Candidate (Christ University)',
+        'Clinical Psychologist (Rehabilitation Council Of India, Credential ID: A59664, Issued Aug 2018)',
         defaultPhone,
-        defaultEmail,
+        'madhu.giri@cuap.edu.in',
       ],
     );
     console.log(`Provider successfully seeded (username: ${providerUsername})`);
@@ -1311,7 +1513,7 @@ const seedDefaultAdmin = async (): Promise<void> => {
     const hashedPassword = await bcrypt.hash('2026', 10);
     await query(
       'INSERT INTO users (username, password_hash, role, phone, email) VALUES ($1, $2, $3, $4, $5)',
-      [legacyProvider, hashedPassword, 'provider', defaultPhone, defaultEmail],
+      [legacyProvider, hashedPassword, 'provider', defaultPhone, 'dr.kavya@cuap.edu.in'],
     );
     const selectUser = await query('SELECT id FROM users WHERE username = $1', [legacyProvider]);
     const userId = selectUser.rows[0].id;
@@ -1320,13 +1522,13 @@ const seedDefaultAdmin = async (): Promise<void> => {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         userId,
-        'Dr. Sabuj Das',
-        'EMP101',
-        'Psychology',
-        'PhD, M.Phil in Clinical Psychology',
-        'Cognitive Behavioral Therapy (CBT) & Restructuring',
+        'Dr. Chelli Kavya',
+        'EMP105',
+        'Applied Psychology',
+        'PhD, Assistant Professor',
+        'Cognitive & Clinical Interventions',
         defaultPhone,
-        defaultEmail,
+        'dr.kavya@cuap.edu.in',
       ],
     );
   }
@@ -1339,7 +1541,7 @@ const seedDefaultAdmin = async (): Promise<void> => {
     await query("UPDATE users SET phone = $1 WHERE username = 'provider' AND phone IS NULL", [
       defaultPhone,
     ]);
-    await query("UPDATE providers SET phone = $1 WHERE employee_id = 'EMP101' AND phone IS NULL", [
+    await query("UPDATE providers SET phone = $1 WHERE employee_id = 'EMP105' AND phone IS NULL", [
       defaultPhone,
     ]);
 
@@ -1347,10 +1549,10 @@ const seedDefaultAdmin = async (): Promise<void> => {
       defaultEmail,
     ]);
     await query("UPDATE users SET email = $1 WHERE username = 'provider' AND email IS NULL", [
-      defaultEmail,
+      'dr.kavya@cuap.edu.in',
     ]);
-    await query("UPDATE providers SET email = $1 WHERE employee_id = 'EMP101' AND email IS NULL", [
-      defaultEmail,
+    await query("UPDATE providers SET email = $1 WHERE employee_id = 'EMP105' AND email IS NULL", [
+      'dr.kavya@cuap.edu.in',
     ]);
   } catch (e) {
     console.error('Error upgrading admin/provider phone/email numbers:', e);
@@ -1362,6 +1564,7 @@ const seedDefaultAdmin = async (): Promise<void> => {
     { username: 'technician', role: 'technician' },
     { username: 'depthead', role: 'dept-head' },
     { username: 'superadmin', role: 'super-admin' },
+    { username: 'rohini', role: 'provider' },
   ];
 
   for (const u of usersToSeed) {
@@ -1384,16 +1587,36 @@ const seedDefaultAdmin = async (): Promise<void> => {
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
             [
               userId,
-              'Dept Head Dr. Das',
+              'Dr. Akriti Srivastava',
               'EMP102',
-              'Psychiatry',
-              'MD, Psychiatry',
-              'Clinical Psychiatry & Department Management',
+              'Applied Psychology',
+              'PhD, Associate Professor & HOD',
+              'Department Management & Clinical Supervision',
               defaultPhone,
-              defaultEmail,
+              'Akriti.srivastava@cuap.edu.in',
             ],
           );
           console.log('Dept-head provider profile seeded.');
+        }
+
+        if (u.username === 'rohini') {
+          const selectUser = await query('SELECT id FROM users WHERE username = $1', [u.username]);
+          const userId = selectUser.rows[0].id;
+          await query(
+            `INSERT INTO providers (user_id, name, employee_id, department, qualification, specialization, phone, email) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [
+              userId,
+              'Dr. Rohini Shivananda',
+              'EMP106',
+              'Applied Psychology',
+              'PhD, Professor of Practice',
+              'Clinical Psychology & Mental Health Practices',
+              defaultPhone,
+              'rohinishivananda@gmail.com',
+            ],
+          );
+          console.log('Dr. Rohini Shivananda provider profile seeded.');
         }
       }
     } catch (err) {
@@ -1813,7 +2036,7 @@ const seedStudents = async (): Promise<void> => {
         await query(
           `INSERT INTO students 
            (user_id, registration_number, name, age, gender, dob, department, semester, phone, email, hostel_scholar, student_type, emergency_contact, emergency_phone, blood_group, address, informed_consent_signed, consent_date)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 1, CURRENT_TIMESTAMP)`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 0, NULL)`,
           [
             userId,
             s.regNo,
@@ -1847,192 +2070,6 @@ const seedStudents = async (): Promise<void> => {
 };
 
 const seedSyntheticData = async (): Promise<void> => {
-  try {
-    const sessionCheck = await query('SELECT * FROM sessions');
-    if (sessionCheck.rows.length > 0) {
-      console.log('Synthetic session data already exists. Skipping synthetic data seeding.');
-      return;
-    }
-
-    console.log('Seeding synthetic clinical data for testing purposes...');
-
-    // Get a student
-    const studentRes = await query("SELECT id FROM students WHERE registration_number = '25BEC01'");
-    if (studentRes.rows.length === 0) {
-      console.log('Student 25BEC01 not found for seeding synthetic data.');
-      return;
-    }
-    const studentId = studentRes.rows[0].id;
-
-    // Get providers
-    const prov1Res = await query("SELECT id FROM providers WHERE employee_id = 'EMP101'");
-    const prov2Res = await query("SELECT id FROM providers WHERE employee_id = 'EMP102'");
-    if (prov1Res.rows.length === 0) {
-      console.log('Provider EMP101 not found for seeding synthetic data.');
-      return;
-    }
-    const providerId = prov1Res.rows[0].id;
-    const deptHeadId = prov2Res.rows[0]?.id || providerId;
-
-    // 1. Create a completed appointment
-    const aptRes = await query(
-      `INSERT INTO appointments (student_id, provider_id, slot_date, slot_time, status, reason)
-       VALUES ($1, $2, '2026-07-16', '10:00 AM - 11:00 AM', 'completed', $3)`,
-      [
-        studentId,
-        providerId,
-        'Experiencing severe academic anxiety and insomnia before exam weeks.',
-      ],
-    );
-    const appointmentId = aptRes.lastInsertId || 1;
-
-    // 2. Create a completed counseling session
-    const sessRes = await query(
-      `INSERT INTO sessions (
-        appointment_id, student_id, provider_id, session_date, presenting_complaint, history,
-        past_psychiatric, past_medical, medication_history, family_history, developmental_history,
-        educational_history, occupational_history, relationship_history, substance_use, legal_history,
-        social_history, trauma_history, personality_traits, protective_factors, strengths,
-        mse, diagnosis, differential_diagnosis, case_formulation, risk_assessment,
-        subjective, objective, assessment, plan, intervention_used, homework_assigned, session_duration, workflow_stage
-      ) VALUES ($1, $2, $3, '2026-07-16', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, 50, 'report')`,
-      [
-        appointmentId,
-        studentId,
-        providerId,
-        // presenting_complaint
-        'Student reports severe academic anxiety, heart palpitations before tests, and sleeplessness.',
-        // history
-        'Gradual onset over last 6 months. Exacerbated by pressure to qualify for postgraduate internships.',
-        // past_psychiatric
-        'No prior psychiatric consultations.',
-        // past_medical
-        'No active medical issues.',
-        // medication_history
-        'None.',
-        // family_history
-        'Father has history of treated depression.',
-        // developmental_history
-        'Milestones normal.',
-        // educational_history
-        'High academic performer, currently in Semester II.',
-        // occupational_history
-        'Student.',
-        // relationship_history
-        'Supportive relationships with peers.',
-        // substance_use
-        'Denies any substance use.',
-        // legal_history
-        'None.',
-        // social_history
-        'Living in university hostel.',
-        // trauma_history
-        'No history of trauma.',
-        // personality_traits
-        'Perfectionistic tendencies.',
-        // protective_factors
-        'High family support, good peer communication.',
-        // strengths
-        'Intact insight, high motivation for improvement.',
-        // mse
-        'Appearance: Well kempt. Rapport: Easily established. Eye Contact: Present. Speech: Fluent. Mood/Affect: Anxious. Thought Process: Goal-directed. Thought Content: No delusions or self-harm thoughts. Insight & Judgment: Intact.',
-        // diagnosis
-        'F41.1 Generalized Anxiety Disorder',
-        // differential_diagnosis
-        'F43.22 Adjustment disorder with anxiety',
-        // case_formulation
-        'Academic pressure triggering pre-existing perfectionistic anxiety traits, resulting in acute sleeplessness.',
-        // risk_assessment
-        'Low risk. Client explicitly denies suicidal thoughts or self-harm history.',
-        // subjective
-        'Feeling extremely nervous and unable to focus.',
-        // objective
-        'Restless movement, fidgeting hands during the session.',
-        // assessment
-        'GAD features exacerbated by examination schedule.',
-        // plan
-        'Initiate CBT. Teach deep breathing. Order baseline psychological scales.',
-        // intervention_used
-        'Cognitive Behavioral Therapy (CBT)',
-        // homework_assigned
-        'Complete GAD-7 daily log. Practice 4-7-8 breathing twice daily.',
-      ],
-    );
-    const sessionId = sessRes.lastInsertId || 1;
-
-    // 3. Create a completed prescription
-    const presRes = await query(
-      `INSERT INTO prescriptions (session_id, student_id, provider_id, prescription_date, diagnosis, advice, lifestyle_recommendations, follow_up_date)
-       VALUES ($1, $2, $3, '2026-07-16', 'F41.1 Generalized Anxiety Disorder', 'Avoid caffeinated beverages after 4 PM.', 'Walk 30 minutes in morning.', '2026-08-16')`,
-      [sessionId, studentId, providerId],
-    );
-    const prescriptionId = presRes.lastInsertId || 1;
-
-    // Insert prescription items
-    await query(
-      `INSERT INTO prescription_items (prescription_id, medicine_name, dose, frequency, duration)
-       VALUES ($1, 'Escitalopram 10mg', '1 tab', '1-0-0', '30 days')`,
-      [prescriptionId],
-    );
-    await query(
-      `INSERT INTO prescription_items (prescription_id, medicine_name, dose, frequency, duration)
-       VALUES ($1, 'Clonazepam 0.25mg', '1 tab', '0-0-1', '10 days')`,
-      [prescriptionId],
-    );
-
-    // 4. Create one completed test order (PHQ-9)
-    await query(
-      `INSERT INTO test_orders (student_id, provider_id, test_name, category, status, results, report)
-       VALUES ($1, $2, 'PHQ-9 (Depression screening)', 'psychological', 'completed', 'Score: 12/27', 'PHQ-9 Score: 12/27 (Moderate Depression symptoms). Recommended supportive therapy.')`,
-      [studentId, providerId],
-    );
-
-    // 5. Create one pending test order (GAD-7)
-    await query(
-      `INSERT INTO test_orders (student_id, provider_id, test_name, category, status)
-       VALUES ($1, $2, 'GAD-7 (Anxiety screening)', 'psychological', 'pending')`,
-      [studentId, providerId],
-    );
-
-    // 6. Create a high-risk session requiring co-signature (from a different student, e.g. 25BTC05)
-    const student2Res = await query(
-      "SELECT id FROM students WHERE registration_number = '25BTC05'",
-    );
-    if (student2Res.rows.length > 0) {
-      const student2Id = student2Res.rows[0].id;
-      const apt2Res = await query(
-        `INSERT INTO appointments (student_id, provider_id, slot_date, slot_time, status, reason)
-         VALUES ($1, $2, '2026-07-17', '11:00 AM - 12:00 PM', 'completed', $3)`,
-        [student2Id, providerId, 'Crisis counseling intervention.'],
-      );
-      const appointment2Id = apt2Res.lastInsertId || 2;
-
-      await query(
-        `INSERT INTO sessions (
-          appointment_id, student_id, provider_id, session_date, presenting_complaint, history,
-          mse, diagnosis, case_formulation, risk_assessment,
-          subjective, objective, assessment, plan, workflow_stage
-        ) VALUES ($1, $2, $3, '2026-07-17', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'report')`,
-        [
-          appointment2Id,
-          student2Id,
-          providerId,
-          'Student reports severe academic failure worries, hopelessness, self-harm impulses, and sleep deprivation.',
-          'Onset 2 weeks ago following semester grade release. Progressive feelings of worthlessness.',
-          'Disheveled appearance, flat affect, speech soft and slow, express feelings of hopelessness.',
-          'F32.2 Severe depressive episode without psychotic symptoms',
-          'Academic failure trigger in vulnerable student with low coping mechanisms, leading to severe hopelessness.',
-          'HIGH RISK: Expresses passive suicidal ideation. Safety plan contracted with hostellers and wardens.',
-          'Feeling completely hopeless and alone.',
-          'Slumped posture, tearing up during session.',
-          'Severe depressive symptoms with active risk indicators.',
-          'Formulate crisis management team. Alert hostel warden. Follow up in 24 hours.',
-        ],
-      );
-    }
-
-    console.log('Synthetic data seeding successfully completed.');
-  } catch (err) {
-    console.error('Error seeding synthetic data:', err);
-  }
+  console.log('Skipping synthetic data seeding as per counselor transition rules.');
+  return;
 };

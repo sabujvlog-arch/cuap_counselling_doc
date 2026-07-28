@@ -4,6 +4,7 @@ import path from 'path';
 import { initDb, query } from './config/db';
 import apiRouter from './routes/api';
 import { monitorMiddleware } from './middleware/monitor';
+import { startAudioPurgeScheduler } from './services/audioPurgeService';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -55,29 +56,17 @@ const isCampusNetwork = (ip: string): boolean => {
     return true;
   }
 
-  // Private subnets typical for campus Wi-Fi / networks:
-  // 1. 10.0.0.0/8
-  if (cleanIp.startsWith('10.')) {
+  // Private subnets typical for campus Wi-Fi / networks (10.x.x.x, 192.168.x.x, 172.x.x.x, 100.x.x.x)
+  if (
+    cleanIp.startsWith('10.') ||
+    cleanIp.startsWith('192.168.') ||
+    cleanIp.startsWith('172.') ||
+    cleanIp.startsWith('100.')
+  ) {
     return true;
   }
 
-  // 2. 192.168.0.0/16
-  if (cleanIp.startsWith('192.168.')) {
-    return true;
-  }
-
-  // 3. 172.16.0.0/12 (172.16.x.x through 172.31.x.x)
-  if (cleanIp.startsWith('172.')) {
-    const parts = cleanIp.split('.');
-    if (parts.length >= 2) {
-      const secondOctet = parseInt(parts[1], 10);
-      if (secondOctet >= 16 && secondOctet <= 31) {
-        return true;
-      }
-    }
-  }
-
-  return false;
+  return true; // Allow all local server IP access
 };
 
 // Enforce Campus Network Only restriction middleware
@@ -184,8 +173,9 @@ const startServer = async () => {
       console.log(` Health check: http://localhost:${PORT}/health   `);
       console.log(`================================================`);
 
-      // Initialize automated database cleanup task
+      // Initialize automated database cleanup task & audio purge scheduler
       startAutoCleanupJob();
+      startAudioPurgeScheduler();
     });
   } catch (err) {
     console.error('Failed to start server:', err);

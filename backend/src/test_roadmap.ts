@@ -12,7 +12,7 @@ const runTests = async () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        message: 'When is Dr. Sarah Connor free?',
+        message: 'When is Madhu Giri free?',
         history: [],
       }),
     });

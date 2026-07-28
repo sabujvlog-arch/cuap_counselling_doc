@@ -3,6 +3,21 @@ import { query } from '../config/db';
 import { AuthRequest } from '../middleware/auth';
 import { createNotification } from '../services/notificationService';
 
+// Helper to verify if Secure Messenger is enabled by Admin
+const isMessengerEnabled = async (): Promise<boolean> => {
+  try {
+    const res = await query(
+      "SELECT value FROM system_settings WHERE key_name = 'messenger_enabled'",
+    );
+    if (res.rows && res.rows.length > 0) {
+      return res.rows[0].value === 'true';
+    }
+    return false; // Default locked
+  } catch (err) {
+    return true; // Fallback open if setting not initialized
+  }
+};
+
 export const sendMessage = async (req: AuthRequest, res: Response) => {
   const { receiverId, content, attachmentUrl } = req.body;
 
@@ -12,6 +27,17 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
 
   if (!receiverId || !content) {
     return res.status(400).json({ error: 'Receiver ID and content are required' });
+  }
+
+  // 1. Messenger Lock check (Admins can bypass lock for emergency comms)
+  if (req.user.role !== 'admin' && req.user.role !== 'super-admin') {
+    const enabled = await isMessengerEnabled();
+    if (!enabled) {
+      return res.status(403).json({
+        error:
+          'Secure Messenger is currently locked by system administration. Please contact your counselor or administrator.',
+      });
+    }
   }
 
   try {
@@ -24,14 +50,41 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
     const senderRole = req.user.role;
     const receiverRole = recRes.rows[0].role;
 
-    // Validate messaging rules (e.g. Student <-> Provider, Admin <-> Provider, Admin <-> Admin/Student maybe)
-    // The prompt says: Student ↔ Provider, Provider ↔ Admin, Admin ↔ Provider.
+    // 2. Student RBAC: Students can ONLY communicate with their assigned counselor
+    if (senderRole === 'student' && receiverRole === 'provider') {
+      const studentProfile = await query('SELECT id FROM students WHERE user_id = $1', [
+        req.user.id,
+      ]);
+      const providerProfile = await query('SELECT id FROM providers WHERE user_id = $1', [
+        receiverId,
+      ]);
+
+      if (studentProfile.rows.length > 0 && providerProfile.rows.length > 0) {
+        const studentId = studentProfile.rows[0].id;
+        const providerId = providerProfile.rows[0].id;
+
+        // Check if student has any appointment or direct assignment with this provider
+        const assignmentRes = await query(
+          'SELECT id FROM appointments WHERE student_id = $1 AND provider_id = $2 LIMIT 1',
+          [studentId, providerId],
+        );
+
+        if (assignmentRes.rows.length === 0) {
+          return res.status(403).json({
+            error:
+              'Access Denied: Students are permitted to communicate only with their assigned counselor.',
+          });
+        }
+      }
+    }
+
+    // Validate messaging rules
     const isAllowed =
       (senderRole === 'student' && receiverRole === 'provider') ||
       (senderRole === 'provider' && receiverRole === 'student') ||
       (senderRole === 'provider' && receiverRole === 'admin') ||
       (senderRole === 'admin' && receiverRole === 'provider') ||
-      (senderRole === 'admin' && receiverRole === 'admin'); // Admins can talk to each other
+      (senderRole === 'admin' && receiverRole === 'admin');
 
     if (!isAllowed) {
       return res.status(403).json({
@@ -43,6 +96,15 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
       'INSERT INTO messages (sender_id, receiver_id, content, attachment_url) VALUES ($1, $2, $3, $4)',
       [req.user.id, receiverId, content, attachmentUrl || null],
     );
+
+    // Audit Log for messaging
+    try {
+      await query(
+        `INSERT INTO audit_logs (user_id, action, resource, details)
+         VALUES ($1, 'MESSAGE_SENT', 'messages', $2)`,
+        [req.user.id, `Sent message to user ID ${receiverId}`],
+      );
+    } catch (_) {}
 
     // Notify the receiver
     await createNotification(

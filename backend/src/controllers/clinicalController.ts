@@ -144,6 +144,14 @@ const decryptSessionFields = (row: any) => {
     homework_review: row.homework_review ? decrypt(row.homework_review) : null,
     medication_adherence: row.medication_adherence ? decrypt(row.medication_adherence) : null,
     discharge_summary: row.discharge_summary ? decrypt(row.discharge_summary) : null,
+    // AI Multi-Format Clinical Documentation
+    mom: row.mom ? decrypt(row.mom) : null,
+    session_summary: row.session_summary ? decrypt(row.session_summary) : null,
+    key_discussion_points: row.key_discussion_points ? decrypt(row.key_discussion_points) : null,
+    followup_plans: row.followup_plans ? decrypt(row.followup_plans) : null,
+    intervention_suggestions: row.intervention_suggestions
+      ? decrypt(row.intervention_suggestions)
+      : null,
   };
 };
 

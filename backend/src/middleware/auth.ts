@@ -8,7 +8,10 @@ export interface AuthRequest extends Request {
     id: number;
     username: string;
     role: string;
+    provider_id?: number;
+    student_id?: number;
   };
+  file?: any;
 }
 
 export const authenticateToken = (req: AuthRequest, res: Response, next: NextFunction) => {

@@ -1528,44 +1528,189 @@ export const globalSearch = async (req: AuthRequest, res: Response) => {
   }
 
   const q = String(req.query.q || '').trim();
+  const category = String(req.query.category || 'all').trim();
+  const limit = Math.min(parseInt(String(req.query.limit || '10')), 50);
+
   if (!q || q.length < 2) {
-    return res.json({ students: [], providers: [], appointments: [] });
+    return res.json({
+      students: [],
+      providers: [],
+      appointments: [],
+      soapNotes: [],
+      reports: [],
+      documents: [],
+      assessments: [],
+      announcements: [],
+      auditLogs: [],
+      systemModules: [],
+    });
   }
 
   const searchPattern = `%${q}%`;
 
   try {
-    const studentsRes = await query(
-      `SELECT id, name, registration_number, department, gender, contact_number, user_id 
-       FROM students 
-       WHERE name LIKE $1 OR registration_number LIKE $1 OR department LIKE $1
-       LIMIT 10`,
-      [searchPattern],
+    const results: any = {
+      students: [],
+      providers: [],
+      appointments: [],
+      soapNotes: [],
+      reports: [],
+      documents: [],
+      assessments: [],
+      announcements: [],
+      auditLogs: [],
+      systemModules: [],
+    };
+
+    // 1. Students
+    if (category === 'all' || category === 'students') {
+      const studentsRes = await query(
+        `SELECT id, name, registration_number, department, gender, contact_number, user_id 
+         FROM students 
+         WHERE name LIKE $1 OR registration_number LIKE $1 OR department LIKE $1
+         LIMIT $2`,
+        [searchPattern, limit],
+      );
+      results.students = studentsRes.rows || studentsRes;
+    }
+
+    // 2. Counsellors / Providers
+    if (category === 'all' || category === 'counsellors' || category === 'providers') {
+      const providersRes = await query(
+        `SELECT id, name, employee_id, specialization, room_number 
+         FROM providers 
+         WHERE name LIKE $1 OR employee_id LIKE $1 OR specialization LIKE $1
+         LIMIT $2`,
+        [searchPattern, limit],
+      );
+      results.providers = providersRes.rows || providersRes;
+    }
+
+    // 3. Appointments
+    if (category === 'all' || category === 'appointments') {
+      const apptsRes = await query(
+        `SELECT a.id, a.slot_date, a.time_slot, a.status, st.name as student_name, st.registration_number, p.name as provider_name
+         FROM appointments a
+         JOIN students st ON a.student_id = st.id
+         LEFT JOIN providers p ON a.provider_id = p.id
+         WHERE st.name LIKE $1 OR st.registration_number LIKE $1 OR p.name LIKE $1
+         LIMIT $2`,
+        [searchPattern, limit],
+      );
+      results.appointments = apptsRes.rows || apptsRes;
+    }
+
+    // 4. SOAP Notes / Sessions
+    if (category === 'all' || category === 'soapNotes' || category === 'sessions') {
+      const sessionsRes = await query(
+        `SELECT s.id, s.session_number, s.session_status, s.workflow_stage, s.created_at,
+                st.name as student_name, p.name as provider_name
+         FROM sessions s
+         JOIN students st ON s.student_id = st.id
+         LEFT JOIN providers p ON s.provider_id = p.id
+         WHERE st.name LIKE $1 OR st.registration_number LIKE $1 OR s.workflow_stage LIKE $1
+         LIMIT $2`,
+        [searchPattern, limit],
+      );
+      results.soapNotes = sessionsRes.rows || sessionsRes;
+    }
+
+    // 5. Reports
+    if (category === 'all' || category === 'reports') {
+      const reportsRes = await query(
+        `SELECT r.id, r.session_id, r.access_level, r.created_at, st.name as student_name
+         FROM report_access r
+         JOIN students st ON r.student_id = st.id
+         WHERE st.name LIKE $1 OR r.access_level LIKE $1
+         LIMIT $2`,
+        [searchPattern, limit],
+      );
+      results.reports = reportsRes.rows || reportsRes;
+    }
+
+    // 6. Documents
+    if (category === 'all' || category === 'documents') {
+      const docsRes = await query(
+        `SELECT d.id, d.file_name, d.category, d.created_at, st.name as student_name
+         FROM documents d
+         JOIN students st ON d.student_id = st.id
+         WHERE d.file_name LIKE $1 OR d.category LIKE $1 OR st.name LIKE $1
+         LIMIT $2`,
+        [searchPattern, limit],
+      );
+      results.documents = docsRes.rows || docsRes;
+    }
+
+    // 7. Assessments
+    if (category === 'all' || category === 'assessments') {
+      const assessmentsRes = await query(
+        `SELECT a.id, a.assessment_type, a.score, a.severity, a.created_at, st.name as student_name
+         FROM assessments a
+         JOIN students st ON a.student_id = st.id
+         WHERE a.assessment_type LIKE $1 OR a.severity LIKE $1 OR st.name LIKE $1
+         LIMIT $2`,
+        [searchPattern, limit],
+      );
+      results.assessments = assessmentsRes.rows || assessmentsRes;
+    }
+
+    // 8. Announcements
+    if (category === 'all' || category === 'announcements') {
+      const announcementsRes = await query(
+        `SELECT id, title, content, target_audience, priority, created_at
+         FROM announcements
+         WHERE title LIKE $1 OR content LIKE $1 OR target_audience LIKE $1
+         LIMIT $2`,
+        [searchPattern, limit],
+      );
+      results.announcements = announcementsRes.rows || announcementsRes;
+    }
+
+    // 9. Audit Logs (Admin/Super-Admin only)
+    if (
+      (category === 'all' || category === 'auditLogs') &&
+      (req.user.role === 'admin' || req.user.role === 'super-admin')
+    ) {
+      const auditRes = await query(
+        `SELECT a.id, a.action, a.resource, a.details, a.created_at, u.username
+         FROM audit_logs a
+         LEFT JOIN users u ON a.user_id = u.id
+         WHERE a.action LIKE $1 OR a.details LIKE $1 OR u.username LIKE $1
+         LIMIT $2`,
+        [searchPattern, limit],
+      );
+      results.auditLogs = auditRes.rows || auditRes;
+    }
+
+    // 10. System Modules / Settings
+    const availableModules = [
+      { name: 'Student Management', path: '/students', category: 'System Module' },
+      { name: 'Counselor Roster', path: '/counselors', category: 'System Module' },
+      { name: 'Appointment Scheduler', path: '/appointments', category: 'System Module' },
+      { name: 'SOAP Notes & EMR', path: '/emr', category: 'System Module' },
+      { name: 'Clinical Reports', path: '/reports', category: 'System Module' },
+      { name: 'Document Vault', path: '/documents', category: 'System Module' },
+      { name: 'Mental Health Assessments', path: '/assessments', category: 'System Module' },
+      { name: 'Announcements Centre', path: '/announcements', category: 'System Module' },
+      {
+        name: 'Audio QA & Compliance Audit',
+        path: '/admin/audio-audit',
+        category: 'System Module',
+      },
+      {
+        name: 'System Settings & Messenger Lock',
+        path: '/admin/settings',
+        category: 'System Module',
+      },
+    ];
+
+    results.systemModules = availableModules.filter(
+      (m) =>
+        m.name.toLowerCase().includes(q.toLowerCase()) ||
+        m.category.toLowerCase().includes(q.toLowerCase()),
     );
 
-    const providersRes = await query(
-      `SELECT id, name, employee_id, specialization, room_number 
-       FROM providers 
-       WHERE name LIKE $1 OR employee_id LIKE $1 OR specialization LIKE $1
-       LIMIT 10`,
-      [searchPattern],
-    );
-
-    const apptsRes = await query(
-      `SELECT a.id, a.slot_date, a.time_slot, a.status, st.name as student_name, st.registration_number, p.name as provider_name
-       FROM appointments a
-       JOIN students st ON a.student_id = st.id
-       LEFT JOIN providers p ON a.provider_id = p.id
-       WHERE st.name LIKE $1 OR st.registration_number LIKE $1 OR p.name LIKE $1
-       LIMIT 10`,
-      [searchPattern],
-    );
-
-    return res.json({
-      students: studentsRes.rows || studentsRes,
-      providers: providersRes.rows || providersRes,
-      appointments: apptsRes.rows || apptsRes,
-    });
+    return res.json(results);
   } catch (err: any) {
     console.error('globalSearch error:', err);
     return res.status(500).json({ error: err.message || 'Internal server error' });

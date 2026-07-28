@@ -412,6 +412,12 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
 
   // Notifications & Messages state
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [showCreateAnnModal, setShowCreateAnnModal] = useState(false);
+  const [annTitle, setAnnTitle] = useState('');
+  const [annContent, setAnnContent] = useState('');
+  const [annTarget, setAnnTarget] = useState('all_students');
+  const [annPriority, setAnnPriority] = useState('medium');
+  const [annSubmitting, setAnnSubmitting] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -739,9 +745,48 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
   const fetchNotifications = async () => {
     try {
       const res = await api.admin.announcements(); // Gets announcements
-      setNotifications(res);
+      setNotifications(res || []);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handlePublishAnnouncement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!annContent.trim()) {
+      showToast('Announcement content is required.', 'error');
+      return;
+    }
+    setAnnSubmitting(true);
+    try {
+      await api.admin.createAnnouncement({
+        title: annTitle.trim() || undefined,
+        content: annContent.trim(),
+        targetAudience: annTarget,
+        priority: annPriority,
+      });
+      showToast('Announcement published successfully!', 'success');
+      setAnnTitle('');
+      setAnnContent('');
+      setAnnTarget('all_students');
+      setAnnPriority('medium');
+      setShowCreateAnnModal(false);
+      fetchNotifications();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to publish announcement', 'error');
+    } finally {
+      setAnnSubmitting(false);
+    }
+  };
+
+  const handleDeleteAnnouncement = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this announcement?')) return;
+    try {
+      await api.admin.deleteAnnouncement(id);
+      showToast('Announcement deleted successfully.', 'success');
+      fetchNotifications();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to delete announcement', 'error');
     }
   };
 
@@ -3296,11 +3341,21 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
           {/* TAB: SYSTEM ANNOUNCEMENTS */}
           {activeTab === 'notifications' && (
             <div className="space-y-8 animate-fade-in-up">
-              <div>
-                <h2 className="text-2xl font-black tracking-tight">University Announcements</h2>
-                <p className="text-xs text-slate-500 mt-1">
-                  Global wellness broadcast notices published by administration
-                </p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-black tracking-tight">Wellness Announcements</h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Broadcast advisories, wellness events & updates published by counselors and
+                    administration
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowCreateAnnModal(true)}
+                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 w-fit cursor-pointer shrink-0"
+                >
+                  <Plus size={16} />
+                  <span>Publish New Announcement</span>
+                </button>
               </div>
 
               <div className="space-y-4">
@@ -3309,29 +3364,77 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                     No active announcements found.
                   </div>
                 ) : (
-                  notifications.map((ann) => (
-                    <div
-                      key={ann.id}
-                      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-5 rounded-2xl shadow-sm flex items-start gap-4 relative overflow-hidden"
-                    >
-                      <div className="p-3 bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 rounded-xl">
-                        <Bell size={18} />
-                      </div>
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] text-slate-400 uppercase font-black tracking-wider">
-                            By Administrator
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            {new Date(ann.created_at).toLocaleString('en-IN')}
-                          </span>
+                  notifications.map((ann) => {
+                    const authorLabel = ann.author_name
+                      ? `By ${ann.author_name} (${ann.author_role === 'provider' || ann.author_role === 'clinician' ? 'Counselor' : ann.author_role || 'Admin'})`
+                      : ann.author_role === 'provider' || ann.author_role === 'clinician'
+                        ? 'By Counselor'
+                        : 'By Administrator';
+                    const mainText = (ann.content || ann.message || '').replace(
+                      /^CUAP Announcement:\s*/,
+                      '',
+                    );
+                    const prioColor =
+                      ann.priority === 'high' || ann.priority === 'urgent'
+                        ? 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400 border-red-200'
+                        : ann.priority === 'low'
+                          ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200'
+                          : 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 border-blue-200';
+
+                    return (
+                      <div
+                        key={ann.id}
+                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-5 rounded-2xl shadow-sm flex items-start gap-4 relative overflow-hidden group"
+                      >
+                        <div className="p-3 bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 rounded-xl shrink-0 mt-0.5">
+                          <Bell size={18} />
                         </div>
-                        <p className="text-sm font-bold text-slate-800 dark:text-slate-100 leading-relaxed pt-1">
-                          {ann.message.replace(/^CUAP Announcement:\s*/, '')}
-                        </p>
+                        <div className="flex-1 space-y-1.5 min-w-0">
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[10px] text-blue-700 dark:text-blue-400 uppercase font-black tracking-wider bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md border border-blue-200/50">
+                                {authorLabel}
+                              </span>
+                              {ann.priority && (
+                                <span
+                                  className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${prioColor}`}
+                                >
+                                  {ann.priority}
+                                </span>
+                              )}
+                              {ann.target_audience && (
+                                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                                  Audience: {ann.target_audience.replace('_', ' ')}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                {ann.created_at
+                                  ? new Date(ann.created_at).toLocaleString('en-IN')
+                                  : ''}
+                              </span>
+                              <button
+                                onClick={() => handleDeleteAnnouncement(ann.id)}
+                                className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-opacity p-1 rounded cursor-pointer"
+                                title="Delete announcement"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                          {ann.title && (
+                            <h4 className="text-base font-bold text-slate-900 dark:text-white pt-1">
+                              {ann.title}
+                            </h4>
+                          )}
+                          <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed font-medium">
+                            {mainText}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -5415,6 +5518,110 @@ HANDOFF & REFERRALS: ${safetyFormData.referral_details || 'N/A'}`;
 
       {/* Global Search Modal */}
       <GlobalSearchModal isOpen={globalSearchOpen} onClose={() => setGlobalSearchOpen(false)} />
+
+      {/* Publish Announcement Modal */}
+      {showCreateAnnModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative animate-fade-in-up">
+            <button
+              onClick={() => setShowCreateAnnModal(false)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-full cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-3 bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-2xl">
+                <Bell size={22} />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                  Publish New Announcement
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Broadcast wellness advisories or notices to students and staff
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handlePublishAnnouncement} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Announcement Title
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Stress Management Workshop & Mindfulness Session"
+                  value={annTitle}
+                  onChange={(e) => setAnnTitle(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Target Audience
+                  </label>
+                  <select
+                    value={annTarget}
+                    onChange={(e) => setAnnTarget(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all_students">All Students</option>
+                    <option value="all">All Users & Staff</option>
+                    <option value="counselors">Counselors Only</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Priority Level
+                  </label>
+                  <select
+                    value={annPriority}
+                    onChange={(e) => setAnnPriority(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="medium">Normal / Standard</option>
+                    <option value="high">Urgent / High</option>
+                    <option value="low">Low Priority</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Message Content *
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  placeholder="Type the full announcement details here..."
+                  value={annContent}
+                  onChange={(e) => setAnnContent(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateAnnModal(false)}
+                  className="px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={annSubmitting}
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {annSubmitting ? 'Publishing...' : 'Publish Broadcast'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

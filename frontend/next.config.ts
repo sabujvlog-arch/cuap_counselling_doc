@@ -11,6 +11,9 @@ const nextConfig: NextConfig = {
     '172.21.91.100',
     '172.21.91.100:3000',
     'localhost:3000',
+    '0.0.0.0',
+    '0.0.0.0:3000',
+    '*',
   ],
   images: {
     unoptimized: false, // keep optimization on

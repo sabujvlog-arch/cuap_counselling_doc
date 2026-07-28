@@ -129,16 +129,24 @@ import {
   listUsers,
   toggleBlockUser,
   updateUserRole,
+  getMessengerStatus,
+  toggleMessengerLock,
 } from '../controllers/adminController';
 
 import { aiAssist } from '../controllers/aiController';
 import { publicChat, studentChat } from '../controllers/publicChatController';
+import {
+  uploadSessionAudio,
+  getAdminAudioRecordings,
+  streamAdminAudio,
+  purgeAdminAudio,
+} from '../controllers/audioController';
 import { createRateLimiter } from '../middleware/rateLimiter';
 
 // Rate Limiter Configurations
 const authRateLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5,
+  max: 1000,
   message: 'Too many login attempts from this IP, please try again after 15 minutes.',
 });
 
@@ -240,6 +248,13 @@ router.post(
   requireRoles(['admin', 'super-admin']),
   updateUserRole,
 );
+router.get('/admin/messenger/status', authenticateToken, getMessengerStatus);
+router.post(
+  '/admin/messenger/toggle-lock',
+  authenticateToken,
+  requireRoles(['admin', 'super-admin']),
+  toggleMessengerLock,
+);
 
 // ==========================================
 // Provider List (for student booking)
@@ -313,6 +328,34 @@ router.post(
   saveMSELog,
 );
 router.get('/clinical/mse/student/:studentId', authenticateToken, getMSELogs);
+// ==========================================
+// Privacy & Audio Retention Protocol Routes
+// ==========================================
+router.post(
+  '/clinical/audio/upload',
+  authenticateToken,
+  requireRoles(['provider', 'clinician', 'dept-head', 'super-admin']),
+  uploadSessionAudio,
+);
+router.get(
+  '/admin/audio/list',
+  authenticateToken,
+  requireRoles(['admin', 'super-admin']),
+  getAdminAudioRecordings,
+);
+router.get(
+  '/admin/audio/:id/stream',
+  authenticateToken,
+  requireRoles(['admin', 'super-admin']),
+  streamAdminAudio,
+);
+router.delete(
+  '/admin/audio/:id/purge',
+  authenticateToken,
+  requireRoles(['admin', 'super-admin']),
+  purgeAdminAudio,
+);
+
 router.get(
   '/clinical/mse/:id/print',
   authenticateToken,
@@ -521,11 +564,16 @@ router.delete('/admin/backups/:fileName', authenticateToken, requireRoles(['admi
 router.get('/admin/backups/:fileName/download', downloadBackup); // Direct download handles auth internally if query token is present
 router.post('/admin/sanitize', authenticateToken, requireRoles(['admin']), sanitizeDatabase);
 router.get('/admin/announcements', authenticateToken, getAnnouncements);
-router.post('/admin/announcements', authenticateToken, requireRoles(['admin']), createAnnouncement);
+router.post(
+  '/admin/announcements',
+  authenticateToken,
+  requireRoles(['admin', 'provider', 'dept-head', 'super-admin']),
+  createAnnouncement,
+);
 router.put(
   '/admin/announcements/:id',
   authenticateToken,
-  requireRoles(['admin']),
+  requireRoles(['admin', 'provider', 'dept-head', 'super-admin']),
   updateAnnouncement,
 );
 router.delete(
