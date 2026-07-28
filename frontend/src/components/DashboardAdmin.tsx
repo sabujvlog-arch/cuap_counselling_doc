@@ -3609,49 +3609,66 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                         </p>
                       ) : (
                         <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                          {announcements.map((ann) => (
-                            <div
-                              key={ann.id}
-                              className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-800/80 rounded-xl flex items-start justify-between gap-3 text-xs"
-                            >
-                              <div className="flex-1 space-y-1">
-                                <p className="font-semibold text-slate-700 dark:text-slate-350 leading-relaxed">
-                                  {ann.message.replace(/^CUAP Announcement:\s*/, '')}
-                                </p>
-                                <span className="text-[9px] text-slate-400 font-mono block">
-                                  {new Date(ann.created_at).toLocaleString('en-IN')}
-                                </span>
+                          {announcements.map((ann) => {
+                            const mainText = (ann.content || ann.message || '').replace(
+                              /^CUAP Announcement:\s*/,
+                              '',
+                            );
+                            return (
+                              <div
+                                key={ann.id}
+                                className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-800/80 rounded-xl flex items-start justify-between gap-3 text-xs"
+                              >
+                                <div className="flex-1 space-y-1">
+                                  {ann.title && (
+                                    <h5 className="font-bold text-slate-850 dark:text-slate-100 text-xs">
+                                      {ann.title}
+                                    </h5>
+                                  )}
+                                  <p className="font-semibold text-slate-700 dark:text-slate-350 leading-relaxed">
+                                    {mainText}
+                                  </p>
+                                  <div className="flex items-center gap-2 text-[9px] text-slate-400 font-mono pt-0.5">
+                                    <span>
+                                      {ann.created_at
+                                        ? new Date(ann.created_at).toLocaleString('en-IN')
+                                        : ''}
+                                    </span>
+                                    {ann.author_name && (
+                                      <span>
+                                        • By {ann.author_name} ({ann.author_role || 'Admin'})
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <button
+                                    onClick={() => {
+                                      const nextMsg = prompt('Edit notice message:', mainText);
+                                      if (nextMsg !== null && nextMsg.trim() !== '') {
+                                        handleUpdateAnnouncement(ann.id, nextMsg.trim());
+                                      }
+                                    }}
+                                    className="p-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:text-blue-600 transition cursor-pointer"
+                                    title="Edit Notice"
+                                  >
+                                    <Edit size={12} />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (confirm('Delete this announcement?')) {
+                                        handleDeleteAnnouncement(ann.id);
+                                      }
+                                    }}
+                                    className="p-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:text-red-600 transition cursor-pointer"
+                                    title="Delete Notice"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <button
-                                  onClick={() => {
-                                    const nextMsg = prompt(
-                                      'Edit notice message:',
-                                      ann.message.replace(/^CUAP Announcement:\s*/, ''),
-                                    );
-                                    if (nextMsg !== null && nextMsg.trim() !== '') {
-                                      handleUpdateAnnouncement(ann.id, nextMsg.trim());
-                                    }
-                                  }}
-                                  className="p-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:text-blue-600 transition"
-                                  title="Edit Notice"
-                                >
-                                  <Edit size={12} />
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    if (confirm('Delete this announcement?')) {
-                                      handleDeleteAnnouncement(ann.id);
-                                    }
-                                  }}
-                                  className="p-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg hover:text-red-600 transition"
-                                  title="Delete Notice"
-                                >
-                                  <Trash2 size={12} />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
