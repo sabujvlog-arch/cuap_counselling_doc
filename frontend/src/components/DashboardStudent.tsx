@@ -38,6 +38,7 @@ import {
   Meh,
   Frown,
   Lightbulb,
+  Lock,
   Users as UsersIcon,
   Megaphone,
   Folder,
@@ -184,6 +185,19 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
       setFeedbackSubmitting(false);
     }
   };
+
+  const [adminAssessmentsEnabled, setAdminAssessmentsEnabled] = useState(true);
+
+  useEffect(() => {
+    api.admin
+      .getAssessmentsStatus()
+      .then((res: any) => {
+        if (res && typeof res.assessmentsEnabled === 'boolean') {
+          setAdminAssessmentsEnabled(res.assessmentsEnabled);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const tabLabels: Record<string, string> = {
     overview: 'Dashboard Overview',
@@ -2426,7 +2440,21 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                     </p>
                   </div>
 
-                  {!isAssessmentsUnlocked ? (
+                  {!adminAssessmentsEnabled ? (
+                    <div className="border border-rose-200 dark:border-rose-900/50 bg-rose-50/50 dark:bg-rose-950/20 rounded-2xl p-10 text-center shadow-sm max-w-xl mx-auto space-y-4">
+                      <div className="w-16 h-16 bg-rose-100 dark:bg-rose-900/40 rounded-full flex items-center justify-center text-rose-600 dark:text-rose-400 text-2xl mx-auto">
+                        <Lock size={28} />
+                      </div>
+                      <h3 className="font-extrabold text-rose-900 dark:text-rose-200 text-lg">
+                        Assessments Locked by Administrator
+                      </h3>
+                      <p className="text-xs text-rose-700 dark:text-rose-300 leading-relaxed font-medium">
+                        Self-screening questionnaires (PHQ-9 & GAD-7) have been temporarily locked
+                        and disabled by the Administrator. Please contact your CUAP Wellness
+                        Counselor if you require immediate clinical support.
+                      </p>
+                    </div>
+                  ) : !isAssessmentsUnlocked ? (
                     <div className="border border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-900 rounded-2xl p-10 text-center shadow-sm max-w-xl mx-auto space-y-4">
                       <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center text-2xl mx-auto"></div>
                       <h3 className="font-bold text-slate-800 dark:text-white">

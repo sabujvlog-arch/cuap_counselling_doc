@@ -140,6 +140,8 @@ import {
   toggleMessengerLock,
   getAISoapStatus,
   toggleAISoapLock,
+  getAssessmentsStatus,
+  toggleAssessmentsLock,
   getActiveSessions,
   revokeSession,
 } from '../controllers/adminController';
@@ -620,6 +622,24 @@ router.post(
   authenticateToken,
   requireRoles(['admin', 'super-admin']),
   toggleAISoapLock,
+);
+
+// Secure Messenger Lock Settings
+router.get('/admin/settings/messenger', authenticateToken, getMessengerStatus);
+router.post(
+  '/admin/settings/toggle-messenger',
+  authenticateToken,
+  requireRoles(['admin', 'super-admin']),
+  toggleMessengerLock,
+);
+
+// Student Self-Screening Assessments Lock Settings
+router.get('/admin/settings/assessments', authenticateToken, getAssessmentsStatus);
+router.post(
+  '/admin/settings/toggle-assessments',
+  authenticateToken,
+  requireRoles(['admin', 'super-admin']),
+  toggleAssessmentsLock,
 );
 
 // Active Sessions & Connected Devices

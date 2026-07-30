@@ -155,6 +155,22 @@ export const submitAssessment = async (req: AuthRequest, res: Response) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  // Check if assessments feature is locked by Admin for students
+  try {
+    const settingRes = await query(
+      "SELECT value FROM system_settings WHERE key_name = 'assessments_enabled'",
+    );
+    if (
+      settingRes.rows.length > 0 &&
+      settingRes.rows[0].value === 'false' &&
+      req.user.role === 'student'
+    ) {
+      return res
+        .status(403)
+        .json({ error: 'Self-Screening Assessments are currently locked and disabled by Admin.' });
+    }
+  } catch (_) {}
+
   if (!studentId || !type || !answers) {
     return res
       .status(400)

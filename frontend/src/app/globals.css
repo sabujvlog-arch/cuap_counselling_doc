@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;0,14..32,900;1,14..32,400&display=swap');
 @import 'tailwindcss';
 
-@variant dark (&:where(.dark, .dark *));
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* ================================================================
    CUAP WCCMS — Global CSS Design System
@@ -250,6 +250,52 @@
   --gradient-danger: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
   --gradient-info: linear-gradient(135deg, #06b6d4 0%, #38bdf8 100%);
   --gradient-page: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #0f172a 100%);
+}
+
+/* ── Global Dark Mode Utility Overrides ────────────────────────── */
+html.dark .bg-white,
+body.dark .bg-white,
+.dark .bg-white {
+  background-color: var(--card) !important;
+  color: var(--text);
+}
+
+html.dark .bg-slate-50,
+html.dark .bg-slate-50\/80,
+html.dark .bg-slate-50\/50,
+html.dark .bg-slate-50\/20,
+html.dark .bg-slate-100,
+.dark .bg-slate-50,
+.dark .bg-slate-50\/80,
+.dark .bg-slate-50\/50,
+.dark .bg-slate-50\/20,
+.dark .bg-slate-100 {
+  background-color: var(--surface) !important;
+}
+
+html.dark .border-slate-200,
+html.dark .border-slate-100,
+html.dark .border-slate-150,
+.dark .border-slate-200,
+.dark .border-slate-100,
+.dark .border-slate-150 {
+  border-color: var(--border) !important;
+}
+
+html.dark .text-slate-900,
+html.dark .text-slate-800,
+html.dark .text-slate-700,
+.dark .text-slate-900,
+.dark .text-slate-800,
+.dark .text-slate-700 {
+  color: var(--text) !important;
+}
+
+html.dark .text-slate-600,
+html.dark .text-slate-500,
+.dark .text-slate-600,
+.dark .text-slate-500 {
+  color: var(--text-secondary) !important;
 }
 
 /* ================================================================

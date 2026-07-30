@@ -597,6 +597,18 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ enabled }),
       }),
+    getMessengerStatus: () => request('/admin/settings/messenger'),
+    toggleMessengerLock: (enabled: boolean) =>
+      request('/admin/settings/toggle-messenger', {
+        method: 'POST',
+        body: JSON.stringify({ enabled }),
+      }),
+    getAssessmentsStatus: () => request('/admin/settings/assessments'),
+    toggleAssessmentsLock: (enabled: boolean) =>
+      request('/admin/settings/toggle-assessments', {
+        method: 'POST',
+        body: JSON.stringify({ enabled }),
+      }),
     getActiveSessions: () => request('/admin/active-sessions'),
     revokeSession: (id: number | string) =>
       request(`/admin/active-sessions/${id}/revoke`, {

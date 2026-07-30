@@ -1277,6 +1277,61 @@ export const toggleAISoapLock = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const getAssessmentsStatus = async (req: AuthRequest, res: Response) => {
+  try {
+    const settingRes = await query(
+      "SELECT value FROM system_settings WHERE key_name = 'assessments_enabled'",
+    );
+    const assessmentsEnabled =
+      settingRes.rows.length > 0 ? settingRes.rows[0].value === 'true' : true;
+    return res.json({ assessmentsEnabled });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to retrieve assessments status' });
+  }
+};
+
+export const toggleAssessmentsLock = async (req: AuthRequest, res: Response) => {
+  if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'super-admin')) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  const { enabled } = req.body;
+  const strValue = enabled ? 'true' : 'false';
+
+  try {
+    const existing = await query(
+      "SELECT id FROM system_settings WHERE key_name = 'assessments_enabled'",
+    );
+    if (existing.rows.length === 0) {
+      await query(
+        "INSERT INTO system_settings (key_name, value, description) VALUES ('assessments_enabled', $1, 'Admin toggle for Student Self-Screening Assessments')",
+        [strValue],
+      );
+    } else {
+      await query("UPDATE system_settings SET value = $1 WHERE key_name = 'assessments_enabled'", [
+        strValue,
+      ]);
+    }
+
+    await query(
+      'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
+      [
+        req.user.id,
+        'TOGGLE_ASSESSMENTS_LOCK',
+        `Admin set assessments_enabled to ${strValue}`,
+        req.ip,
+      ],
+    );
+
+    return res.json({
+      message: `Student Self-Screening Assessments ${enabled ? 'unlocked' : 'locked'} successfully`,
+      assessmentsEnabled: enabled,
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to toggle assessments status' });
+  }
+};
+
 // ----------------------------------------------------
 // Active Sessions & Connected Devices
 // ----------------------------------------------------

@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '@/lib/api';
+import { useTheme } from '@/context/ThemeContext';
+import { formatISTDateTime } from '@/utils/formatters';
 import DiffViewer from './ui/DiffViewer';
 import {
   Sparkles,
@@ -111,6 +113,7 @@ export default function SOAPEditor({
   onSaved,
   forcedMode,
 }: SOAPEditorProps) {
+  const { mode } = useTheme();
   const [sessionId, setSessionId] = useState<number | undefined>(initialSessionId);
   const [clinicianMode, setClinicianMode] = useState<ClinicianMode>(forcedMode || 'counselor');
 
@@ -852,32 +855,30 @@ export default function SOAPEditor({
   // ============================================================
 
   return (
-    <div className="emr-root">
+    <div className={`emr-root ${mode === 'dark' ? 'dark' : 'light-mode'}`}>
       <style>{`
-        /* ── Theme variables ── */
-        .emr-root {
-          --emr-bg: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 60%, #e2e8f0 100%);
-          --emr-text: #0f172a;
-          --emr-card-bg: rgba(255, 255, 255, 0.7);
-          --emr-input-bg: rgba(241, 245, 249, 0.85);
-          --emr-border: rgba(0, 0, 0, 0.08);
-          --emr-header-bg: rgba(255, 255, 255, 0.7);
-          --emr-section-border: rgba(0, 0, 0, 0.06);
-          --emr-label-color: #475569;
+        /* ── Default Dark Theme Variables ── */
+        .emr-root, .dark .emr-root, html.dark .emr-root {
+          --emr-bg: #030712;
+          --emr-text: #f8fafc;
+          --emr-card-bg: #111827;
+          --emr-input-bg: #1e293b;
+          --emr-border: rgba(255, 255, 255, 0.1);
+          --emr-header-bg: #111827;
+          --emr-section-border: rgba(255, 255, 255, 0.08);
+          --emr-label-color: #94a3b8;
           --emr-muted: #64748b;
-          --emr-panel-bg: rgba(255, 255, 255, 0.85);
-          --emr-text-white: #0f172a;
-          --emr-header-text: #0f172a;
-          --emr-btn-ghost-bg: rgba(0, 0, 0, 0.04);
-          --emr-btn-ghost-hover: rgba(0, 0, 0, 0.08);
-          --emr-btn-ghost-text: #475569;
-          --emr-patient-info-color: #475569;
-          --emr-hover-bg: rgba(0, 0, 0, 0.02);
+          --emr-panel-bg: #111827;
+          --emr-text-white: #ffffff;
+          --emr-header-text: #f8fafc;
+          --emr-btn-ghost-bg: rgba(255, 255, 255, 0.06);
+          --emr-btn-ghost-hover: rgba(255, 255, 255, 0.12);
+          --emr-btn-ghost-text: #cbd5e1;
+          --emr-patient-info-color: #94a3b8;
+          --emr-hover-bg: rgba(255, 255, 255, 0.03);
 
           font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-          background: var(--emr-bg) no-repeat;
-          background-attachment: fixed;
-          background-size: cover;
+          background: var(--emr-bg);
           color: var(--emr-text);
           min-height: 100vh;
           display: flex;
@@ -885,6 +886,27 @@ export default function SOAPEditor({
           gap: 0;
           min-width: 0;
           max-width: 100%;
+        }
+
+        /* ── Light Theme Override ── */
+        html:not(.dark) .emr-root.light-mode {
+          --emr-bg: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 60%, #e2e8f0 100%);
+          --emr-text: #0f172a;
+          --emr-card-bg: #ffffff;
+          --emr-input-bg: #f8fafc;
+          --emr-border: rgba(0, 0, 0, 0.1);
+          --emr-header-bg: #ffffff;
+          --emr-section-border: rgba(0, 0, 0, 0.08);
+          --emr-label-color: #475569;
+          --emr-muted: #64748b;
+          --emr-panel-bg: #ffffff;
+          --emr-text-white: #0f172a;
+          --emr-header-text: #0f172a;
+          --emr-btn-ghost-bg: rgba(0, 0, 0, 0.04);
+          --emr-btn-ghost-hover: rgba(0, 0, 0, 0.08);
+          --emr-btn-ghost-text: #475569;
+          --emr-patient-info-color: #475569;
+          --emr-hover-bg: rgba(0, 0, 0, 0.02);
         }
 
 
@@ -1004,6 +1026,7 @@ export default function SOAPEditor({
           outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
         }
         .emr-textarea::placeholder, .emr-input::placeholder { color: #64748b; }
+        .emr-select option { background: var(--emr-card-bg); color: var(--emr-text); }
 
         /* ── Grid layouts ── */
         .emr-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -2888,7 +2911,7 @@ export default function SOAPEditor({
                             {log.channel} — {log.outcome}
                           </span>
                           <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-                            {new Date(log.logged_at).toLocaleString()}
+                            {formatISTDateTime(log.logged_at)}
                           </span>
                         </div>
                         <p style={{ margin: '4px 0 0', color: '#e2e8f0' }}>
@@ -2948,9 +2971,7 @@ export default function SOAPEditor({
                           Version #{ver.version || idx + 1}
                         </span>
                         <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-                          {ver.createdAt
-                            ? new Date(ver.createdAt).toLocaleString()
-                            : 'Initial AI Draft'}
+                          {ver.createdAt ? formatISTDateTime(ver.createdAt) : 'Initial AI Draft'}
                         </span>
                       </div>
                       <div style={{ fontSize: '0.78rem', color: '#cbd5e1', lineHeight: 1.4 }}>
@@ -3408,7 +3429,7 @@ export default function SOAPEditor({
                               </span>
                               <div className="text-xs text-slate-700 dark:text-slate-300 font-bold">
                                 Version {ver.version} (Saved by {ver.editor_name || 'Clinician'} on{' '}
-                                {new Date(ver.created_at).toLocaleString()})
+                                {formatISTDateTime(ver.created_at)})
                               </div>
                             </div>
 

@@ -48,6 +48,10 @@ import {
   Printer,
   Bot,
   Lock,
+  MessageSquare,
+  BookOpen,
+  Clipboard,
+  Heart,
 } from 'lucide-react';
 import OPDRegister from './OPDRegister';
 import ThemeToggle from './ui/ThemeToggle';
@@ -57,8 +61,8 @@ import Sidebar from './ui/Sidebar';
 import Breadcrumbs from './ui/Breadcrumbs';
 import NotificationCenter from './ui/NotificationCenter';
 import EnterpriseTable from './ui/EnterpriseTable';
+import { formatISTDateTime } from '@/utils/formatters';
 import GlobalSearchModal from './ui/GlobalSearchModal';
-import { BookOpen, Clipboard, Heart } from 'lucide-react';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -254,9 +258,65 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
   const [showSanitizeModal, setShowSanitizeModal] = useState(false);
   const [aiSoapEnabled, setAiSoapEnabled] = useState(true);
   const [togglingAiSoap, setTogglingAiSoap] = useState(false);
+  const [messengerEnabled, setMessengerEnabled] = useState(true);
+  const [togglingMessenger, setTogglingMessenger] = useState(false);
+  const [assessmentsEnabled, setAssessmentsEnabled] = useState(true);
+  const [togglingAssessments, setTogglingAssessments] = useState(false);
+
+  const fetchAssessmentsStatus = async () => {
+    try {
+      const res = await api.admin.getAssessmentsStatus();
+      if (res && typeof res.assessmentsEnabled === 'boolean') {
+        setAssessmentsEnabled(res.assessmentsEnabled);
+      }
+    } catch (_) {}
+  };
+
+  const handleToggleAssessments = async () => {
+    setTogglingAssessments(true);
+    try {
+      const nextState = !assessmentsEnabled;
+      await api.admin.toggleAssessmentsLock(nextState);
+      setAssessmentsEnabled(nextState);
+      showToast(
+        `Student Self-Screening Assessments ${nextState ? 'unlocked and enabled' : 'locked and disabled'}.`,
+        'success',
+      );
+    } catch (e: any) {
+      showToast(e.message || 'Failed to update Assessments status.', 'error');
+    } finally {
+      setTogglingAssessments(false);
+    }
+  };
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [auditSubTab, setAuditSubTab] = useState<'sessions' | 'logs'>('sessions');
+
+  const fetchMessengerStatus = async () => {
+    try {
+      const res = await api.admin.getMessengerStatus();
+      if (res && typeof res.messengerEnabled === 'boolean') {
+        setMessengerEnabled(res.messengerEnabled);
+      }
+    } catch (_) {}
+  };
+
+  const handleToggleMessenger = async () => {
+    setTogglingMessenger(true);
+    try {
+      const nextState = !messengerEnabled;
+      await api.admin.toggleMessengerLock(nextState);
+      setMessengerEnabled(nextState);
+      showToast(
+        `Secure Messenger ${nextState ? 'unlocked and enabled' : 'locked and disabled'} for counselors and students.`,
+        'success',
+      );
+    } catch (e: any) {
+      showToast(e.message || 'Failed to update Secure Messenger status.', 'error');
+    } finally {
+      setTogglingMessenger(false);
+    }
+  };
 
   const fetchActiveSessions = async () => {
     setLoadingSessions(true);
@@ -381,6 +441,8 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
     fetchAnnouncements();
     fetchBackups();
     fetchAiSoapStatus();
+    fetchMessengerStatus();
+    fetchAssessmentsStatus();
     fetchActiveSessions();
   }, []);
 
@@ -3718,7 +3780,7 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                         {
                           key: 'created_at',
                           header: 'Timestamp',
-                          render: (log: any) => new Date(log.created_at).toLocaleString(),
+                          render: (log: any) => formatISTDateTime(log.created_at),
                         },
                       ];
 
@@ -3962,6 +4024,130 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                           <Lock size={14} />
                         )}
                         {aiSoapEnabled ? 'Disable AI for Counselors' : 'Enable AI for Counselors'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Secure Messenger Access Control Card */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl shadow-sm space-y-4">
+                    <div className="flex items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800 flex-wrap">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2 bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 rounded-xl">
+                          <MessageSquare size={18} />
+                        </div>
+                        <div>
+                          <h3 className="font-extrabold text-slate-900 dark:text-white text-sm">
+                            Secure Messenger Control (Counselor & Student)
+                          </h3>
+                          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mt-0.5">
+                            Real-time Messaging & Confidential Chat Access Control
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
+                          messengerEnabled
+                            ? 'bg-emerald-50 text-emerald-600 border border-emerald-200 dark:bg-emerald-950/30'
+                            : 'bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-950/30'
+                        }`}
+                      >
+                        {messengerEnabled ? 'Active' : 'Locked by Admin'}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-slate-600 dark:text-slate-350 leading-relaxed font-medium">
+                      Control whether counselors and students can send and receive confidential
+                      messages in the Secure Messenger. When locked, messaging will be temporarily
+                      disabled across both portals.
+                    </p>
+
+                    <div className="flex justify-between items-center pt-2 flex-wrap gap-3">
+                      <div className="text-xs text-slate-500 font-semibold">
+                        Current Status:{' '}
+                        <span className="font-bold text-slate-800 dark:text-slate-200">
+                          {messengerEnabled
+                            ? 'Counselor & Student Messenger Unlocked'
+                            : 'Counselor & Student Messenger Locked by Admin'}
+                        </span>
+                      </div>
+                      <button
+                        onClick={handleToggleMessenger}
+                        disabled={togglingMessenger}
+                        className={`px-4 py-2 text-xs font-extrabold rounded-xl shadow-sm transition cursor-pointer flex items-center gap-2 ${
+                          messengerEnabled
+                            ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                        }`}
+                      >
+                        {togglingMessenger ? (
+                          <RefreshCw size={14} className="animate-spin" />
+                        ) : (
+                          <Lock size={14} />
+                        )}
+                        {messengerEnabled ? 'Lock Messenger Access' : 'Unlock Messenger Access'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Student Self-Screening Assessments Control Card */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl shadow-sm space-y-4">
+                    <div className="flex items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800 flex-wrap">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2 bg-indigo-50 dark:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                          <Clipboard size={18} />
+                        </div>
+                        <div>
+                          <h3 className="font-extrabold text-slate-900 dark:text-white text-sm">
+                            Self-Screening Assessments Control (Student Portal)
+                          </h3>
+                          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mt-0.5">
+                            PHQ-9 (Depression) & GAD-7 (Anxiety) Screening Desk Access
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
+                          assessmentsEnabled
+                            ? 'bg-emerald-50 text-emerald-600 border border-emerald-200 dark:bg-emerald-950/30'
+                            : 'bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-950/30'
+                        }`}
+                      >
+                        {assessmentsEnabled ? 'Active' : 'Locked by Admin'}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-slate-600 dark:text-slate-350 leading-relaxed font-medium">
+                      Control whether students can access the Self-Screening Assessments Centre
+                      (PHQ-9 & GAD-7 questionnaires) to track score trends over time. When disabled,
+                      the screening desk will be locked for all students.
+                    </p>
+
+                    <div className="flex justify-between items-center pt-2 flex-wrap gap-3">
+                      <div className="text-xs text-slate-500 font-semibold">
+                        Current Status:{' '}
+                        <span className="font-bold text-slate-800 dark:text-slate-200">
+                          {assessmentsEnabled
+                            ? 'Student Self-Screening Assessments Unlocked'
+                            : 'Student Self-Screening Assessments Locked by Admin'}
+                        </span>
+                      </div>
+                      <button
+                        onClick={handleToggleAssessments}
+                        disabled={togglingAssessments}
+                        className={`px-4 py-2 text-xs font-extrabold rounded-xl shadow-sm transition cursor-pointer flex items-center gap-2 ${
+                          assessmentsEnabled
+                            ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                        }`}
+                      >
+                        {togglingAssessments ? (
+                          <RefreshCw size={14} className="animate-spin" />
+                        ) : (
+                          <Lock size={14} />
+                        )}
+                        {assessmentsEnabled
+                          ? 'Disable Assessments for Students'
+                          : 'Enable Assessments for Students'}
                       </button>
                     </div>
                   </div>

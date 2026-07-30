@@ -316,6 +316,35 @@ const upgradeDatabaseSchema = async (): Promise<void> => {
   }
 
   // ============================================================
+  // System Settings Table Migration
+  // ============================================================
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS system_settings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        key_name VARCHAR(100) UNIQUE NOT NULL,
+        value TEXT NOT NULL,
+        description TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('Checked/Created system_settings table (SQLite).');
+  } catch (e) {
+    try {
+      await query(`
+        CREATE TABLE IF NOT EXISTS system_settings (
+          id SERIAL PRIMARY KEY,
+          key_name VARCHAR(100) UNIQUE NOT NULL,
+          value TEXT NOT NULL,
+          description TEXT,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('Checked/Created system_settings table (PostgreSQL).');
+    } catch (e2) {}
+  }
+
+  // ============================================================
   // WCCMS — Student Portal Improvements migrations
   // ============================================================
   const newAppointmentCols: [string, string][] = [

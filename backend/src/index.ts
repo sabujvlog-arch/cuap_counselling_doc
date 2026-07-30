@@ -1,3 +1,5 @@
+process.env.TZ = 'Asia/Kolkata';
+
 import express from 'express'; // Activated theme toggle server update
 import cors from 'cors';
 import path from 'path';

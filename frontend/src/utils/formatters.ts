@@ -18,3 +18,57 @@ export const formatProviderTitle = (name?: string): string => {
   }
   return `Ms. ${clean} (CUAP Counsellor)`;
 };
+
+/**
+ * Format any Date / Timestamp to India Standard Time (IST — Asia/Kolkata)
+ */
+export const formatISTDate = (date?: string | Date | number): string => {
+  if (!date) return 'N/A';
+  try {
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return 'N/A';
+    return d.toLocaleDateString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  } catch (_) {
+    return 'N/A';
+  }
+};
+
+export const formatISTTime = (date?: string | Date | number): string => {
+  if (!date) return 'N/A';
+  try {
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return 'N/A';
+    return d.toLocaleTimeString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch (_) {
+    return 'N/A';
+  }
+};
+
+export const formatISTDateTime = (date?: string | Date | number): string => {
+  if (!date) return 'N/A';
+  try {
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return 'N/A';
+    return d.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch (_) {
+    return 'N/A';
+  }
+};
