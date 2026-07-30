@@ -138,6 +138,8 @@ import {
   updateUserRole,
   getMessengerStatus,
   toggleMessengerLock,
+  getAISoapStatus,
+  toggleAISoapLock,
 } from '../controllers/adminController';
 
 import { aiAssist } from '../controllers/aiController';
@@ -607,6 +609,15 @@ router.delete(
   authenticateToken,
   requireRoles(['admin']),
   deleteAnnouncement,
+);
+
+// Mind AI SOAP Lock Settings
+router.get('/admin/settings/ai-soap', authenticateToken, getAISoapStatus);
+router.post(
+  '/admin/settings/toggle-ai-soap',
+  authenticateToken,
+  requireRoles(['admin', 'super-admin']),
+  toggleAISoapLock,
 );
 
 export default router;

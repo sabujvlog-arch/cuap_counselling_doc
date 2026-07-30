@@ -252,7 +252,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               Security Inactivity Warning
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
-              For patient confidentiality and system security, your session will expire in{' '}
+              For client confidentiality and system security, your session will expire in{' '}
               <span className="font-mono font-black text-amber-600 dark:text-amber-400 text-sm">
                 {idleCountdown}
               </span>{' '}

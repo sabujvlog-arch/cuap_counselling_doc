@@ -3203,10 +3203,22 @@ export const downloadPrescriptionPDF = async (req: AuthRequest, res: Response) =
       }
     }
 
-    const itemsRes = await query('SELECT * FROM prescription_items WHERE prescription_id = $1', [
-      id,
-    ]);
-    const items = itemsRes.rows || [];
+    let items: any[] = [];
+    try {
+      const itemsRes = await query('SELECT * FROM prescription_items WHERE prescription_id = $1', [
+        id,
+      ]);
+      items = itemsRes.rows || [];
+    } catch (e) {
+      if (prescription.medicines) {
+        try {
+          items =
+            typeof prescription.medicines === 'string'
+              ? JSON.parse(prescription.medicines)
+              : prescription.medicines;
+        } catch (_) {}
+      }
+    }
 
     // 2. Generate PDF document using pdfkit
     const doc = new PDFDocument({ margin: 50, size: 'A4' });

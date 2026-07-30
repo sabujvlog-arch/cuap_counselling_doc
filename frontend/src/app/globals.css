@@ -972,3 +972,34 @@ tbody tr:hover td {
   height: 3.25rem !important;
   font-size: 1.25rem !important;
 }
+
+/* ================================================================
+   PWA Mobile Viewport Responsiveness & Layout Collapse Fixes
+   ================================================================ */
+@media (max-width: 640px) {
+  html,
+  body {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .stat-card {
+    padding: 0.85rem !important;
+  }
+
+  .stat-card span.text-2xl,
+  .stat-card p.text-2xl,
+  .stat-card h2.text-xl,
+  .stat-card h3.text-base {
+    font-size: 1.25rem !important;
+    line-height: 1.5rem !important;
+  }
+
+  /* Prevent table and modal container overflow on phones */
+  table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}

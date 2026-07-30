@@ -77,7 +77,7 @@ export const PORTALS = [
     title: 'Counselor Portal',
     subtitle: 'Clinical EMR System',
     description:
-      'Manage counselling schedules, write SOAP notes, access the full EMR, and review patient case histories with advanced clinical tools.',
+      'Manage counselling schedules, write SOAP notes, access the full EMR, and review client case histories with advanced clinical tools.',
     icon: Stethoscope,
     gradientTw: 'from-blue-600 to-indigo-650',
     gradientCss: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',

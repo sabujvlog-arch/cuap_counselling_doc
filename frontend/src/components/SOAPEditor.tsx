@@ -490,10 +490,22 @@ export default function SOAPEditor({
   // Load data on mount
   // ============================================================
 
+  const [aiSoapEnabled, setAiSoapEnabled] = useState(true);
+
+  const checkAiSoapStatus = async () => {
+    try {
+      const res = await api.admin.getAISoapStatus();
+      if (res && typeof res.aiSoapEnabled === 'boolean') {
+        setAiSoapEnabled(res.aiSoapEnabled);
+      }
+    } catch (_) {}
+  };
+
   useEffect(() => {
     loadStudentData();
     loadPastSessions();
     if (sessionId) loadSessionDraft();
+    checkAiSoapStatus();
   }, [studentId, sessionId]);
 
   const loadStudentData = async () => {
@@ -692,6 +704,10 @@ export default function SOAPEditor({
   // ============================================================
 
   const generateDraftReport = async () => {
+    if (!aiSoapEnabled) {
+      alert('Mind AI SOAP Assistance has been disabled by System Administrator.');
+      return;
+    }
     if (!draftNotes.trim()) {
       alert('Please write some notes in the Session Draft Workspace first.');
       return;
@@ -3049,13 +3065,31 @@ export default function SOAPEditor({
               >
                 Cancel
               </button>
-              <button
-                className="emr-btn emr-btn-ai"
-                onClick={generateDraftReport}
-                disabled={draftGenerating}
-              >
-                <Sparkles size={14} /> {draftGenerating ? 'Generating…' : 'Generate Draft'}
-              </button>
+              {!aiSoapEnabled ? (
+                <div
+                  style={{
+                    color: '#ef4444',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '6px 12px',
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    borderRadius: 8,
+                  }}
+                >
+                  <Lock size={14} /> Mind AI SOAP Assistance disabled by Administrator
+                </div>
+              ) : (
+                <button
+                  className="emr-btn emr-btn-ai"
+                  onClick={generateDraftReport}
+                  disabled={draftGenerating}
+                >
+                  <Sparkles size={14} /> {draftGenerating ? 'Generating…' : 'Generate Draft'}
+                </button>
+              )}
               {generatedDraft && (
                 <button className="emr-btn emr-btn-success" onClick={applyDraftToFields}>
                   <Check size={14} /> Apply to Fields

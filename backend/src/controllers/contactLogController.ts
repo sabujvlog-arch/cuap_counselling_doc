@@ -43,6 +43,16 @@ export const createContactLog = async (req: AuthRequest, res: Response) => {
       ],
     );
 
+    let contactLog = logRes && logRes.rows && logRes.rows.length > 0 ? logRes.rows[0] : null;
+    if (!contactLog) {
+      const fetchLast = await query(
+        `SELECT id, student_id, counsellor_name, channel, outcome, notes, logged_at
+         FROM contact_logs WHERE student_id = $1 ORDER BY id DESC LIMIT 1`,
+        [studentId],
+      );
+      contactLog = fetchLast.rows[0];
+    }
+
     // Audit log entry
     await query(
       `INSERT INTO audit_logs (user_id, action, resource, details)
@@ -55,7 +65,7 @@ export const createContactLog = async (req: AuthRequest, res: Response) => {
 
     return res.status(201).json({
       message: 'Contact log recorded successfully.',
-      contactLog: logRes.rows[0],
+      contactLog,
     });
   } catch (err: any) {
     console.error('Create contact log error:', err);

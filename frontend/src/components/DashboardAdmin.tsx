@@ -46,6 +46,8 @@ import {
   AlertCircle,
   Search,
   Printer,
+  Bot,
+  Lock,
 } from 'lucide-react';
 import OPDRegister from './OPDRegister';
 import ThemeToggle from './ui/ThemeToggle';
@@ -133,7 +135,7 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
     students: 'Manage Students',
     users: 'User Accounts',
     appointments: 'Appointments Manager',
-    opd: 'OPD Patient Register',
+    opd: 'OPD Client Register',
     repository: 'Assessment Repository',
     reports: 'Generated Reports',
     audits: 'System Audit Logs',
@@ -250,6 +252,34 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
   const [sanitizeProgress, setSanitizeProgress] = useState(0);
   const [sanitizeResults, setSanitizeResults] = useState<any | null>(null);
   const [showSanitizeModal, setShowSanitizeModal] = useState(false);
+  const [aiSoapEnabled, setAiSoapEnabled] = useState(true);
+  const [togglingAiSoap, setTogglingAiSoap] = useState(false);
+
+  const fetchAiSoapStatus = async () => {
+    try {
+      const res = await api.admin.getAISoapStatus();
+      if (res && typeof res.aiSoapEnabled === 'boolean') {
+        setAiSoapEnabled(res.aiSoapEnabled);
+      }
+    } catch (_) {}
+  };
+
+  const handleToggleAiSoap = async () => {
+    setTogglingAiSoap(true);
+    try {
+      const nextState = !aiSoapEnabled;
+      await api.admin.toggleAISoapLock(nextState);
+      setAiSoapEnabled(nextState);
+      showToast(
+        `Mind AI SOAP Assistance ${nextState ? 'enabled' : 'disabled'} for counselors.`,
+        'success',
+      );
+    } catch (e: any) {
+      showToast(e.message || 'Failed to update AI SOAP setting.', 'error');
+    } finally {
+      setTogglingAiSoap(false);
+    }
+  };
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -323,6 +353,7 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
     fetchRepository();
     fetchAnnouncements();
     fetchBackups();
+    fetchAiSoapStatus();
   }, []);
 
   useEffect(() => {
@@ -747,7 +778,7 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
           { id: 'students', label: 'Manage Students', icon: Users },
           { id: 'users', label: 'User Accounts', icon: KeyRound },
           { id: 'appointments', label: 'Appointments Manager', icon: Calendar },
-          { id: 'opd', label: 'OPD Patient Register', icon: FileText },
+          { id: 'opd', label: 'OPD Client Register', icon: FileText },
           { id: 'repository', label: 'Assessment Repository', icon: Database },
           { id: 'reports', label: 'Generated Reports', icon: Printer },
           { id: 'audits', label: 'System Audit Logs', icon: ShieldAlert },
@@ -765,23 +796,24 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
       {/* Main Panel Content Area */}
       <main className="flex-1 min-w-0 overflow-y-auto max-h-screen flex flex-col">
         {/* Top Navbar */}
-        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-850 h-16 flex justify-between items-center px-6 lg:px-10 shrink-0 z-40 sticky top-0">
-          <div className="flex items-center gap-4">
+        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-850 h-16 flex justify-between items-center px-3 sm:px-6 lg:px-10 shrink-0 z-40 sticky top-0">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
             {isMobile && (
               <button
                 onClick={() => sidebar.toggleCollapse()}
-                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer shrink-0"
                 title={sidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
               >
                 <Menu size={18} />
               </button>
             )}
-            <h1 className="text-sm font-black uppercase text-slate-800 dark:text-white tracking-wider flex items-center gap-2">
-              Admin Control Center · {activeTab.toUpperCase()}
+            <h1 className="text-xs sm:text-sm font-black uppercase text-slate-800 dark:text-white tracking-wider truncate">
+              <span className="hidden sm:inline">Admin Control Center · </span>
+              <span>{activeTab.toUpperCase()}</span>
             </h1>
           </div>
 
-          <div className="flex items-center gap-4 mr-2 lg:mr-4">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <div className="text-right hidden sm:block mr-1">
               <span className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
                 Administrator
@@ -791,7 +823,7 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
             {/* 1st: Global Search Button */}
             <button
               onClick={() => setGlobalSearchOpen(true)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer border border-slate-200 dark:border-slate-700"
+              className="flex items-center gap-2 px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer border border-slate-200 dark:border-slate-700"
               title="Global Search (Ctrl+K)"
             >
               <Search size={14} className="text-blue-500" />
@@ -801,7 +833,7 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
               </kbd>
             </button>
             {/* 2nd: LIVE SYNCED Badge */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 rounded-xl text-[10px] font-extrabold tracking-wider uppercase border border-emerald-250 dark:border-emerald-900/30">
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 rounded-xl text-[10px] font-extrabold tracking-wider uppercase border border-emerald-250 dark:border-emerald-900/30">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               Live Synced
             </div>
@@ -823,14 +855,15 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
 
             <button
               onClick={onLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-red-50 dark:bg-slate-800 dark:hover:bg-red-950/20 text-slate-600 hover:text-red-650 dark:text-slate-350 dark:hover:text-red-400 rounded-xl text-xs font-bold transition cursor-pointer"
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-red-50 dark:bg-slate-800 dark:hover:bg-red-950/20 text-slate-600 hover:text-red-650 dark:text-slate-350 dark:hover:text-red-400 rounded-xl text-xs font-bold transition cursor-pointer"
             >
-              <LogOut size={14} /> Sign Out
+              <LogOut size={14} /> <span className="hidden sm:inline">Sign Out</span>
+              <span className="sm:hidden">Exit</span>
             </button>
           </div>
         </header>
 
-        <div className="flex-1 p-6 lg:p-10 space-y-8">
+        <div className="flex-1 p-3.5 sm:p-6 lg:p-10 space-y-6 sm:space-y-8 max-w-full overflow-x-hidden">
           <Breadcrumbs
             portalName="Admin Portal"
             activeTabLabel={tabLabels[activeTab] || activeTab}
@@ -924,8 +957,8 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
 
                     const cards = [
                       {
-                        label: 'Total Patients',
-                        desc: 'Registered Student Patients',
+                        label: 'Total Clients',
+                        desc: 'Registered Student Clients',
                         breakdown: `${patientMale} Male · ${patientFemale} Female`,
                         value: stats.summary.totalPatients,
                         icon: Users,
@@ -3674,6 +3707,67 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                           })}
                         </div>
                       )}
+                    </div>
+                  </div>
+
+                  {/* Mind AI SOAP Assistance Admin Control Card */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl shadow-sm space-y-4">
+                    <div className="flex items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800 flex-wrap">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2 bg-purple-50 dark:bg-purple-950/20 text-purple-600 dark:text-purple-400 rounded-xl">
+                          <Bot size={18} />
+                        </div>
+                        <div>
+                          <h3 className="font-extrabold text-slate-900 dark:text-white text-sm">
+                            Mind AI SOAP Assistance for Counselors
+                          </h3>
+                          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mt-0.5">
+                            AI Copilot Draft Generation & Clinical Suggestions Control
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
+                          aiSoapEnabled
+                            ? 'bg-emerald-50 text-emerald-600 border border-emerald-200 dark:bg-emerald-950/30'
+                            : 'bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-950/30'
+                        }`}
+                      >
+                        {aiSoapEnabled ? 'Active' : 'Disabled by Admin'}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-slate-600 dark:text-slate-350 leading-relaxed font-medium">
+                      Control whether counselors can access Mind AI copilot features in the SOAP
+                      Note Editor. When disabled, Mind AI draft generation and clinical suggestions
+                      will be locked for all counselors.
+                    </p>
+
+                    <div className="flex justify-between items-center pt-2 flex-wrap gap-3">
+                      <div className="text-xs text-slate-500 font-semibold">
+                        Current Status:{' '}
+                        <span className="font-bold text-slate-800 dark:text-slate-200">
+                          {aiSoapEnabled
+                            ? 'Counselor AI Assistance Enabled'
+                            : 'Counselor AI Assistance Disabled by Admin'}
+                        </span>
+                      </div>
+                      <button
+                        onClick={handleToggleAiSoap}
+                        disabled={togglingAiSoap}
+                        className={`px-4 py-2 text-xs font-extrabold rounded-xl shadow-sm transition cursor-pointer flex items-center gap-2 ${
+                          aiSoapEnabled
+                            ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                        }`}
+                      >
+                        {togglingAiSoap ? (
+                          <RefreshCw size={14} className="animate-spin" />
+                        ) : (
+                          <Lock size={14} />
+                        )}
+                        {aiSoapEnabled ? 'Disable AI for Counselors' : 'Enable AI for Counselors'}
+                      </button>
                     </div>
                   </div>
 

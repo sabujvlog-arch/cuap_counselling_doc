@@ -1227,3 +1227,52 @@ export const toggleMessengerLock = async (req: AuthRequest, res: Response) => {
     return res.status(500).json({ error: 'Failed to toggle messenger status' });
   }
 };
+
+export const getAISoapStatus = async (req: AuthRequest, res: Response) => {
+  try {
+    const settingRes = await query(
+      "SELECT value FROM system_settings WHERE key_name = 'ai_soap_enabled'",
+    );
+    const aiSoapEnabled = settingRes.rows.length > 0 ? settingRes.rows[0].value === 'true' : true;
+    return res.json({ aiSoapEnabled });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to retrieve AI SOAP status' });
+  }
+};
+
+export const toggleAISoapLock = async (req: AuthRequest, res: Response) => {
+  if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'super-admin')) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  const { enabled } = req.body;
+  const strValue = enabled ? 'true' : 'false';
+
+  try {
+    const existing = await query(
+      "SELECT id FROM system_settings WHERE key_name = 'ai_soap_enabled'",
+    );
+    if (existing.rows.length === 0) {
+      await query(
+        "INSERT INTO system_settings (key_name, value, description) VALUES ('ai_soap_enabled', $1, 'Admin toggle for Mind AI assistance in SOAP notes')",
+        [strValue],
+      );
+    } else {
+      await query("UPDATE system_settings SET value = $1 WHERE key_name = 'ai_soap_enabled'", [
+        strValue,
+      ]);
+    }
+
+    await query(
+      'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
+      [req.user.id, 'TOGGLE_AI_SOAP_LOCK', `Admin set ai_soap_enabled to ${strValue}`, req.ip],
+    );
+
+    return res.json({
+      message: `Mind AI SOAP Assistance ${enabled ? 'enabled' : 'disabled'} successfully`,
+      aiSoapEnabled: enabled,
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to toggle AI SOAP status' });
+  }
+};

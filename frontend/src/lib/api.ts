@@ -556,6 +556,12 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ role }),
       }),
+    getAISoapStatus: () => request('/admin/settings/ai-soap'),
+    toggleAISoapLock: (enabled: boolean) =>
+      request('/admin/settings/toggle-ai-soap', {
+        method: 'POST',
+        body: JSON.stringify({ enabled }),
+      }),
   },
 
   // Notifications Operations

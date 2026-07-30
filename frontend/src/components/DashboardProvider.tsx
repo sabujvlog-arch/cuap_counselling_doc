@@ -33,6 +33,7 @@ import {
   Check,
   AlertCircle,
   Ban,
+  Briefcase,
 } from 'lucide-react';
 import {
   BarChart,
@@ -401,10 +402,22 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
 
   // Modals for new features
   const [showBookOnBehalf, setShowBookOnBehalf] = useState(false);
+  const [showFacultyStaffVisit, setShowFacultyStaffVisit] = useState(false);
   const [showSpotReg, setShowSpotReg] = useState(false);
   const [showEmergency, setShowEmergency] = useState(false);
   const [showFollowUp, setShowFollowUp] = useState(false);
   const [bookingFormData, setBookingFormData] = useState<any>({});
+  const [facultyFormData, setFacultyFormData] = useState<any>({
+    name: '',
+    employee_id: '',
+    department: '',
+    designation: '',
+    phone: '',
+    email: '',
+    reason: '',
+    slot_date: new Date().toISOString().split('T')[0],
+    slot_time: '10:00 AM',
+  });
   const [presFollowUp, setPresFollowUp] = useState('');
   const [presItems, setPresItems] = useState<any[]>([
     { medicineName: '', dose: '', frequency: '', duration: '' },
@@ -941,23 +954,24 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
       {/* Main Workspace content */}
       <main className="flex-1 min-w-0 overflow-y-auto max-h-screen flex flex-col">
         {/* Top Navbar */}
-        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-850 h-16 flex justify-between items-center px-6 lg:px-10 shrink-0 z-40 sticky top-0">
-          <div className="flex items-center gap-4">
+        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-850 h-16 flex justify-between items-center px-3 sm:px-6 lg:px-10 shrink-0 z-40 sticky top-0">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
             {isMobile && (
               <button
                 onClick={() => sidebar.toggleCollapse()}
-                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer shrink-0"
                 title={sidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
               >
                 <Menu size={18} />
               </button>
             )}
-            <h1 className="text-sm font-black uppercase text-slate-800 dark:text-white tracking-wider flex items-center gap-2">
-              Counselor Workspace · {activeTab.toUpperCase()}
+            <h1 className="text-xs sm:text-sm font-black uppercase text-slate-800 dark:text-white tracking-wider truncate">
+              <span className="hidden sm:inline">Counselor Workspace · </span>
+              <span>{activeTab.toUpperCase()}</span>
             </h1>
           </div>
 
-          <div className="flex items-center gap-4 mr-2 lg:mr-4">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <div className="text-right hidden sm:block mr-1">
               <span className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
                 {providerProfile?.name || user?.username}
@@ -969,7 +983,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
             {/* 1st: Global Search Button */}
             <button
               onClick={() => setGlobalSearchOpen(true)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer border border-slate-200 dark:border-slate-700"
+              className="flex items-center gap-2 px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer border border-slate-200 dark:border-slate-700"
               title="Global Search (Ctrl+K)"
             >
               <Search size={14} className="text-blue-500" />
@@ -979,7 +993,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
               </kbd>
             </button>
             {/* 2nd: LIVE SYNCED Badge */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 rounded-xl text-[10px] font-extrabold tracking-wider uppercase border border-emerald-250 dark:border-emerald-900/30">
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 rounded-xl text-[10px] font-extrabold tracking-wider uppercase border border-emerald-250 dark:border-emerald-900/30">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               Live Synced
             </div>
@@ -1001,14 +1015,15 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
 
             <button
               onClick={onLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-red-50 dark:bg-slate-800 dark:hover:bg-red-950/20 text-slate-600 hover:text-red-650 dark:text-slate-350 dark:hover:text-red-400 rounded-xl text-xs font-bold transition cursor-pointer"
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-red-50 dark:bg-slate-800 dark:hover:bg-red-950/20 text-slate-600 hover:text-red-650 dark:text-slate-350 dark:hover:text-red-400 rounded-xl text-xs font-bold transition cursor-pointer"
             >
-              Sign Out
+              <span className="hidden sm:inline">Sign Out</span>
+              <span className="sm:hidden">Exit</span>
             </button>
           </div>
         </header>
 
-        <div className="flex-1 p-6 lg:p-10 space-y-8">
+        <div className="flex-1 p-3.5 sm:p-6 lg:p-10 space-y-6 sm:space-y-8 max-w-full overflow-x-hidden">
           <Breadcrumbs
             portalName="Counselor Portal"
             activeTabLabel={tabLabels[activeTab] || activeTab}
@@ -1081,12 +1096,31 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                         client assignments.
                       </p>
                     </div>
-                    <div className="flex flex-wrap gap-2 shrink-0">
+                    <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 shrink-0 w-full sm:w-auto">
                       <button
                         onClick={() => setShowBookOnBehalf(true)}
                         className="px-3 py-2 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-bold text-xs rounded-xl hover:bg-blue-100 dark:hover:bg-blue-900 transition flex items-center gap-1 cursor-pointer"
                       >
                         <Plus size={14} /> Book on Behalf
+                      </button>
+                      <button
+                        onClick={() => {
+                          setFacultyFormData({
+                            name: '',
+                            employee_id: '',
+                            department: '',
+                            designation: '',
+                            phone: '',
+                            email: '',
+                            reason: '',
+                            slot_date: new Date().toISOString().split('T')[0],
+                            slot_time: '10:00',
+                          });
+                          setShowFacultyStaffVisit(true);
+                        }}
+                        className="px-3 py-2 bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 font-bold text-xs rounded-xl hover:bg-purple-100 dark:hover:bg-purple-900 transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <Briefcase size={14} /> Faculty / Staff Visit
                       </button>
                       <button
                         onClick={() => setShowSpotReg(true)}
@@ -4536,6 +4570,224 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                     className="px-4 py-2 font-bold text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-sm"
                   >
                     Confirm Booking
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* FACULTY / STAFF VISIT MODAL */}
+          {showFacultyStaffVisit && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div
+                className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+                onClick={() => setShowFacultyStaffVisit(false)}
+              />
+              <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-fade-in-up">
+                <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-purple-50 dark:bg-purple-900/20">
+                  <h3 className="font-bold text-purple-800 dark:text-purple-300 flex items-center gap-2">
+                    <Briefcase size={16} /> Faculty / Staff Visit Registration
+                  </h3>
+                  <button
+                    onClick={() => setShowFacultyStaffVisit(false)}
+                    className="text-slate-400 hover:text-slate-600"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                <div className="p-5 space-y-4 text-sm text-slate-600 dark:text-slate-300">
+                  <p className="text-xs text-slate-500">
+                    Register a counseling or wellness consultation visit for CUAP Faculty, Officers,
+                    or Staff members.
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                        Employee / Staff ID (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. EMP-2024-08"
+                        value={facultyFormData.employee_id || ''}
+                        className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
+                        onChange={(e) =>
+                          setFacultyFormData({ ...facultyFormData, employee_id: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                        Faculty / Staff Full Name (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Dr. Rajesh Sharma"
+                        value={facultyFormData.name || ''}
+                        className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
+                        onChange={(e) =>
+                          setFacultyFormData({ ...facultyFormData, name: e.target.value })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                        Department / Section (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Computer Science / Exam Branch"
+                        value={facultyFormData.department || ''}
+                        className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
+                        onChange={(e) =>
+                          setFacultyFormData({ ...facultyFormData, department: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                        Designation (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Associate Professor / Section Officer"
+                        value={facultyFormData.designation || ''}
+                        className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
+                        onChange={(e) =>
+                          setFacultyFormData({ ...facultyFormData, designation: e.target.value })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                        Phone / Contact Number (Optional)
+                      </label>
+                      <input
+                        type="tel"
+                        placeholder="e.g. 9876543210"
+                        value={facultyFormData.phone || ''}
+                        className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
+                        onChange={(e) =>
+                          setFacultyFormData({ ...facultyFormData, phone: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                        Email Address (Optional)
+                      </label>
+                      <input
+                        type="email"
+                        placeholder="e.g. rajesh.s@cuap.edu.in"
+                        value={facultyFormData.email || ''}
+                        className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
+                        onChange={(e) =>
+                          setFacultyFormData({ ...facultyFormData, email: e.target.value })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                        Visit Date (Optional)
+                      </label>
+                      <input
+                        type="date"
+                        value={facultyFormData.slot_date || ''}
+                        className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
+                        onChange={(e) =>
+                          setFacultyFormData({ ...facultyFormData, slot_date: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                        Time Slot (Optional)
+                      </label>
+                      <input
+                        type="time"
+                        value={facultyFormData.slot_time || ''}
+                        className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 text-sm font-medium"
+                        onChange={(e) =>
+                          setFacultyFormData({ ...facultyFormData, slot_time: e.target.value })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                      Consultation Agenda / Notes (Optional)
+                    </label>
+                    <textarea
+                      placeholder="e.g. Work stress consultation, mental wellness check-in..."
+                      value={facultyFormData.reason || ''}
+                      className="w-full p-2.5 border rounded-xl dark:bg-slate-800 dark:border-slate-700 h-20 text-sm font-medium"
+                      onChange={(e) =>
+                        setFacultyFormData({ ...facultyFormData, reason: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2 bg-slate-50 dark:bg-slate-950">
+                  <button
+                    onClick={() => setShowFacultyStaffVisit(false)}
+                    className="px-4 py-2 font-bold text-xs bg-slate-200 rounded-xl hover:bg-slate-300 text-slate-700 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const nameToUse = facultyFormData.name || 'Faculty / Staff Visit';
+                        const empIdToUse =
+                          facultyFormData.employee_id || `FACULTY_STAFF_${Date.now()}`;
+                        const dateToUse =
+                          facultyFormData.slot_date || new Date().toISOString().split('T')[0];
+                        const timeToUse = facultyFormData.slot_time || '10:00';
+
+                        await api.appointments.bookOnBehalf({
+                          student_name: `${nameToUse} (${facultyFormData.designation || 'Staff'}, ${facultyFormData.department || 'CUAP'})`,
+                          registration_number: empIdToUse,
+                          booking_channel: 'FACULTY_STAFF_VISIT',
+                          chief_complaint:
+                            facultyFormData.reason || 'Faculty / Staff Counseling Visit',
+                          slot_date: dateToUse,
+                          slot_time: timeToUse,
+                          time_slot: timeToUse,
+                          provider_id: providerProfile?.id,
+                          phone: facultyFormData.phone || '',
+                          email: facultyFormData.email || '',
+                        });
+                        showToast('Faculty/Staff visit registered successfully!', 'success');
+                        setShowFacultyStaffVisit(false);
+                        setFacultyFormData({
+                          name: '',
+                          employee_id: '',
+                          department: '',
+                          designation: '',
+                          phone: '',
+                          email: '',
+                          reason: '',
+                          slot_date: new Date().toISOString().split('T')[0],
+                          slot_time: '10:00',
+                        });
+                        fetchAppointments();
+                      } catch (e: any) {
+                        showToast(e.message || 'Registration failed', 'error');
+                      }
+                    }}
+                    className="px-4 py-2 font-bold text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-xl shadow-sm cursor-pointer"
+                  >
+                    Register Visit
                   </button>
                 </div>
               </div>

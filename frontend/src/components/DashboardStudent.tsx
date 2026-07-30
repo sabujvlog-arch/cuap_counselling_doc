@@ -1044,23 +1044,24 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
 
       <main className="flex-1 min-w-0 overflow-y-auto max-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
         {/* Top Navbar */}
-        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 h-16 flex justify-between items-center px-6 lg:px-10 shrink-0 z-40 sticky top-0">
-          <div className="flex items-center gap-4">
+        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 h-16 flex justify-between items-center px-3 sm:px-6 lg:px-10 shrink-0 z-40 sticky top-0">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
             {isMobile && (
               <button
                 onClick={() => sidebar.toggleCollapse()}
-                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer shrink-0"
                 title={sidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
               >
                 <Menu size={18} />
               </button>
             )}
-            <h1 className="text-sm font-black uppercase text-slate-800 dark:text-white tracking-wider flex items-center gap-2">
-              Student Wellness Hub · {activeTab.toUpperCase()}
+            <h1 className="text-xs sm:text-sm font-black uppercase text-slate-800 dark:text-white tracking-wider truncate">
+              <span className="hidden sm:inline">Student Wellness Hub · </span>
+              <span>{activeTab.toUpperCase()}</span>
             </h1>
           </div>
 
-          <div className="flex items-center gap-4 mr-2 lg:mr-4">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <div className="text-right hidden sm:block mr-1">
               <span className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
                 {studentProfile?.name || user?.username}
@@ -1069,7 +1070,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                 {studentProfile?.registration_number?.toUpperCase()}
               </span>
             </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 rounded-xl text-[10px] font-extrabold tracking-wider uppercase border border-emerald-250 dark:border-emerald-900/30">
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 rounded-xl text-[10px] font-extrabold tracking-wider uppercase border border-emerald-250 dark:border-emerald-900/30">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               Live Synced
             </div>
@@ -1091,14 +1092,15 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
 
             <button
               onClick={onLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-red-50 dark:bg-slate-800 dark:hover:bg-red-950/20 text-slate-600 hover:text-red-650 dark:text-slate-350 dark:hover:text-red-400 rounded-xl text-xs font-bold transition cursor-pointer"
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-red-50 dark:bg-slate-800 dark:hover:bg-red-950/20 text-slate-600 hover:text-red-650 dark:text-slate-350 dark:hover:text-red-400 rounded-xl text-xs font-bold transition cursor-pointer"
             >
-              Sign Out
+              <span className="hidden sm:inline">Sign Out</span>
+              <span className="sm:hidden">Exit</span>
             </button>
           </div>
         </header>
 
-        <div className="flex-1 p-6 lg:p-10 space-y-8">
+        <div className="flex-1 p-3.5 sm:p-6 lg:p-10 space-y-6 sm:space-y-8 max-w-full overflow-x-hidden">
           <Breadcrumbs
             portalName="Student Portal"
             activeTabLabel={tabLabels[activeTab] || activeTab}

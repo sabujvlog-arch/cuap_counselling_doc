@@ -1011,28 +1011,54 @@ async function resolveOrCreateStudent(
     }
   }
 
-  // 3. Create dummy user + student record
+  // 3. Create user + student record with fail-proof ID resolution
   const email = `${regNo.toLowerCase().replace(/[^a-z0-9]/g, '')}@cuap.edu.in`;
+  const username = `user_${regNo.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
   let userId: number;
-  const userCheck = await query('SELECT id FROM users WHERE email = $1', [email]);
+
+  const userCheck = await query('SELECT id FROM users WHERE email = $1 OR username = $2', [
+    email,
+    username,
+  ]);
   if (userCheck.rows.length > 0) {
     userId = userCheck.rows[0].id;
   } else {
-    const userInsert = await query(
-      `INSERT INTO users (email, password_hash, role) VALUES ($1, $2, 'student') RETURNING id`,
-      [email, 'hash_walkin'],
-    );
-    userId = userInsert.rows?.[0]?.id || userInsert.lastInsertId;
+    try {
+      await query(
+        `INSERT INTO users (email, username, password_hash, role) VALUES ($1, $2, $3, 'student')`,
+        [email, username, 'hash_walkin'],
+      );
+    } catch (_) {}
+    const selectUser = await query('SELECT id FROM users WHERE email = $1 OR username = $2', [
+      email,
+      username,
+    ]);
+    userId = selectUser.rows[0]?.id;
   }
 
-  const studentInsert = await query(
-    `INSERT INTO students (user_id, registration_number, name, age, gender, dob, department, semester, phone, email, hostel_scholar, emergency_contact, emergency_phone, blood_group, address)
-     VALUES ($1, $2, $3, 20, 'Unspecified', '2004-01-01', 'General', 'Sem 1', '0000000000', $4, 'Hosteller', 'N/A', '0000000000', 'O+', 'Campus')
-     RETURNING id`,
-    [userId, regNo, name, email],
+  let studentId: number;
+  const studentCheck = await query(
+    'SELECT id FROM students WHERE registration_number = $1 OR user_id = $2',
+    [regNo, userId],
   );
+  if (studentCheck.rows.length > 0) {
+    studentId = studentCheck.rows[0].id;
+  } else {
+    try {
+      await query(
+        `INSERT INTO students (user_id, registration_number, name, age, gender, dob, department, semester, phone, email, hostel_scholar, emergency_contact, emergency_phone, blood_group, address)
+         VALUES ($1, $2, $3, 20, 'Unspecified', '2004-01-01', 'Faculty/Staff', 'Staff', '0000000000', $4, 'Hosteller', 'N/A', '0000000000', 'O+', 'CUAP Campus')`,
+        [userId, regNo, name, email],
+      );
+    } catch (_) {}
+    const selectStudent = await query(
+      'SELECT id FROM students WHERE registration_number = $1 OR user_id = $2',
+      [regNo, userId],
+    );
+    studentId = selectStudent.rows[0]?.id;
+  }
 
-  return studentInsert.rows?.[0]?.id || studentInsert.lastInsertId || null;
+  return studentId || null;
 }
 
 export const bookOnBehalf = async (req: AuthRequest, res: Response) => {
@@ -1053,15 +1079,21 @@ export const bookOnBehalf = async (req: AuthRequest, res: Response) => {
     reason,
     chief_complaint,
   } = req.body;
-  if ((!student_id && !student_name && !registration_number) || !slot_date || !slot_time) {
-    return res.status(400).json({ error: 'Student details, date, and timeslot are required.' });
-  }
+
+  const targetDate =
+    slot_date || req.body.date || req.body.slotDate || new Date().toISOString().split('T')[0];
+  const targetTime =
+    slot_time || req.body.time_slot || req.body.slotTime || req.body.time || '10:00';
+  const targetStudentName =
+    student_name ||
+    (registration_number ? `Student ${registration_number}` : 'Faculty / Staff Visit');
+  const targetRegNo = registration_number || `FACULTY_STAFF_${Date.now()}`;
 
   try {
     const resolvedStudentId = await resolveOrCreateStudent(
       student_id,
-      student_name,
-      registration_number,
+      targetStudentName,
+      targetRegNo,
     );
     if (!resolvedStudentId) {
       return res
@@ -1073,7 +1105,7 @@ export const bookOnBehalf = async (req: AuthRequest, res: Response) => {
 
     await query('BEGIN');
 
-    const conflictCheck = await verifyConflict(targetProviderId, slot_date, slot_time);
+    const conflictCheck = await verifyConflict(targetProviderId, targetDate, targetTime);
     if (conflictCheck.conflict) {
       await query('ROLLBACK');
       return res.status(400).json({ error: conflictCheck.message });
@@ -1087,19 +1119,27 @@ export const bookOnBehalf = async (req: AuthRequest, res: Response) => {
       [
         resolvedStudentId,
         targetProviderId,
-        slot_date,
-        slot_time,
+        targetDate,
+        targetTime,
         'approved',
         reason || 'Booked by counselor/staff',
         chief_complaint || reason || 'Booked on behalf',
         req.user.id,
-        'STAFF_ON_BEHALF',
+        req.body.booking_channel || 'STAFF_ON_BEHALF',
       ],
     );
 
     await query('COMMIT');
 
-    const appointmentId = insertRes.rows?.[0]?.id || insertRes.lastInsertId;
+    let appointmentId = insertRes.rows?.[0]?.id || insertRes.lastInsertId;
+    if (!appointmentId) {
+      const fetchAppt = await query(
+        `SELECT id FROM appointments WHERE student_id = $1 AND provider_id = $2 AND slot_date = $3 ORDER BY id DESC LIMIT 1`,
+        [resolvedStudentId, targetProviderId, targetDate],
+      );
+      appointmentId = fetchAppt.rows[0]?.id;
+    }
+
     if (appointmentId) {
       await autoGenerateClinicalNote(
         appointmentId,
@@ -1844,46 +1884,31 @@ export const mergeStudentRecords = async (req: AuthRequest, res: Response) => {
     const sourceStudent = sourceCheck.rows[0];
 
     // Re-link all records from source to target
-    await query('UPDATE appointments SET student_id = $1 WHERE student_id = $2', [
-      targetStudentId,
-      sourceStudentId,
-    ]);
-    await query('UPDATE sessions SET student_id = $1 WHERE student_id = $2', [
-      targetStudentId,
-      sourceStudentId,
-    ]);
-    await query('UPDATE student_case_histories SET student_id = $1 WHERE student_id = $2', [
-      targetStudentId,
-      sourceStudentId,
-    ]);
-    await query('UPDATE mse_logs SET student_id = $1 WHERE student_id = $2', [
-      targetStudentId,
-      sourceStudentId,
-    ]);
-    await query('UPDATE contact_logs SET student_id = $1 WHERE student_id = $2', [
-      targetStudentId,
-      sourceStudentId,
-    ]);
-    await query('UPDATE test_orders SET student_id = $1 WHERE student_id = $2', [
-      targetStudentId,
-      sourceStudentId,
-    ]);
-    await query('UPDATE prescriptions SET student_id = $1 WHERE student_id = $2', [
-      targetStudentId,
-      sourceStudentId,
-    ]);
-    await query('UPDATE assessments SET student_id = $1 WHERE student_id = $2', [
-      targetStudentId,
-      sourceStudentId,
-    ]);
-    await query('UPDATE emergency_cases SET student_id = $1 WHERE student_id = $2', [
-      targetStudentId,
-      sourceStudentId,
-    ]);
-    await query('UPDATE spot_registrations SET student_id = $1 WHERE student_id = $2', [
-      targetStudentId,
-      sourceStudentId,
-    ]);
+    const mergeTables = [
+      'appointments',
+      'sessions',
+      'student_case_histories',
+      'mse_logs',
+      'contact_logs',
+      'test_orders',
+      'prescriptions',
+      'assessments',
+      'emergency_cases',
+      'spot_registrations',
+      'follow_ups',
+      'audio_recordings',
+    ];
+
+    for (const table of mergeTables) {
+      try {
+        await query(`UPDATE ${table} SET student_id = $1 WHERE student_id = $2`, [
+          targetStudentId,
+          sourceStudentId,
+        ]);
+      } catch (tableErr) {
+        // Safe fallback if optional table is not present
+      }
+    }
 
     // Mark source student as merged
     await query('UPDATE students SET name = $1, registration_number = $2 WHERE id = $3', [
