@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { api } from '@/lib/api';
 import type { User, Session, StudentProfile, ProviderProfile, UserRole } from '@/types';
 import {
@@ -29,7 +29,11 @@ interface AuthContextValue {
   permissions: Permission[];
 
   // Auth actions
-  login: (credentials: { username: string; password: string }) => Promise<LoginResult>;
+  login: (credentials: {
+    username: string;
+    password: string;
+    portalId?: string;
+  }) => Promise<LoginResult>;
   logout: () => void;
   refreshSession: () => Promise<void>;
 }
@@ -44,21 +48,7 @@ export interface LoginResult {
 // ─────────────────────────────────────────────────────────────────
 // Context
 // ─────────────────────────────────────────────────────────────────
-const AuthContext = createContext<AuthContextValue>({
-  session: null,
-  loading: true,
-  user: null,
-  role: null,
-  profile: null,
-  isAuthenticated: false,
-  can: () => false,
-  canAny: () => false,
-  canAll: () => false,
-  permissions: [],
-  login: async () => ({ success: false, requires2FA: false }),
-  logout: () => {},
-  refreshSession: async () => {},
-});
+const AuthContext = createContext<AuthContextValue | null>(null);
 
 // ─────────────────────────────────────────────────────────────────
 // Provider
@@ -70,8 +60,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Inactivity / Auto-Logout state & refs
   const [showIdleWarning, setShowIdleWarning] = useState(false);
   const [idleCountdown, setIdleCountdown] = useState(60);
-  const idleTimerRef = React.useRef<NodeJS.Timeout | null>(null);
-  const countdownIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
+  const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const refreshSession = useCallback(async () => {
     const token = api.getToken();
@@ -95,7 +85,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refreshSession]);
 
   const login = useCallback(
-    async (credentials: { username: string; password: string }): Promise<LoginResult> => {
+    async (credentials: {
+      username: string;
+      password: string;
+      portalId?: string;
+    }): Promise<LoginResult> => {
       try {
         const res = await api.auth.login(credentials);
         if (res.requires2FA) {
@@ -285,5 +279,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 // Hook
 // ─────────────────────────────────────────────────────────────────
 export function useAuth(): AuthContextValue {
-  return useContext(AuthContext);
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 }

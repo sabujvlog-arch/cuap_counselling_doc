@@ -120,6 +120,51 @@ export const login = async (req: Request, res: Response) => {
     }
 
     const user = userRes.rows[0];
+
+    // Enforce strict portal role restrictions
+    const targetPortal = req.body.portalId || req.body.portal;
+    if (targetPortal) {
+      if (targetPortal === 'student' && user.role !== 'student') {
+        return res.status(403).json({
+          error:
+            'Access Denied: Administrative and Counselor accounts cannot log in through the Student Portal. Please select the Admin or Counselor Portal.',
+        });
+      }
+
+      if (targetPortal === 'provider') {
+        const isCounselorRole =
+          user.role === 'provider' || user.role === 'clinician' || user.role === 'dept-head';
+        if (user.role === 'student') {
+          return res.status(403).json({
+            error:
+              'Access Denied: Student accounts cannot log in through the Counselor Portal. Please select the Student Portal.',
+          });
+        }
+        if (!isCounselorRole && user.role !== 'admin' && user.role !== 'super-admin') {
+          return res.status(403).json({
+            error:
+              'Access Denied: Counselor credentials required to log in through the Counselor Portal.',
+          });
+        }
+      }
+
+      if (targetPortal === 'admin') {
+        const isAdminRole = user.role === 'admin' || user.role === 'super-admin';
+        if (user.role === 'student') {
+          return res.status(403).json({
+            error:
+              'Access Denied: Student accounts cannot log in through the Admin Portal. Please select the Student Portal.',
+          });
+        }
+        if (!isAdminRole) {
+          return res.status(403).json({
+            error:
+              'Access Denied: Only Administrative accounts can log in through the Admin Control Portal.',
+          });
+        }
+      }
+    }
+
     if (user.is_blocked === 1 || user.is_blocked === true) {
       await query(
         'INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',

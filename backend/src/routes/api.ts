@@ -140,6 +140,8 @@ import {
   toggleMessengerLock,
   getAISoapStatus,
   toggleAISoapLock,
+  getActiveSessions,
+  revokeSession,
 } from '../controllers/adminController';
 
 import { aiAssist } from '../controllers/aiController';
@@ -618,6 +620,20 @@ router.post(
   authenticateToken,
   requireRoles(['admin', 'super-admin']),
   toggleAISoapLock,
+);
+
+// Active Sessions & Connected Devices
+router.get(
+  '/admin/active-sessions',
+  authenticateToken,
+  requireRoles(['admin', 'super-admin']),
+  getActiveSessions,
+);
+router.post(
+  '/admin/active-sessions/:id/revoke',
+  authenticateToken,
+  requireRoles(['admin', 'super-admin']),
+  revokeSession,
 );
 
 export default router;

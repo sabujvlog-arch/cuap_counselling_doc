@@ -58,7 +58,7 @@ export default function LoginForm({ portalId, onBack }: LoginFormProps) {
     setError('');
     setLoading(true);
     try {
-      const result = await login({ username, password });
+      const result = await login({ username, password, portalId });
       if (result.requires2FA) {
         setRequires2FA(true);
         setOtpUser(result.username ?? username);

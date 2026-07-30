@@ -254,6 +254,33 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
   const [showSanitizeModal, setShowSanitizeModal] = useState(false);
   const [aiSoapEnabled, setAiSoapEnabled] = useState(true);
   const [togglingAiSoap, setTogglingAiSoap] = useState(false);
+  const [activeSessions, setActiveSessions] = useState<any[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
+  const [auditSubTab, setAuditSubTab] = useState<'sessions' | 'logs'>('sessions');
+
+  const fetchActiveSessions = async () => {
+    setLoadingSessions(true);
+    try {
+      const data = await api.admin.getActiveSessions();
+      if (Array.isArray(data)) {
+        setActiveSessions(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch active sessions:', err);
+    } finally {
+      setLoadingSessions(false);
+    }
+  };
+
+  const handleRevokeSession = async (id: number | string) => {
+    try {
+      await api.admin.revokeSession(id);
+      showToast('Session terminated & revoked successfully!', 'success');
+      fetchActiveSessions();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to revoke session', 'error');
+    }
+  };
 
   const fetchAiSoapStatus = async () => {
     try {
@@ -354,6 +381,7 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
     fetchAnnouncements();
     fetchBackups();
     fetchAiSoapStatus();
+    fetchActiveSessions();
   }, []);
 
   useEffect(() => {
@@ -3474,110 +3502,277 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
               );
             })()}
 
-          {/* TAB 6: AUDIT TRAIL LOGS */}
+          {/* TAB 6: AUDIT TRAIL & ACTIVE SESSIONS */}
 
           {activeTab === 'audits' && (
-            <div className="space-y-8 animate-fade-in-up">
-              <div>
-                <h2 className="text-2xl font-black tracking-tight">Security Audit Trail</h2>
-                <p className="text-xs text-slate-500 mt-1">
-                  Audit clinical changes and operator access trails
-                </p>
+            <div className="space-y-6 animate-fade-in-up">
+              {/* Sub-tab Switcher */}
+              <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+                <button
+                  onClick={() => setAuditSubTab('sessions')}
+                  className={`px-4 py-2 text-xs font-extrabold rounded-xl transition cursor-pointer flex items-center gap-2 ${
+                    auditSubTab === 'sessions'
+                      ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                >
+                  <Activity size={14} /> Active Sessions & Connected Devices
+                </button>
+                <button
+                  onClick={() => setAuditSubTab('logs')}
+                  className={`px-4 py-2 text-xs font-extrabold rounded-xl transition cursor-pointer flex items-center gap-2 ${
+                    auditSubTab === 'logs'
+                      ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                >
+                  <ShieldAlert size={14} /> Security Event Audit Logs
+                </button>
               </div>
 
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-5 rounded-2xl shadow-sm">
-                {(() => {
-                  const auditColumns = [
-                    {
-                      key: 'username',
-                      header: 'Operator',
-                      render: (log: any) => (
-                        <div>
-                          <span className="font-semibold block text-slate-800 dark:text-white">
-                            {log.username || 'System'}
-                          </span>
-                          <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
-                            {log.role || 'daemon'}
-                          </span>
-                        </div>
-                      ),
-                    },
-                    {
-                      key: 'action',
-                      header: 'Action',
-                      render: (log: any) => (
-                        <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-350 font-mono font-bold rounded">
-                          {log.action}
-                        </span>
-                      ),
-                    },
-                    {
-                      key: 'details',
-                      header: 'Details',
-                    },
-                    {
-                      key: 'ip_address',
-                      header: 'IP Address',
-                      render: (log: any) => (
-                        <span className="font-mono text-slate-400">{log.ip_address}</span>
-                      ),
-                    },
-                    {
-                      key: 'created_at',
-                      header: 'Timestamp',
-                      render: (log: any) => new Date(log.created_at).toLocaleString(),
-                    },
-                  ];
+              {auditSubTab === 'sessions' ? (
+                <div className="space-y-5">
+                  {/* Header & Subtitle */}
+                  <div className="flex justify-between items-start flex-wrap gap-4">
+                    <div>
+                      <h2 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">
+                        Active Sessions & Connected Devices
+                      </h2>
+                      <p className="text-xs text-slate-400 font-medium mt-1">
+                        Monitor running user sessions across security gate desks, warden desks, and
+                        student portals. Terminate any session instantly if needed.
+                      </p>
+                    </div>
+                    <button
+                      onClick={fetchActiveSessions}
+                      disabled={loadingSessions}
+                      className="px-3.5 py-1.5 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer flex items-center gap-2"
+                    >
+                      <RefreshCw size={13} className={loadingSessions ? 'animate-spin' : ''} />
+                      Refresh Sessions
+                    </button>
+                  </div>
 
-                  const filteredAudits = auditLogs.filter((log) => {
-                    return !auditActionFilter || log.action === auditActionFilter;
-                  });
-                  const uniqueActions = Array.from(new Set(auditLogs.map((log) => log.action)));
+                  {/* Active Sessions Table Card */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-850 rounded-2xl shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs text-slate-600 dark:text-slate-350">
+                        <thead className="bg-slate-50/80 dark:bg-slate-950/80 text-slate-400 font-black uppercase tracking-wider text-[10px] border-b border-slate-150 dark:border-slate-800">
+                          <tr>
+                            <th className="px-5 py-3.5 font-bold">USER / ROLE</th>
+                            <th className="px-5 py-3.5 font-bold">PORTAL</th>
+                            <th className="px-5 py-3.5 font-bold">IP ADDRESS</th>
+                            <th className="px-5 py-3.5 font-bold">CONNECTED DEVICE & BROWSER</th>
+                            <th className="px-5 py-3.5 font-bold">LOGIN TIME</th>
+                            <th className="px-5 py-3.5 font-bold">LAST ACTIVE</th>
+                            <th className="px-5 py-3.5 font-bold">STATUS</th>
+                            <th className="px-5 py-3.5 font-bold text-center">ACTION</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-850">
+                          {loadingSessions ? (
+                            <tr>
+                              <td
+                                colSpan={8}
+                                className="px-5 py-12 text-center text-slate-400 font-semibold"
+                              >
+                                <div className="flex items-center justify-center gap-2">
+                                  <RefreshCw size={16} className="animate-spin text-blue-500" />
+                                  Scanning active sessions across all gateway portals...
+                                </div>
+                              </td>
+                            </tr>
+                          ) : activeSessions.length === 0 ? (
+                            <tr>
+                              <td
+                                colSpan={8}
+                                className="px-5 py-12 text-center text-slate-400 font-semibold"
+                              >
+                                No active user sessions currently connected.
+                              </td>
+                            </tr>
+                          ) : (
+                            activeSessions.map((session) => {
+                              const roleStr = (session.role || 'user').toLowerCase();
+                              let badgeStyle =
+                                'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/30';
+                              if (roleStr.includes('student'))
+                                badgeStyle =
+                                  'bg-sky-50 text-sky-600 border-sky-200 dark:bg-sky-950/30';
+                              else if (roleStr.includes('security'))
+                                badgeStyle =
+                                  'bg-teal-50 text-teal-600 border-teal-200 dark:bg-teal-950/30';
+                              else if (roleStr.includes('warden'))
+                                badgeStyle =
+                                  'bg-green-50 text-green-600 border-green-200 dark:bg-green-950/30';
 
-                  return (
-                    <div className="space-y-4">
-                      {/* Interactive Filter Pills */}
-                      <div className="flex flex-wrap gap-2 pb-2 border-b border-slate-100 dark:border-slate-850">
-                        <button
-                          onClick={() => setAuditActionFilter('')}
-                          className={`px-3 py-1.5 rounded-xl border text-[11px] font-bold transition select-none cursor-pointer ${
-                            auditActionFilter === ''
-                              ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
-                              : 'border-slate-200 dark:border-slate-800 bg-slate-55/50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                          }`}
-                        >
-                          All Events ({auditLogs.length})
-                        </button>
-                        {uniqueActions.map((action) => {
-                          const count = auditLogs.filter((l) => l.action === action).length;
-                          const isActive = auditActionFilter === action;
-                          return (
+                              return (
+                                <tr
+                                  key={session.id}
+                                  className="hover:bg-slate-50/50 dark:hover:bg-slate-850/40 transition-colors"
+                                >
+                                  <td className="px-5 py-4 font-bold text-slate-800 dark:text-white">
+                                    <div className="flex items-center gap-2">
+                                      <span>{session.username}</span>
+                                      <span
+                                        className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider border ${badgeStyle}`}
+                                      >
+                                        {session.role}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="px-5 py-4 font-semibold text-slate-700 dark:text-slate-300">
+                                    {session.portal}
+                                  </td>
+                                  <td className="px-5 py-4 font-mono text-slate-500 dark:text-slate-400 text-xs">
+                                    {session.ip_address}
+                                  </td>
+                                  <td className="px-5 py-4 text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                                    <span
+                                      className="truncate max-w-[240px] block"
+                                      title={session.device_browser}
+                                    >
+                                      {session.device_browser}
+                                    </span>
+                                  </td>
+                                  <td className="px-5 py-4 text-xs font-mono text-slate-600 dark:text-slate-400">
+                                    {session.login_time
+                                      ? new Date(session.login_time).toLocaleString('en-IN')
+                                      : 'Recently'}
+                                  </td>
+                                  <td className="px-5 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                    {session.last_active}
+                                  </td>
+                                  <td className="px-5 py-4">
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-200/70 dark:bg-emerald-950/30">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                      Active
+                                    </span>
+                                  </td>
+                                  <td className="px-5 py-4 text-center">
+                                    <button
+                                      onClick={() => handleRevokeSession(session.id)}
+                                      className="px-3.5 py-1 text-xs font-bold border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/30 rounded-full transition cursor-pointer"
+                                    >
+                                      Revoke
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <h2 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">
+                      Security Event Audit Trail
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Audit clinical changes, configuration modifications, and operator access
+                      trails
+                    </p>
+                  </div>
+
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-5 rounded-2xl shadow-sm">
+                    {(() => {
+                      const auditColumns = [
+                        {
+                          key: 'username',
+                          header: 'Operator',
+                          render: (log: any) => (
+                            <div>
+                              <span className="font-semibold block text-slate-800 dark:text-white">
+                                {log.username || 'System'}
+                              </span>
+                              <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
+                                {log.role || 'daemon'}
+                              </span>
+                            </div>
+                          ),
+                        },
+                        {
+                          key: 'action',
+                          header: 'Action',
+                          render: (log: any) => (
+                            <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-350 font-mono font-bold rounded">
+                              {log.action}
+                            </span>
+                          ),
+                        },
+                        {
+                          key: 'details',
+                          header: 'Details',
+                        },
+                        {
+                          key: 'ip_address',
+                          header: 'IP Address',
+                          render: (log: any) => (
+                            <span className="font-mono text-slate-400">{log.ip_address}</span>
+                          ),
+                        },
+                        {
+                          key: 'created_at',
+                          header: 'Timestamp',
+                          render: (log: any) => new Date(log.created_at).toLocaleString(),
+                        },
+                      ];
+
+                      const filteredAudits = auditLogs.filter((log) => {
+                        return !auditActionFilter || log.action === auditActionFilter;
+                      });
+                      const uniqueActions = Array.from(new Set(auditLogs.map((log) => log.action)));
+
+                      return (
+                        <div className="space-y-4">
+                          {/* Interactive Filter Pills */}
+                          <div className="flex flex-wrap gap-2 pb-2 border-b border-slate-100 dark:border-slate-850">
                             <button
-                              key={action}
-                              onClick={() => setAuditActionFilter(action)}
+                              onClick={() => setAuditActionFilter('')}
                               className={`px-3 py-1.5 rounded-xl border text-[11px] font-bold transition select-none cursor-pointer ${
-                                isActive
+                                auditActionFilter === ''
                                   ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
-                                  : 'border-slate-200 dark:border-slate-800 bg-slate-55/50 dark:bg-slate-950 text-slate-550 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                  : 'border-slate-200 dark:border-slate-800 bg-slate-55/50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
                               }`}
                             >
-                              {action} ({count})
+                              All Events ({auditLogs.length})
                             </button>
-                          );
-                        })}
-                      </div>
+                            {uniqueActions.map((action) => {
+                              const count = auditLogs.filter((l) => l.action === action).length;
+                              const isActive = auditActionFilter === action;
+                              return (
+                                <button
+                                  key={action}
+                                  onClick={() => setAuditActionFilter(action)}
+                                  className={`px-3 py-1.5 rounded-xl border text-[11px] font-bold transition select-none cursor-pointer ${
+                                    isActive
+                                      ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                                      : 'border-slate-200 dark:border-slate-800 bg-slate-55/50 dark:bg-slate-950 text-slate-550 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                  }`}
+                                >
+                                  {action} ({count})
+                                </button>
+                              );
+                            })}
+                          </div>
 
-                      <EnterpriseTable
-                        data={filteredAudits}
-                        columns={auditColumns}
-                        rowKey={(log: any) => log.id || log.created_at}
-                        placeholder="No audit logs found on record."
-                        searchPlaceholder="Search audit events..."
-                      />
-                    </div>
-                  );
-                })()}
-              </div>
+                          <EnterpriseTable
+                            data={filteredAudits}
+                            columns={auditColumns}
+                            rowKey={(log: any) => log.id || log.created_at}
+                            placeholder="No audit logs found on record."
+                            searchPlaceholder="Search audit events..."
+                          />
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

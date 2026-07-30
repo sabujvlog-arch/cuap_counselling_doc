@@ -82,7 +82,11 @@ export const api = {
 
   // Auth Operations
   auth: {
-    login: async (credentials: { username: string; password?: string }): Promise<any> => {
+    login: async (credentials: {
+      username: string;
+      password?: string;
+      portalId?: string;
+    }): Promise<any> => {
       try {
         const res = await request('/auth/login', {
           method: 'POST',
@@ -95,20 +99,51 @@ export const api = {
       } catch (err: any) {
         // Fallback to DEMO_USERS / student ID mock auth
         const usernameLower = (credentials.username || '').toLowerCase().trim();
+        const pId = credentials.portalId;
 
         if (usernameLower === tempCredentials.admin.username.toLowerCase()) {
+          if (pId === 'student') {
+            throw new Error(
+              'Access Denied: Administrative accounts cannot log in through the Student Portal. Please select the Admin Portal.',
+            );
+          }
+          if (pId === 'provider') {
+            throw new Error(
+              'Access Denied: Administrative accounts cannot log in through the Counselor Portal. Please select the Admin Portal.',
+            );
+          }
           if (credentials.password === tempCredentials.admin.password) {
             const mockToken = `mock-jwt-for-${tempCredentials.admin.username}`;
             setToken(mockToken);
             return { success: true, token: mockToken, requires2FA: false };
           }
         } else if (usernameLower === tempCredentials.counselor.username.toLowerCase()) {
+          if (pId === 'student') {
+            throw new Error(
+              'Access Denied: Counselor accounts cannot log in through the Student Portal. Please select the Counselor Portal.',
+            );
+          }
+          if (pId === 'admin') {
+            throw new Error(
+              'Access Denied: Counselor accounts cannot log in through the Admin Portal. Please select the Counselor Portal.',
+            );
+          }
           if (credentials.password === tempCredentials.counselor.password) {
             const mockToken = `mock-jwt-for-${tempCredentials.counselor.username}`;
             setToken(mockToken);
             return { success: true, token: mockToken, requires2FA: false };
           }
         } else {
+          if (pId === 'admin') {
+            throw new Error(
+              'Access Denied: Student accounts cannot log in through the Admin Portal. Please select the Student Portal.',
+            );
+          }
+          if (pId === 'provider') {
+            throw new Error(
+              'Access Denied: Student accounts cannot log in through the Counselor Portal. Please select the Student Portal.',
+            );
+          }
           // Student fallback: Username = Password (Student ID = Student ID)
           if (
             credentials.username &&
@@ -561,6 +596,11 @@ export const api = {
       request('/admin/settings/toggle-ai-soap', {
         method: 'POST',
         body: JSON.stringify({ enabled }),
+      }),
+    getActiveSessions: () => request('/admin/active-sessions'),
+    revokeSession: (id: number | string) =>
+      request(`/admin/active-sessions/${id}/revoke`, {
+        method: 'POST',
       }),
   },
 
