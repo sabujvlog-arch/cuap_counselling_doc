@@ -688,6 +688,105 @@ const upgradeDatabaseSchema = async (): Promise<void> => {
     }
   }
 
+  // 6. Student Consent, Contact Logs, SOAP Versions & Audio AI Retention Migrations
+  const studentPortalCols: [string, string][] = [
+    ['is_minor', 'BOOLEAN DEFAULT FALSE'],
+    ['guardian_name', 'VARCHAR(255)'],
+    ['guardian_contact', 'VARCHAR(255)'],
+    ['guardian_consent_status', "VARCHAR(50) DEFAULT 'NOT_REQUIRED'"],
+    ['assessment_desk_unlocked', 'BOOLEAN DEFAULT FALSE'],
+  ];
+
+  for (const [col, colType] of studentPortalCols) {
+    try {
+      await query(`ALTER TABLE students ADD COLUMN ${col} ${colType}`);
+    } catch (e) {}
+  }
+
+  const appointmentAuditCols: [string, string][] = [
+    ['booked_by_user_id', 'INTEGER'],
+    ['booking_channel', "VARCHAR(50) DEFAULT 'SELF_PORTAL'"],
+  ];
+
+  for (const [col, colType] of appointmentAuditCols) {
+    try {
+      await query(`ALTER TABLE appointments ADD COLUMN ${col} ${colType}`);
+    } catch (e) {}
+  }
+
+  const audioAIRetentionCols: [string, string][] = [
+    ['ai_processing_status', "VARCHAR(50) DEFAULT 'COMPLETED'"],
+    ['ai_processed_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'],
+  ];
+
+  for (const [col, colType] of audioAIRetentionCols) {
+    try {
+      await query(`ALTER TABLE audio_recordings ADD COLUMN ${col} ${colType}`);
+    } catch (e) {}
+  }
+
+  // Contact Logs Table
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS contact_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
+        counsellor_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        counsellor_name VARCHAR(255),
+        channel VARCHAR(50) NOT NULL,
+        outcome VARCHAR(50) NOT NULL,
+        notes TEXT,
+        logged_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } catch (e) {
+    try {
+      await query(`
+        CREATE TABLE IF NOT EXISTS contact_logs (
+          id SERIAL PRIMARY KEY,
+          student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
+          counsellor_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          counsellor_name VARCHAR(255),
+          channel VARCHAR(50) NOT NULL,
+          outcome VARCHAR(50) NOT NULL,
+          notes TEXT,
+          logged_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+    } catch (e2) {}
+  }
+
+  // SOAP Note Versions Table
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS soap_note_versions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id INTEGER REFERENCES sessions(id) ON DELETE CASCADE,
+        version_number INTEGER NOT NULL,
+        content TEXT NOT NULL,
+        edited_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        edited_by_name VARCHAR(255),
+        change_summary TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } catch (e) {
+    try {
+      await query(`
+        CREATE TABLE IF NOT EXISTS soap_note_versions (
+          id SERIAL PRIMARY KEY,
+          session_id INTEGER REFERENCES sessions(id) ON DELETE CASCADE,
+          version_number INTEGER NOT NULL,
+          content TEXT NOT NULL,
+          edited_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          edited_by_name VARCHAR(255),
+          change_summary TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+    } catch (e2) {}
+  }
+
   // 6. Ensure default system_settings for messenger lock
   try {
     const existing = await query(

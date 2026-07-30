@@ -9,11 +9,17 @@ import { query } from '../config/db';
  */
 export const purgeExpiredAudioRecordings = async (): Promise<{ purgedCount: number }> => {
   try {
-    // Find all active audio recordings that have expired or are past 24 hours
+    // Find all active audio recordings that have completed AI processing and are past 24 hours retention
     const expiredRes = await query(`
-      SELECT id, session_id, file_path, created_at, expires_at
+      SELECT id, session_id, file_path, created_at, expires_at, ai_processed_at, ai_processing_status
       FROM audio_recordings
-      WHERE status = 'active' AND (expires_at <= CURRENT_TIMESTAMP OR created_at <= datetime('now', '-1 day'))
+      WHERE status = 'active' 
+        AND (ai_processing_status = 'COMPLETED' OR ai_processing_status IS NULL)
+        AND (
+          expires_at <= CURRENT_TIMESTAMP 
+          OR ai_processed_at <= datetime('now', '-1 day') 
+          OR (ai_processed_at IS NULL AND created_at <= datetime('now', '-1 day'))
+        )
     `);
 
     const recordsToPurge = expiredRes.rows || [];

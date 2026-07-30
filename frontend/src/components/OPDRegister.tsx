@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
+import { formatProviderTitle } from '@/utils/formatters';
 
 export default function OPDRegister() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -95,7 +96,7 @@ export default function OPDRegister() {
                     {r.department} (Sem {r.semester})
                   </td>
                   <td className="py-3.5 px-4 font-medium text-slate-600 dark:text-slate-400">
-                    Dr. {r.provider_name}
+                    {formatProviderTitle(r.provider_name)}
                   </td>
                   <td className="py-3.5 px-4">
                     <span

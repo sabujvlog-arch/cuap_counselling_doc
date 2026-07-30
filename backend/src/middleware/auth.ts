@@ -10,6 +10,7 @@ export interface AuthRequest extends Request {
     role: string;
     provider_id?: number;
     student_id?: number;
+    full_name?: string;
   };
   file?: any;
 }

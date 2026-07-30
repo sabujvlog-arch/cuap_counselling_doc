@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '@/lib/api';
+import { formatProviderTitle } from '@/utils/formatters';
 import {
   Calendar,
   Clock,
@@ -1133,7 +1134,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                     </span>
                     <h3 className="text-base font-black text-slate-900 dark:text-slate-100 mt-2 leading-snug">
                       {appointments.find((a) => a.status === 'approved')
-                        ? `Dr. ${appointments.find((a) => a.status === 'approved').provider_name}`
+                        ? `${formatProviderTitle(appointments.find((a) => a.status === 'approved').provider_name)}`
                         : 'No active session'}
                     </h3>
                     <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
@@ -1536,7 +1537,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                                 }`}
                               >
                                 <p className="font-extrabold text-sm text-slate-850 dark:text-slate-100">
-                                  Dr. {p.name}
+                                  {formatProviderTitle(p.name)}
                                 </p>
                                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 uppercase font-semibold tracking-wider">
                                   {p.specialization || 'Clinical Psychology'}
@@ -1746,7 +1747,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                               <div className="flex justify-between items-start gap-1">
                                 <div>
                                   <h4 className="font-bold text-slate-800 dark:text-slate-200 text-[11px] leading-tight">
-                                    Dr. {a.provider_name}
+                                    {formatProviderTitle(a.provider_name)}
                                   </h4>
                                   <p className="text-[9px] text-slate-400 font-medium">
                                     {a.provider_spec || 'Clinical Psychologist'}
@@ -1889,7 +1890,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                           <span className="text-xs text-slate-500">
                             {p.masked
                               ? 'Your counselor has not yet released your prescription for viewing.'
-                              : `Issued by Dr. ${p.provider_name} | ${new Date(p.prescription_date).toLocaleDateString()}`}
+                              : `Issued by ${formatProviderTitle(p.provider_name)} | ${new Date(p.prescription_date).toLocaleDateString()}`}
                           </span>
                         </div>
                         {!p.masked && (
@@ -3210,7 +3211,7 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
             <p className="text-xs text-slate-500 font-medium">
               How was your counseling session with{' '}
               <strong className="text-slate-800 dark:text-white">
-                Dr. {feedbackModalAppt.provider_name || 'Specialist'}
+                {formatProviderTitle(feedbackModalAppt.provider_name)}
               </strong>
               ?
             </p>

@@ -282,6 +282,22 @@ const autoGenerateClinicalNote = async (
   }
 };
 
+const formatProviderTitle = (name?: string): string => {
+  if (!name) return 'Ms. Madhu Giri (CUAP Counsellor)';
+  let clean = name.trim();
+  if (/Madhu\s*Giri/i.test(clean)) {
+    clean = clean.replace(/^Dr\.\s*/i, '');
+    return `Ms. ${clean} (CUAP Counsellor)`;
+  }
+  if (/^Dr\./i.test(clean)) {
+    return clean;
+  }
+  if (/^(Ms\.|Mr\.|Mrs\.|Prof\.)/i.test(clean)) {
+    return `${clean} (CUAP Counsellor)`;
+  }
+  return `Ms. ${clean} (CUAP Counsellor)`;
+};
+
 const triggerBookingEmails = async (
   appointmentId: number,
   studentId: number,
@@ -311,7 +327,7 @@ const triggerBookingEmails = async (
           <table style="border-collapse: collapse; width: 100%; max-width: 500px; margin: 20px 0;">
             <tr>
               <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; background: #f9f9f9;">Counselor</td>
-              <td style="padding: 8px; border: 1px solid #ddd;">Dr. ${provider.name}</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${formatProviderTitle(provider.name)}</td>
             </tr>
             <tr>
               <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; background: #f9f9f9;">Date</td>
@@ -338,7 +354,7 @@ const triggerBookingEmails = async (
         <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
           <h2 style="color: #1e3a8a;">New Counseling Encounter Registered</h2>
           <hr/>
-          <p>Dear Dr. <strong>${provider.name}</strong>,</p>
+          <p>Dear <strong>${formatProviderTitle(provider.name)}</strong>,</p>
           <p>A new counseling encounter has been successfully registered with you.</p>
           <table style="border-collapse: collapse; width: 100%; max-width: 500px; margin: 20px 0;">
             <tr>
@@ -1065,8 +1081,8 @@ export const bookOnBehalf = async (req: AuthRequest, res: Response) => {
 
     const insertRes = await query(
       `INSERT INTO appointments 
-       (student_id, provider_id, slot_date, slot_time, status, reason, chief_complaint)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       (student_id, provider_id, slot_date, slot_time, status, reason, chief_complaint, booked_by_user_id, booking_channel)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING id`,
       [
         resolvedStudentId,
@@ -1074,8 +1090,10 @@ export const bookOnBehalf = async (req: AuthRequest, res: Response) => {
         slot_date,
         slot_time,
         'approved',
-        reason || 'Booked by counselor',
+        reason || 'Booked by counselor/staff',
         chief_complaint || reason || 'Booked on behalf',
+        req.user.id,
+        'STAFF_ON_BEHALF',
       ],
     );
 
@@ -1600,19 +1618,34 @@ export const globalSearch = async (req: AuthRequest, res: Response) => {
       results.appointments = apptsRes.rows || apptsRes;
     }
 
-    // 4. SOAP Notes / Sessions
-    if (category === 'all' || category === 'soapNotes' || category === 'sessions') {
-      const sessionsRes = await query(
-        `SELECT s.id, s.session_number, s.session_status, s.workflow_stage, s.created_at,
-                st.name as student_name, p.name as provider_name
-         FROM sessions s
-         JOIN students st ON s.student_id = st.id
-         LEFT JOIN providers p ON s.provider_id = p.id
-         WHERE st.name LIKE $1 OR st.registration_number LIKE $1 OR s.workflow_stage LIKE $1
-         LIMIT $2`,
-        [searchPattern, limit],
-      );
+    // 4. SOAP Notes / Sessions (STRICT RBAC ENFORCED FOR CLINICAL PRIVACY)
+    if (
+      (category === 'all' || category === 'soapNotes' || category === 'sessions') &&
+      req.user.role !== 'student' &&
+      req.user.role !== 'front-desk'
+    ) {
+      let sessionsQuery = `
+        SELECT s.id, s.session_number, s.session_status, s.workflow_stage, s.created_at,
+               st.name as student_name, p.name as provider_name
+        FROM sessions s
+        JOIN students st ON s.student_id = st.id
+        LEFT JOIN providers p ON s.provider_id = p.id
+        WHERE (st.name LIKE $1 OR st.registration_number LIKE $1 OR s.workflow_stage LIKE $1)
+      `;
+      const params: any[] = [searchPattern, limit];
+
+      if (req.user.role === 'provider' || req.user.role === 'clinician') {
+        const providerId = req.user.provider_id || req.user.id;
+        sessionsQuery += ` AND (s.provider_id = $3 OR s.provider_id = (SELECT id FROM providers WHERE user_id = $3))`;
+        params.push(providerId);
+      }
+
+      sessionsQuery += ` LIMIT $2`;
+
+      const sessionsRes = await query(sessionsQuery, params);
       results.soapNotes = sessionsRes.rows || sessionsRes;
+    } else {
+      results.soapNotes = [];
     }
 
     // 5. Reports
@@ -1774,5 +1807,108 @@ export const toggleAvailabilitySlot = async (req: AuthRequest, res: Response) =>
   } catch (err: any) {
     console.error('toggleAvailabilitySlot error:', err);
     return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+};
+
+export const mergeStudentRecords = async (req: AuthRequest, res: Response) => {
+  if (
+    !req.user ||
+    (req.user.role !== 'admin' && req.user.role !== 'front-desk' && req.user.role !== 'super-admin')
+  ) {
+    return res
+      .status(403)
+      .json({ error: 'Only administrative or front-desk staff can merge student records.' });
+  }
+
+  const { targetStudentId, sourceStudentId } = req.body;
+
+  if (!targetStudentId || !sourceStudentId || targetStudentId === sourceStudentId) {
+    return res
+      .status(400)
+      .json({ error: 'Valid targetStudentId and distinct sourceStudentId are required.' });
+  }
+
+  try {
+    const targetCheck = await query('SELECT id, name FROM students WHERE id = $1', [
+      targetStudentId,
+    ]);
+    const sourceCheck = await query('SELECT id, name FROM students WHERE id = $1', [
+      sourceStudentId,
+    ]);
+
+    if (targetCheck.rows.length === 0 || sourceCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Target or source student profile not found.' });
+    }
+
+    const targetStudent = targetCheck.rows[0];
+    const sourceStudent = sourceCheck.rows[0];
+
+    // Re-link all records from source to target
+    await query('UPDATE appointments SET student_id = $1 WHERE student_id = $2', [
+      targetStudentId,
+      sourceStudentId,
+    ]);
+    await query('UPDATE sessions SET student_id = $1 WHERE student_id = $2', [
+      targetStudentId,
+      sourceStudentId,
+    ]);
+    await query('UPDATE student_case_histories SET student_id = $1 WHERE student_id = $2', [
+      targetStudentId,
+      sourceStudentId,
+    ]);
+    await query('UPDATE mse_logs SET student_id = $1 WHERE student_id = $2', [
+      targetStudentId,
+      sourceStudentId,
+    ]);
+    await query('UPDATE contact_logs SET student_id = $1 WHERE student_id = $2', [
+      targetStudentId,
+      sourceStudentId,
+    ]);
+    await query('UPDATE test_orders SET student_id = $1 WHERE student_id = $2', [
+      targetStudentId,
+      sourceStudentId,
+    ]);
+    await query('UPDATE prescriptions SET student_id = $1 WHERE student_id = $2', [
+      targetStudentId,
+      sourceStudentId,
+    ]);
+    await query('UPDATE assessments SET student_id = $1 WHERE student_id = $2', [
+      targetStudentId,
+      sourceStudentId,
+    ]);
+    await query('UPDATE emergency_cases SET student_id = $1 WHERE student_id = $2', [
+      targetStudentId,
+      sourceStudentId,
+    ]);
+    await query('UPDATE spot_registrations SET student_id = $1 WHERE student_id = $2', [
+      targetStudentId,
+      sourceStudentId,
+    ]);
+
+    // Mark source student as merged
+    await query('UPDATE students SET name = $1, registration_number = $2 WHERE id = $3', [
+      `${sourceStudent.name} (MERGED into #${targetStudentId})`,
+      `MERGED_${sourceStudentId}_${Date.now()}`,
+      sourceStudentId,
+    ]);
+
+    // Write audit log
+    await query(
+      `INSERT INTO audit_logs (user_id, action, resource, details)
+       VALUES ($1, 'STUDENT_RECORD_MERGED', 'students', $2)`,
+      [
+        req.user.id,
+        `Merged walk-in/source student record #${sourceStudentId} (${sourceStudent.name}) into target student record #${targetStudentId} (${targetStudent.name})`,
+      ],
+    );
+
+    return res.json({
+      message: `Successfully merged record #${sourceStudentId} into #${targetStudentId}.`,
+      targetStudentId,
+      sourceStudentId,
+    });
+  } catch (err: any) {
+    console.error('Merge student records error:', err);
+    return res.status(500).json({ error: 'Failed to merge student records.' });
   }
 };

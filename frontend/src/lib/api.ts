@@ -573,6 +573,16 @@ export const api = {
     },
   },
 
+  // Contact Logs Operations
+  contactLogs: {
+    list: (studentId: number) => request(`/contact-logs/${studentId}`),
+    create: (payload: { studentId: number; channel: string; outcome: string; notes?: string }) =>
+      request('/contact-logs', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+  },
+
   // Student specific simulator operations
   students: {
     toggleAssessments: (payload: { studentId: number; enabled: boolean }) =>
@@ -581,5 +591,20 @@ export const api = {
         body: JSON.stringify(payload),
       }),
     getByReg: (regNo: string) => request(`/students/by-reg/${regNo}`),
+    unlockAssessmentDesk: (payload: { studentId: number; unlocked: boolean }) =>
+      request('/student/assessment-desk/unlock', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    submitConsentDetails: (payload: any) =>
+      request('/student/consent-details', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    mergeRecords: (payload: { targetStudentId: number; sourceStudentId: number }) =>
+      request('/admin/students/merge-records', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
   },
 };

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, X, User, Calendar, Shield, ChevronRight } from 'lucide-react';
 import { api } from '@/lib/api';
+import { formatProviderTitle } from '@/utils/formatters';
 
 interface GlobalSearchModalProps {
   isOpen: boolean;
@@ -170,7 +171,7 @@ export default function GlobalSearchModal({
                   >
                     <div>
                       <div className="text-xs font-black text-slate-800 dark:text-white">
-                        Dr. {pr.name}
+                        {formatProviderTitle(pr.name)}
                       </div>
                       <div className="text-[10px] font-semibold text-slate-500">
                         ID: {pr.employee_id} &bull; {pr.specialization || 'Clinical Psychology'}
@@ -195,7 +196,8 @@ export default function GlobalSearchModal({
                   >
                     <div>
                       <div className="text-xs font-bold text-slate-800 dark:text-white">
-                        {ap.student_name} ({ap.registration_number}) &rarr; Dr. {ap.provider_name}
+                        {ap.student_name} ({ap.registration_number}) &rarr;{' '}
+                        {formatProviderTitle(ap.provider_name)}
                       </div>
                       <div className="text-[10px] font-semibold text-slate-500">
                         {ap.slot_date} at {ap.time_slot} &bull; Status:{' '}

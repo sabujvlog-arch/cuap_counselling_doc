@@ -6,6 +6,8 @@ const nextConfig: NextConfig = {
     root: path.resolve(__dirname),
   },
   allowedDevOrigins: [
+    '172.21.90.131',
+    '172.21.90.131:3000',
     '172.24.0.118',
     '172.24.0.118:3000',
     '172.21.91.100',

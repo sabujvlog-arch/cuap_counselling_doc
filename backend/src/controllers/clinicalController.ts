@@ -31,6 +31,22 @@ const getLogoDataUri = (): string => {
   return 'https://gate.cuap.in/assets/cuap_logo_long.png';
 };
 
+export const formatProviderTitle = (name?: string): string => {
+  if (!name) return 'Ms. Madhu Giri (CUAP Counsellor)';
+  let clean = name.trim();
+  if (/Madhu\s*Giri/i.test(clean)) {
+    clean = clean.replace(/^Dr\.\s*/i, '');
+    return `Ms. ${clean} (CUAP Counsellor)`;
+  }
+  if (/^Dr\./i.test(clean)) {
+    return clean;
+  }
+  if (/^(Ms\.|Mr\.|Mrs\.|Prof\.)/i.test(clean)) {
+    return `${clean} (CUAP Counsellor)`;
+  }
+  return `Ms. ${clean} (CUAP Counsellor)`;
+};
+
 // Helper to encrypt session object
 const encryptSessionFields = (data: any) => {
   return {
@@ -456,25 +472,37 @@ export const getSession = async (req: AuthRequest, res: Response) => {
 
 export const getSessionVersions = async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  if (!req.user || req.user.role !== 'provider') {
-    return res.status(403).json({ error: 'Forbidden' });
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   try {
     const historyRes = await query(
-      `SELECT sh.*, u.username as editor_name
-       FROM session_history sh
-       LEFT JOIN users u ON sh.edited_by = u.id
-       WHERE sh.session_id = $1
-       ORDER BY sh.version DESC`,
+      `SELECT h.*, u.username as edited_by_username
+       FROM session_history h
+       LEFT JOIN users u ON h.edited_by = u.id
+       WHERE h.session_id = $1
+       ORDER BY h.version DESC`,
       [id],
     );
 
-    const decryptedHistory = historyRes.rows.map((row: any) => decryptSessionFields(row));
-    return res.json(decryptedHistory);
-  } catch (err) {
+    const versions = (historyRes.rows || []).map((v: any) => ({
+      id: v.id,
+      sessionId: v.session_id,
+      version: v.version,
+      editedBy: v.edited_by_username || 'CUAP Counsellor',
+      createdAt: v.created_at,
+      presentingComplaint: decrypt(v.presenting_complaint),
+      subjective: decrypt(v.subjective),
+      objective: decrypt(v.objective),
+      assessment: decrypt(v.assessment),
+      plan: decrypt(v.plan),
+    }));
+
+    return res.json({ versions });
+  } catch (err: any) {
     console.error('Get session versions error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: 'Failed to retrieve session versions.' });
   }
 };
 
@@ -1075,7 +1103,7 @@ export const getPrescriptionPrintLayout = async (req: AuthRequest, res: Response
               </div>
             </div>
             <div class="header-right">
-              <h2>Dr. ${p.provider_name}</h2>
+              <h2>${formatProviderTitle(p.provider_name)}</h2>
               <p>${p.provider_qual}</p>
               <p>${p.provider_spec}</p>
               <p>Emp ID: ${p.provider_emp_id}</p>
@@ -1444,7 +1472,7 @@ export const getMSEPrintLayout = async (req: AuthRequest, res: Response) => {
               </div>
             </div>
             <div class="header-right">
-              <h2>Dr. ${p.provider_name}</h2>
+              <h2>${formatProviderTitle(p.provider_name)}</h2>
               <p>${p.provider_qual}</p>
               <p>${p.provider_spec}</p>
               <p>Emp ID: ${p.provider_emp_id}</p>
@@ -1691,7 +1719,7 @@ export const getCaseHistoryPrintLayout = async (req: AuthRequest, res: Response)
               </div>
             </div>
             <div class="header-right">
-              <h2>Dr. ${p.provider_name}</h2>
+              <h2>${formatProviderTitle(p.provider_name)}</h2>
               <p>${p.provider_qual}</p>
               <p>${p.provider_spec}</p>
               <p>Emp ID: ${p.provider_emp_id}</p>
@@ -2174,7 +2202,7 @@ export const getCompiledClientReport = async (req: AuthRequest, res: Response) =
               </div>
             </div>
             <div class="header-right">
-              <h2>Dr. ${s.provider_name}</h2>
+              <h2>${formatProviderTitle(s.provider_name)}</h2>
               <p>${s.provider_qual}</p>
               <p>${s.provider_spec}</p>
               <p>Emp ID: ${s.provider_emp_id}</p>
@@ -3217,7 +3245,7 @@ export const downloadPrescriptionPDF = async (req: AuthRequest, res: Response) =
       .fillColor('#1e293b')
       .fontSize(13)
       .font('Helvetica-Bold')
-      .text(`Dr. ${prescription.provider_name}`, 50, doc.y);
+      .text(formatProviderTitle(prescription.provider_name), 50, doc.y);
     doc
       .fontSize(10)
       .font('Helvetica')
@@ -3361,7 +3389,9 @@ export const downloadPrescriptionPDF = async (req: AuthRequest, res: Response) =
       .text('Authorized Clinician Signature / Digital Stamp', 350, signatureY + 8, {
         align: 'center',
       })
-      .text(`Dr. ${prescription.provider_name}`, 350, signatureY + 22, { align: 'center' });
+      .text(formatProviderTitle(prescription.provider_name), 350, signatureY + 22, {
+        align: 'center',
+      });
 
     doc.end();
   } catch (err: any) {

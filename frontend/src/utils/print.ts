@@ -3,6 +3,22 @@
  * to guarantee no navigation headers/sidebars are printed.
  */
 
+export const formatProviderTitle = (name?: string): string => {
+  if (!name) return 'Ms. Madhu Giri (CUAP Counsellor)';
+  let clean = name.trim();
+  if (/Madhu\s*Giri/i.test(clean)) {
+    clean = clean.replace(/^Dr\.\s*/i, '');
+    return `Ms. ${clean} (CUAP Counsellor)`;
+  }
+  if (/^Dr\./i.test(clean)) {
+    return clean;
+  }
+  if (/^(Ms\.|Mr\.|Mrs\.|Prof\.)/i.test(clean)) {
+    return `${clean} (CUAP Counsellor)`;
+  }
+  return `Ms. ${clean} (CUAP Counsellor)`;
+};
+
 export const printSessionReport = (session: any, student?: any) => {
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;
@@ -175,7 +191,7 @@ export const printSessionReport = (session: any, student?: any) => {
               </div>
             </div>
             <div class="header-right">
-              <h2>Dr. ${session.provider_name || 'Wellness Counselor'}</h2>
+              <h2>${formatProviderTitle(session.provider_name)}</h2>
               <p>${session.provider_qual || 'M.Phil in Clinical Psychology'}</p>
               <p>${session.provider_spec || 'Cognitive Behavioral Therapy'}</p>
               <p>Emp ID: ${session.provider_emp_id || 'CMP101'}</p>
@@ -230,7 +246,7 @@ export const printSessionReport = (session: any, student?: any) => {
               <div class="signature-line">Student Signature / Acknowledgment</div>
             </div>
             <div class="signature-box">
-              <div class="signature-line">Dr. ${session.provider_name || 'Wellness Counselor'}</div>
+              <div class="signature-line">${formatProviderTitle(session.provider_name)}</div>
             </div>
           </div>
         </div>
@@ -483,7 +499,7 @@ export const printPrescriptionReport = (prescription: any, student?: any) => {
             <th>Plan Generation Date</th>
             <td>${new Date(prescription.prescription_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</td>
             <th>Provider / Specialist</th>
-            <td>Dr. ${prescription.provider_name || 'Wellness Specialist'}</td>
+            <td>${formatProviderTitle(prescription.provider_name)}</td>
           </tr>
           <tr>
             <th>Presenting Concern / Chief Issue</th>
@@ -523,7 +539,7 @@ export const printPrescriptionReport = (prescription: any, student?: any) => {
 
         <div class="signature-area">
           <div class="signature-box">
-            Dr. ${prescription.provider_name || 'Wellness Specialist'}<br/>
+            ${formatProviderTitle(prescription.provider_name)}<br/>
             <span style="font-size:10px; color:#94a3b8; font-weight:normal;">Digitally Authorized Practitioner</span>
           </div>
         </div>
@@ -732,7 +748,7 @@ export const printCrisisReport = (emergencyCase: any) => {
               </div>
             </div>
             <div class="header-right">
-              <h2>Dr. ${emergencyCase.provider_name || 'Wellness Counselor'}</h2>
+              <h2>${formatProviderTitle(emergencyCase.provider_name)}</h2>
               <p>M.Phil in Clinical Psychology</p>
               <p>Crisis Response Specialist</p>
               <p>Emp ID: CMP101</p>
@@ -770,7 +786,7 @@ export const printCrisisReport = (emergencyCase: any) => {
               <div class="signature-line">Student Signature / Safety Contract Agreement</div>
             </div>
             <div class="signature-box">
-              <div class="signature-line">Dr. ${emergencyCase.provider_name || 'Wellness Counselor'}</div>
+              <div class="signature-line">${formatProviderTitle(emergencyCase.provider_name)}</div>
             </div>
           </div>
         </div>

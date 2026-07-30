@@ -99,7 +99,14 @@ import {
   submitConsent,
 } from '../controllers/documentController';
 
-import { toggleAssessments, getStudentByRegNo } from '../controllers/studentController';
+import {
+  toggleAssessments,
+  getStudentByRegNo,
+  unlockAssessmentDesk,
+  updateStudentConsentDetails,
+} from '../controllers/studentController';
+import { createContactLog, getContactLogs } from '../controllers/contactLogController';
+import { mergeStudentRecords } from '../controllers/appointmentController';
 
 import {
   submitAssessment,
@@ -508,8 +515,27 @@ router.get('/documents', authenticateToken, getDocuments);
 router.get('/documents/download/:id', authenticateToken, downloadDocument);
 router.delete('/documents/:id', authenticateToken, requireRoles(['admin']), deleteDocument);
 router.post('/student/consent', authenticateToken, requireRoles(['student']), submitConsent);
+router.post(
+  '/student/consent-details',
+  authenticateToken,
+  requireRoles(['student']),
+  updateStudentConsentDetails,
+);
 router.post('/student/toggle-assessments', authenticateToken, toggleAssessments);
+router.post('/student/assessment-desk/unlock', authenticateToken, unlockAssessmentDesk);
 router.get('/students/by-reg/:regNo', authenticateToken, getStudentByRegNo);
+router.post(
+  '/admin/students/merge-records',
+  authenticateToken,
+  requireRoles(['admin', 'front-desk', 'super-admin']),
+  mergeStudentRecords,
+);
+
+// ==========================================
+// Out-of-Band Contact Logs Routes
+// ==========================================
+router.post('/contact-logs', authenticateToken, createContactLog);
+router.get('/contact-logs/:studentId', authenticateToken, getContactLogs);
 
 // ==========================================
 // Assessments Module Routes

@@ -460,7 +460,7 @@ export default function DashboardFrontDesk({ onLogout, user }: DashboardFrontDes
                           {s.informed_consent_signed ? 'Signed & Verified' : 'Missing Consent'}
                         </span>
                       </td>
-                      <td className="py-3.5 px-6 text-center">
+                      <td className="py-3.5 px-6 text-center flex items-center justify-center gap-2">
                         <button
                           onClick={() => handleConsentToggle(s)}
                           className={`px-3 py-1 font-bold rounded-lg text-[10px] cursor-pointer border transition ${
@@ -470,6 +470,28 @@ export default function DashboardFrontDesk({ onLogout, user }: DashboardFrontDes
                           }`}
                         >
                           {s.informed_consent_signed ? 'Revoke Consent' : 'Approve Consent'}
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const targetIdStr = prompt(
+                              `Merge duplicate walk-in profile (${s.name}) into Official Student Account.\n\nEnter Target Student ID #:`,
+                            );
+                            if (targetIdStr && !isNaN(parseInt(targetIdStr))) {
+                              try {
+                                const res = await api.students.mergeRecords({
+                                  targetStudentId: parseInt(targetIdStr),
+                                  sourceStudentId: s.id,
+                                });
+                                alert(res.message || 'Records merged successfully!');
+                                fetchStudents();
+                              } catch (err: any) {
+                                alert(err.message || 'Merge failed.');
+                              }
+                            }
+                          }}
+                          className="px-3 py-1 font-bold rounded-lg text-[10px] cursor-pointer border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 transition"
+                        >
+                          Merge Profile
                         </button>
                       </td>
                     </tr>

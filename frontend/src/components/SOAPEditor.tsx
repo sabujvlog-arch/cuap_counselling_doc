@@ -340,6 +340,15 @@ export default function SOAPEditor({
     homeworkAssigned: '',
   });
 
+  // ── Out-of-Band Contact Logs & Version History states
+  const [contactChannel, setContactChannel] = useState<'PHONE' | 'EMAIL' | 'IN_PERSON'>('PHONE');
+  const [contactOutcome, setContactOutcome] = useState<
+    'REACHED' | 'LEFT_MESSAGE' | 'NO_ANSWER' | 'FOLLOW_UP_REQUIRED'
+  >('REACHED');
+  const [contactNotes, setContactNotes] = useState('');
+  const [contactLogsList, setContactLogsList] = useState<any[]>([]);
+  const [sessionVersionsList, setSessionVersionsList] = useState<any[]>([]);
+
   // ── Section 8: Attachments
   const [attachments, setAttachments] = useState<any[]>([]);
 
@@ -514,6 +523,47 @@ export default function SOAPEditor({
       }
     } catch {}
   };
+
+  const fetchContactLogs = async () => {
+    if (!studentId) return;
+    try {
+      const res = await api.contactLogs.list(studentId);
+      setContactLogsList(res.contactLogs || []);
+    } catch {}
+  };
+
+  const fetchSessionVersions = async () => {
+    if (!sessionId) return;
+    try {
+      const res = await api.get(`/clinical/sessions/${sessionId}/versions`);
+      setSessionVersionsList(res.versions || res || []);
+    } catch {}
+  };
+
+  const handleSaveContactLog = async () => {
+    if (!studentId) return;
+    try {
+      await api.contactLogs.create({
+        studentId,
+        channel: contactChannel,
+        outcome: contactOutcome,
+        notes: contactNotes,
+      });
+      setContactNotes('');
+      fetchContactLogs();
+    } catch (err: any) {
+      alert(err.message || 'Failed to save contact log.');
+    }
+  };
+
+  useEffect(() => {
+    if (studentId) {
+      fetchContactLogs();
+    }
+    if (sessionId) {
+      fetchSessionVersions();
+    }
+  }, [studentId, sessionId]);
 
   // ============================================================
   // Section expand / collapse
@@ -2722,6 +2772,180 @@ export default function SOAPEditor({
               <span style={{ fontSize: '0.78rem', color: '#334155' }}>
                 Supported: PDF, JPG, PNG, DOCX (max 10MB each)
               </span>
+            </div>
+          </AccordionSection>
+
+          {/* ── Section 9: Out-of-Band Contact Logs ── */}
+          <AccordionSection
+            id="section-contact-logs"
+            label="Out-of-Band Contact Audit Logs"
+            icon={<NotebookPen size={18} />}
+            visible={true}
+            rightContent={statusChip(contactLogsList.length > 0 ? 'completed' : 'empty')}
+            isOpen={expandedSections.has('section-contact-logs')}
+            onToggle={() => toggleSection('section-contact-logs')}
+          >
+            <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0 }}>
+                Record non-messenger communications (Phone, Institutional Email, In-Person) for
+                institutional follow-up compliance.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label className="emr-label">Contact Channel</label>
+                  <select
+                    className="emr-select"
+                    value={contactChannel}
+                    onChange={(e: any) => setContactChannel(e.target.value)}
+                  >
+                    <option value="PHONE">Phone Call</option>
+                    <option value="EMAIL">Institutional Email</option>
+                    <option value="IN_PERSON">In-Person Encounter</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="emr-label">Contact Outcome</label>
+                  <select
+                    className="emr-select"
+                    value={contactOutcome}
+                    onChange={(e: any) => setContactOutcome(e.target.value)}
+                  >
+                    <option value="REACHED">Reached Student Directly</option>
+                    <option value="LEFT_MESSAGE">Left Voice/Email Message</option>
+                    <option value="NO_ANSWER">No Answer / Unreachable</option>
+                    <option value="FOLLOW_UP_REQUIRED">Follow-up Required</option>
+                  </select>
+                </div>
+              </div>
+              <FormField
+                label="Follow-up Outcome Notes"
+                value={contactNotes}
+                onChange={setContactNotes}
+                rows={2}
+                placeholder="Details of conversation, agreed next steps, or response..."
+              />
+              <button
+                type="button"
+                className="emr-btn emr-btn-sm"
+                style={{ background: '#2563eb', color: '#fff', alignSelf: 'flex-start' }}
+                onClick={handleSaveContactLog}
+              >
+                Log Contact Entry
+              </button>
+
+              <div
+                style={{
+                  marginTop: 14,
+                  borderTop: '1px solid rgba(255,255,255,0.08)',
+                  paddingTop: 14,
+                }}
+              >
+                <h4 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: 8 }}>
+                  Chronological Contact History
+                </h4>
+                {contactLogsList.length === 0 ? (
+                  <p style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                    No out-of-band contact entries logged yet.
+                  </p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {contactLogsList.map((log) => (
+                      <div
+                        key={log.id}
+                        style={{
+                          padding: '10px 14px',
+                          borderRadius: 8,
+                          background: 'rgba(255,255,255,0.03)',
+                          border: '1px solid rgba(255,255,255,0.06)',
+                          fontSize: '0.8rem',
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            fontWeight: 600,
+                            color: '#60a5fa',
+                          }}
+                        >
+                          <span>
+                            {log.channel} — {log.outcome}
+                          </span>
+                          <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                            {new Date(log.logged_at).toLocaleString()}
+                          </span>
+                        </div>
+                        <p style={{ margin: '4px 0 0', color: '#e2e8f0' }}>
+                          {log.notes || 'No detailed notes.'}
+                        </p>
+                        <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: 4 }}>
+                          Logged by: {log.counsellor_name}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </AccordionSection>
+
+          {/* ── Section 10: Version History & AI Note Quality Assurance ── */}
+          <AccordionSection
+            id="section-versions"
+            label="SOAP Version History & AI Note QA"
+            icon={<History size={18} />}
+            visible={true}
+            rightContent={statusChip(sessionVersionsList.length > 0 ? 'completed' : 'empty')}
+            isOpen={expandedSections.has('section-versions')}
+            onToggle={() => toggleSection('section-versions')}
+          >
+            <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0 }}>
+                Audit trail of AI-generated SOAP notes and manual counsellor revisions for quality
+                assurance and hallucination correction.
+              </p>
+              {sessionVersionsList.length === 0 ? (
+                <p style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                  No version history recorded yet. Save session to create version snapshots.
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {sessionVersionsList.map((ver, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        padding: 12,
+                        borderRadius: 8,
+                        background: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: 6,
+                        }}
+                      >
+                        <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#a78bfa' }}>
+                          Version #{ver.version || idx + 1}
+                        </span>
+                        <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                          {ver.createdAt
+                            ? new Date(ver.createdAt).toLocaleString()
+                            : 'Initial AI Draft'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: '#cbd5e1', lineHeight: 1.4 }}>
+                        <strong>Subjective:</strong> {ver.subjective || 'N/A'}
+                        <br />
+                        <strong>Assessment:</strong> {ver.assessment || 'N/A'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </AccordionSection>
         </div>

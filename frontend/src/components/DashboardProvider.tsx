@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 // SWCC Workspace Counselor Portal Component
 import { api } from '@/lib/api';
+import { formatProviderTitle } from '@/utils/formatters';
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -2245,7 +2246,9 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                         <td className="px-5 py-4 font-medium text-slate-600 dark:text-slate-400">
                           {report.report_type}
                         </td>
-                        <td className="px-5 py-4 font-semibold">Dr. {report.counselor_name}</td>
+                        <td className="px-5 py-4 font-semibold">
+                          {formatProviderTitle(report.counselor_name)}
+                        </td>
                         <td className="px-5 py-4">
                           <label className="flex items-center gap-2 cursor-pointer group/toggle">
                             <div className="relative">
@@ -3946,7 +3949,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                                     <div className="flex justify-between items-start flex-wrap gap-2">
                                       <div>
                                         <span className="font-bold text-xs text-slate-800 dark:text-white block">
-                                          Dr. {s.provider_name}
+                                          {formatProviderTitle(s.provider_name)}
                                         </span>
                                         <span className="text-[10px] text-slate-400 font-mono block">
                                           {new Date(s.session_date).toLocaleString('en-IN')}
@@ -4157,7 +4160,7 @@ export default function DashboardProvider({ onLogout, providerProfile, user }: P
                                   <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-2 mb-2">
                                     <div>
                                       <span className="font-bold text-slate-800 dark:text-white block">
-                                        Dr. {p.provider_name}
+                                        {formatProviderTitle(p.provider_name)}
                                       </span>
                                       <span className="text-[10px] text-slate-400 font-mono">
                                         {new Date(p.prescription_date).toLocaleDateString()}
