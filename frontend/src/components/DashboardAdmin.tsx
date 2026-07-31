@@ -288,6 +288,69 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
       setTogglingAssessments(false);
     }
   };
+
+  const [bookingFieldConfig, setBookingFieldConfig] = useState<any>({
+    chief_complaint: true,
+    reason_referral: true,
+    presenting_problem: true,
+    duration_problem: true,
+    additional_notes: true,
+  });
+  const [savingFieldConfig, setSavingFieldConfig] = useState(false);
+
+  const fetchBookingFieldConfig = async () => {
+    try {
+      const res = await api.admin.getBookingFieldConfig();
+      if (res) {
+        setBookingFieldConfig(res);
+      }
+    } catch (_) {}
+  };
+
+  const handleToggleBookingField = async (fieldKey: string) => {
+    const updated = { ...bookingFieldConfig, [fieldKey]: !bookingFieldConfig[fieldKey] };
+    setBookingFieldConfig(updated);
+    setSavingFieldConfig(true);
+    try {
+      await api.admin.updateBookingFieldConfig(updated);
+      showToast('Appointment intake field visibility updated', 'success');
+    } catch (err: any) {
+      showToast('Failed to update intake field visibility: ' + err.message, 'error');
+    } finally {
+      setSavingFieldConfig(false);
+    }
+  };
+
+  const [chatbotEnabled, setChatbotEnabled] = useState(true);
+  const [chatbotKb, setChatbotKb] = useState('');
+  const [savingChatbotKb, setSavingChatbotKb] = useState(false);
+
+  const fetchChatbotConfig = async () => {
+    try {
+      const res = await api.admin.getChatbotConfig();
+      if (res) {
+        if (typeof res.chatbotEnabled === 'boolean') setChatbotEnabled(res.chatbotEnabled);
+        if (typeof res.knowledgeBase === 'string') setChatbotKb(res.knowledgeBase);
+      }
+    } catch (_) {}
+  };
+
+  const handleSaveChatbotConfig = async (nextEnabled?: boolean) => {
+    setSavingChatbotKb(true);
+    const targetEnabled = typeof nextEnabled === 'boolean' ? nextEnabled : chatbotEnabled;
+    try {
+      await api.admin.updateChatbotConfig({
+        chatbotEnabled: targetEnabled,
+        knowledgeBase: chatbotKb,
+      });
+      if (typeof nextEnabled === 'boolean') setChatbotEnabled(nextEnabled);
+      showToast('UniMind AI Chatbot knowledge base and workflow settings saved!', 'success');
+    } catch (err: any) {
+      showToast('Failed to save chatbot settings: ' + err.message, 'error');
+    } finally {
+      setSavingChatbotKb(false);
+    }
+  };
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [auditSubTab, setAuditSubTab] = useState<'sessions' | 'logs'>('sessions');
@@ -444,6 +507,8 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
     fetchMessengerStatus();
     fetchAssessmentsStatus();
     fetchActiveSessions();
+    fetchBookingFieldConfig();
+    fetchChatbotConfig();
   }, []);
 
   useEffect(() => {
@@ -4152,6 +4217,131 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                     </div>
                   </div>
 
+                  {/* Appointment Intake Field Visibility Control Card */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl shadow-sm space-y-4">
+                    <div className="flex items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800 flex-wrap">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2 bg-purple-50 dark:bg-purple-950/20 text-purple-600 dark:text-purple-400 rounded-xl">
+                          <Eye size={18} />
+                        </div>
+                        <div>
+                          <h3 className="font-extrabold text-slate-900 dark:text-white text-sm">
+                            Appointment Intake Field Visibility Controls (Student Portal)
+                          </h3>
+                          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mt-0.5">
+                            Form Field Visibility Governance
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      Control which intake fields are visible to students when booking a counseling
+                      session on the Student Portal. Turn off any field to hide it from the
+                      appointment booking form.
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-2">
+                      {[
+                        { key: 'chief_complaint', label: 'Chief Complaint (* Required)' },
+                        { key: 'reason_referral', label: 'Reason for Referral' },
+                        { key: 'presenting_problem', label: 'Presenting Problem' },
+                        { key: 'duration_problem', label: 'Duration of Problem' },
+                        { key: 'additional_notes', label: 'Additional Notes' },
+                      ].map((field) => {
+                        const isVisible = bookingFieldConfig?.[field.key] !== false;
+                        return (
+                          <div
+                            key={field.key}
+                            onClick={() => handleToggleBookingField(field.key)}
+                            className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between select-none ${
+                              isVisible
+                                ? 'bg-purple-50/60 dark:bg-purple-950/20 border-purple-200 dark:border-purple-900/40 text-purple-900 dark:text-purple-200'
+                                : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-400 opacity-60'
+                            }`}
+                          >
+                            <span className="text-xs font-bold">{field.label}</span>
+                            <span
+                              className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
+                                isVisible
+                                  ? 'bg-purple-600 text-white'
+                                  : 'bg-slate-300 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                              }`}
+                            >
+                              {isVisible ? 'Visible' : 'Hidden'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* UniMind AI Chatbot & Knowledge Base Governance Card */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl shadow-sm space-y-4">
+                    <div className="flex items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800 flex-wrap">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2 bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 rounded-xl">
+                          <Bot size={18} />
+                        </div>
+                        <div>
+                          <h3 className="font-extrabold text-slate-900 dark:text-white text-sm">
+                            UniMind AI Chatbot & Knowledge Base Governance Desk
+                          </h3>
+                          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mt-0.5">
+                            Data Uploadation & Workflow Management
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleSaveChatbotConfig(!chatbotEnabled)}
+                        disabled={savingChatbotKb}
+                        className={`px-4 py-2 text-xs font-extrabold rounded-xl shadow-sm transition cursor-pointer flex items-center gap-2 ${
+                          chatbotEnabled
+                            ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                        }`}
+                      >
+                        {savingChatbotKb ? (
+                          <RefreshCw size={14} className="animate-spin" />
+                        ) : (
+                          <Lock size={14} />
+                        )}
+                        {chatbotEnabled ? 'Lock / Disable Chatbot' : 'Unlock / Enable Chatbot'}
+                      </button>
+                    </div>
+
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      Upload custom knowledge base data, clinic policies, counselor guidance, and
+                      workflow instructions for the UniMind AI virtual assistant. The chatbot will
+                      dynamically use your guidelines when answering students.
+                    </p>
+
+                    <div className="space-y-3 pt-2">
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                        Custom AI Knowledge Base & Workflow Guidelines:
+                      </label>
+                      <textarea
+                        rows={5}
+                        value={chatbotKb}
+                        onChange={(e) => setChatbotKb(e.target.value)}
+                        placeholder="Enter custom university counseling rules, official counselor details, helpline numbers, office hours, or FAQ policies..."
+                        className="w-full p-3.5 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:outline-none leading-relaxed"
+                      />
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => handleSaveChatbotConfig()}
+                          disabled={savingChatbotKb}
+                          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-xl shadow-md transition cursor-pointer flex items-center gap-2"
+                        >
+                          {savingChatbotKb && <RefreshCw size={14} className="animate-spin" />}
+                          Deploy Knowledge Base & Update Chatbot
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Compliance Database Sanitization Card */}
                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl shadow-sm space-y-6">
                     <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100 dark:border-slate-800">
@@ -4304,7 +4494,9 @@ export default function DashboardAdmin({ onLogout, adminUsername }: AdminProps) 
                                 <div className="flex items-center gap-3 text-[10px] text-slate-400 font-mono">
                                   <span>{(bk.size / 1024).toFixed(1)} KB</span>
                                   <span>•</span>
-                                  <span>{new Date(bk.time).toLocaleDateString('en-IN')}</span>
+                                  <span>
+                                    {formatISTDateTime(bk.time || bk.created_at || bk.date)}
+                                  </span>
                                 </div>
                               </div>
                               <div className="flex items-center gap-1 shrink-0">

@@ -187,6 +187,13 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
   };
 
   const [adminAssessmentsEnabled, setAdminAssessmentsEnabled] = useState(true);
+  const [bookingFieldConfig, setBookingFieldConfig] = useState<any>({
+    chief_complaint: true,
+    reason_referral: true,
+    presenting_problem: true,
+    duration_problem: true,
+    additional_notes: true,
+  });
 
   useEffect(() => {
     api.admin
@@ -194,6 +201,15 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
       .then((res: any) => {
         if (res && typeof res.assessmentsEnabled === 'boolean') {
           setAdminAssessmentsEnabled(res.assessmentsEnabled);
+        }
+      })
+      .catch(() => {});
+
+    api.admin
+      .getBookingFieldConfig()
+      .then((res: any) => {
+        if (res) {
+          setBookingFieldConfig(res);
         }
       })
       .catch(() => {});
@@ -1613,75 +1629,88 @@ export default function DashboardStudent({ onLogout, studentProfile, user }: Stu
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
-                            Chief Complaint *
-                          </label>
-                          <textarea
-                            required
-                            rows={3}
-                            value={chiefComplaint}
-                            onChange={(e) => setChiefComplaint(e.target.value)}
-                            placeholder="Describe your primary complaint (anxiety, sleep issue, academic stress)..."
-                            className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none bg-slate-50 dark:bg-slate-950 text-slate-850 dark:text-slate-200"
-                          />
-                        </div>
+                        {bookingFieldConfig?.chief_complaint !== false && (
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
+                              Chief Complaint *
+                            </label>
+                            <textarea
+                              required
+                              rows={3}
+                              value={chiefComplaint}
+                              onChange={(e) => setChiefComplaint(e.target.value)}
+                              placeholder="Describe your primary complaint (anxiety, sleep issue, academic stress)..."
+                              className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none bg-slate-50 dark:bg-slate-950 text-slate-850 dark:text-slate-200"
+                            />
+                          </div>
+                        )}
 
-                        <div>
-                          <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
-                            Reason for Referral
-                          </label>
-                          <textarea
-                            rows={3}
-                            value={reasonReferral}
-                            onChange={(e) => setReasonReferral(e.target.value)}
-                            placeholder="Who referred you or why? (Optional)"
-                            className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none bg-slate-50 dark:bg-slate-950 text-slate-855 dark:text-slate-200"
-                          />
-                        </div>
+                        {bookingFieldConfig?.reason_referral !== false && (
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
+                              Reason for Referral
+                            </label>
+                            <textarea
+                              rows={3}
+                              value={reasonReferral}
+                              onChange={(e) => setReasonReferral(e.target.value)}
+                              placeholder="Who referred you or why? (Optional)"
+                              className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none bg-slate-50 dark:bg-slate-950 text-slate-855 dark:text-slate-200"
+                            />
+                          </div>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
-                            Presenting Problem
-                          </label>
-                          <textarea
-                            rows={2}
-                            value={presentingProblem}
-                            onChange={(e) => setPresentingProblem(e.target.value)}
-                            placeholder="Describe the presenting symptoms..."
-                            className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none bg-slate-50 dark:bg-slate-950 text-slate-855 dark:text-slate-200"
-                          />
-                        </div>
-
-                        <div className="space-y-4">
+                        {bookingFieldConfig?.presenting_problem !== false && (
                           <div>
                             <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
-                              Duration of Problem
+                              Presenting Problem
                             </label>
-                            <input
-                              type="text"
-                              value={durationProblem}
-                              onChange={(e) => setDurationProblem(e.target.value)}
-                              placeholder="e.g., 3 weeks, since exams"
-                              className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none bg-slate-50 dark:bg-slate-950 font-medium text-slate-800 dark:text-white"
+                            <textarea
+                              rows={2}
+                              value={presentingProblem}
+                              onChange={(e) => setPresentingProblem(e.target.value)}
+                              placeholder="Describe the presenting symptoms..."
+                              className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none bg-slate-50 dark:bg-slate-950 text-slate-855 dark:text-slate-200"
                             />
                           </div>
+                        )}
 
-                          <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
-                              Additional Notes (Optional)
-                            </label>
-                            <input
-                              type="text"
-                              value={additionalNotes}
-                              onChange={(e) => setAdditionalNotes(e.target.value)}
-                              placeholder="Any extra info..."
-                              className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none bg-slate-50 dark:bg-slate-950 font-medium text-slate-800 dark:text-white"
-                            />
+                        {(bookingFieldConfig?.duration_problem !== false ||
+                          bookingFieldConfig?.additional_notes !== false) && (
+                          <div className="space-y-4">
+                            {bookingFieldConfig?.duration_problem !== false && (
+                              <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
+                                  Duration of Problem
+                                </label>
+                                <input
+                                  type="text"
+                                  value={durationProblem}
+                                  onChange={(e) => setDurationProblem(e.target.value)}
+                                  placeholder="e.g., 3 weeks, since exams"
+                                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none bg-slate-50 dark:bg-slate-950 font-medium text-slate-800 dark:text-white"
+                                />
+                              </div>
+                            )}
+
+                            {bookingFieldConfig?.additional_notes !== false && (
+                              <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">
+                                  Additional Notes (Optional)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={additionalNotes}
+                                  onChange={(e) => setAdditionalNotes(e.target.value)}
+                                  placeholder="Any extra info..."
+                                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none bg-slate-50 dark:bg-slate-950 font-medium text-slate-800 dark:text-white"
+                                />
+                              </div>
+                            )}
                           </div>
-                        </div>
+                        )}
                       </div>
 
                       <button

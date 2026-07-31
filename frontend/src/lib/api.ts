@@ -614,6 +614,18 @@ export const api = {
       request(`/admin/active-sessions/${id}/revoke`, {
         method: 'POST',
       }),
+    getBookingFieldConfig: () => request('/admin/settings/booking-fields'),
+    updateBookingFieldConfig: (config: any) =>
+      request('/admin/settings/booking-fields', {
+        method: 'POST',
+        body: JSON.stringify(config),
+      }),
+    getChatbotConfig: () => request('/admin/settings/chatbot'),
+    updateChatbotConfig: (data: { chatbotEnabled?: boolean; knowledgeBase?: string }) =>
+      request('/admin/settings/chatbot', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
   },
 
   // Notifications Operations
